@@ -429,14 +429,11 @@ enum GameRules {
     }
 
     private static func constructionResaleValue(for property: Property) -> Int {
-        switch property.constructionLevel {
-        case 1...4:
-            return property.constructionLevel * property.constructionCost / 2
-        case 5:
-            return property.constructionCost / 2
-        default:
-            return 0
-        }
+        // Matches sellHouse: every construction level (houses and the hotel alike)
+        // resells for half of constructionCost, one level at a time, so fully
+        // liquidating a property is constructionLevel * constructionCost / 2.
+        guard property.constructionLevel > 0 else { return 0 }
+        return property.constructionLevel * property.constructionCost / 2
     }
 
     private static func requireActivePlayer(in state: GameState, playerID: UUID) throws {
