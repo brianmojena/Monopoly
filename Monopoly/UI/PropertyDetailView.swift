@@ -1,0 +1,144 @@
+import SwiftUI
+
+struct PropertyDetailView: View {
+    let propertyID: UUID
+    @ObservedObject var model: GameSessionModel
+
+    var body: some View {
+        Group {
+            if let state = model.gameState,
+               let property = state.properties.first(where: { $0.id == propertyID }) {
+                List {
+                    Section("Estado") {
+                        LabeledContent("Dueño", value: ownerName(for: property, state: state))
+                        LabeledContent("Precio", value: currency(property.purchasePrice))
+                        LabeledContent("Renta actual", value: currency(currentRent(for: property, in: state)))
+                        LabeledContent("Construcción", value: constructionDescription(for: property))
+                        LabeledContent("Hipotecada", value: property.isMortgaged ? "Sí" : "No")
+                        if property.isMortgaged {
+                            LabeledContent("Valor de hipoteca", value: currency(property.mortgageValue))
+                        }
+                    }
+
+                    if let localPlayerID = model.localPlayerID {
+                        if property.ownerID == nil {
+                            Section {
+                                Text("Esta propiedad no tiene dueño.")
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else if property.ownerID != localPlayerID {
+                            Section("Acción") {
+                                Button("Pagar renta") {
+                                    model.payRent(propertyID: property.id)
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                        } else {
+                            ownPropertyActions(for: property)
+                        }
+                    }
+                }
+            } else {
+                ProgressView("Cargando propiedad…")
+            }
+        }
+        .navigationTitle(propertyName)
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
+        .alert(
+            "Acción rechazada",
+            isPresented: Binding(
+                get: { model.alertMessage != nil },
+                set: { if !$0 { model.dismissAlert() } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                model.dismissAlert()
+            }
+        } message: {
+            Text(model.alertMessage ?? "Inténtalo de nuevo.")
+        }
+    }
+
+    @ViewBuilder
+    private func ownPropertyActions(for property: Property) -> some View {
+        Section("Acciones") {
+            if property.isMortgaged {
+                Button("Deshipotecar") {
+                    model.unmortgage(propertyID: property.id)
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                if property.constructionLevel == 0 {
+                    Button("Hipotecar") {
+                        model.mortgage(propertyID: property.id)
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if property.constructionLevel < 4 {
+                    Button("Construir casa") {
+                        model.buildHouse(propertyID: property.id)
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else if property.constructionLevel == 4 {
+                    Button("Construir hotel") {
+                        model.buildHotel(propertyID: property.id)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+
+                if property.constructionLevel > 0 {
+                    Button(property.constructionLevel == 5 ? "Vender hotel" : "Vender casa") {
+                        model.sellHouse(propertyID: property.id)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+    }
+
+    private var propertyName: String {
+        model.gameState?.properties.first(where: { $0.id == propertyID })?.name ?? "Propiedad"
+    }
+
+    private func ownerName(for property: Property, state: GameState) -> String {
+        guard let ownerID = property.ownerID,
+              let owner = state.players.first(where: { $0.id == ownerID }) else {
+            return "Sin dueño"
+        }
+        return owner.name
+    }
+
+    private func currentRent(for property: Property, in state: GameState) -> Int {
+        if property.constructionLevel == 0 {
+            let groupProperties = state.properties.filter { $0.colorGroup == property.colorGroup }
+            if let ownerID = property.ownerID {
+                let ownsMonopoly = groupProperties.count >= 2 && groupProperties.allSatisfy { $0.ownerID == ownerID }
+                return ownsMonopoly ? property.baseRent * 2 : property.baseRent
+            }
+            return property.baseRent
+        }
+
+        guard property.rentByConstructionLevel.indices.contains(property.constructionLevel) else {
+            return property.baseRent
+        }
+        return property.rentByConstructionLevel[property.constructionLevel]
+    }
+
+    private func constructionDescription(for property: Property) -> String {
+        switch property.constructionLevel {
+        case 0:
+            return "Sin construcciones"
+        case 1...4:
+            return "\(property.constructionLevel) casa(s)"
+        default:
+            return "Hotel"
+        }
+    }
+
+    private func currency(_ amount: Int) -> String {
+        "$\(amount)"
+    }
+}

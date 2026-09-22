@@ -51,7 +51,86 @@ final class GameSessionModel: ObservableObject {
             return
         }
 
-        let intent = GameIntent.buyProperty(playerID: localPlayerID, propertyID: propertyID)
+        send(.buyProperty(playerID: localPlayerID, propertyID: propertyID))
+    }
+
+    func payRent(propertyID: UUID) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de pagar renta."
+            return
+        }
+
+        send(.collectRent(payerID: localPlayerID, propertyID: propertyID))
+    }
+
+    func mortgage(propertyID: UUID) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de hipotecar."
+            return
+        }
+
+        send(.mortgageProperty(propertyID: propertyID, playerID: localPlayerID))
+    }
+
+    func unmortgage(propertyID: UUID) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de deshipotecar."
+            return
+        }
+
+        send(.unmortgageProperty(propertyID: propertyID, playerID: localPlayerID))
+    }
+
+    func buildHouse(propertyID: UUID) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de construir."
+            return
+        }
+
+        send(.buildHouse(propertyID: propertyID, playerID: localPlayerID))
+    }
+
+    func buildHotel(propertyID: UUID) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de construir."
+            return
+        }
+
+        send(.buildHotel(propertyID: propertyID, playerID: localPlayerID))
+    }
+
+    func sellHouse(propertyID: UUID) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de vender construcciones."
+            return
+        }
+
+        send(.sellHouse(propertyID: propertyID, playerID: localPlayerID))
+    }
+
+    func payTax(amount: Int) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de pagar impuestos."
+            return
+        }
+
+        send(.payTax(playerID: localPlayerID, amount: amount))
+    }
+
+    func collectSalary(amount: Int) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de cobrar salario."
+            return
+        }
+
+        send(.collectSalary(playerID: localPlayerID, amount: amount))
+    }
+
+    private func send(_ intent: GameIntent) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de realizar una acción."
+            return
+        }
 
         do {
             switch role {
