@@ -8,7 +8,15 @@
 
 /* Begin PBXFileReference section */
 		D31F5D0C30621A5500A3FF72 /* Monopoly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Monopoly.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D31F5D200000000000000001 /* GameRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameRulesTests.swift; sourceTree = "<group>"; };
+		D31F5D200000000000000002 /* MonopolyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MonopolyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D31F5D200000000000000003 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXBuildFile section */
+		D31F5D200000000000000004 /* GameRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31F5D200000000000000001 /* GameRulesTests.swift */; };
+		D31F5D200000000000000005 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D31F5D200000000000000003 /* XCTest.framework */; };
+/* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D31F5D0E30621A5500A3FF72 /* Monopoly */ = {
@@ -31,6 +39,7 @@
 			isa = PBXGroup;
 			children = (
 				D31F5D0E30621A5500A3FF72 /* Monopoly */,
+				D31F5D200000000000000006 /* MonopolyTests */,
 				D31F5D0D30621A5500A3FF72 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,8 +48,17 @@
 			isa = PBXGroup;
 			children = (
 				D31F5D0C30621A5500A3FF72 /* Monopoly.app */,
+				D31F5D200000000000000002 /* MonopolyTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D31F5D200000000000000006 /* MonopolyTests */ = {
+			isa = PBXGroup;
+			children = (
+				D31F5D200000000000000001 /* GameRulesTests.swift */,
+			);
+			path = MonopolyTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -63,6 +81,24 @@
 			productName = Monopoly;
 			productReference = D31F5D0C30621A5500A3FF72 /* Monopoly.app */;
 			productType = "com.apple.product-type.application";
+		};
+		D31F5D200000000000000007 /* MonopolyTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D31F5D200000000000000012 /* Build configuration list for PBXNativeTarget "MonopolyTests" */;
+			buildPhases = (
+				D31F5D200000000000000008 /* Sources */,
+				D31F5D200000000000000009 /* Frameworks */,
+				D31F5D20000000000000000A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D31F5D200000000000000013 /* PBXTargetDependency */,
+			);
+			name = MonopolyTests;
+			productName = MonopolyTests;
+			productReference = D31F5D200000000000000002 /* MonopolyTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -94,6 +130,7 @@
 			projectRoot = "";
 			targets = (
 				D31F5D0B30621A5500A3FF72 /* Monopoly */,
+				D31F5D200000000000000007 /* MonopolyTests */,
 			);
 		};
 /* End PBXProject section */
@@ -106,13 +143,60 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXContainerItemProxy section */
+		D31F5D200000000000000014 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D31F5D0430621A5500A3FF72 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D31F5D0B30621A5500A3FF72;
+			remoteInfo = Monopoly;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		D31F5D200000000000000013 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D31F5D0B30621A5500A3FF72 /* Monopoly */;
+			targetProxy = D31F5D200000000000000014 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin PBXSourcesBuildPhase section */
 		D31F5D0830621A5500A3FF72 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
 		};
+		D31F5D200000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D31F5D200000000000000004 /* GameRulesTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D31F5D200000000000000009 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D31F5D200000000000000005 /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D31F5D20000000000000000A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
 		D31F5D1530621A5700A3FF72 /* Debug configuration for PBXProject "Monopoly" */ = {
@@ -319,6 +403,46 @@
 			};
 			name = Release;
 		};
+		D31F5D200000000000000010 /* Debug configuration for PBXNativeTarget "MonopolyTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3978UBKA75;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.n.MonopolyTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Monopoly.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Monopoly";
+			};
+			name = Debug;
+		};
+		D31F5D200000000000000011 /* Release configuration for PBXNativeTarget "MonopolyTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3978UBKA75;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.n.MonopolyTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Monopoly.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Monopoly";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -335,6 +459,14 @@
 			buildConfigurations = (
 				D31F5D1830621A5700A3FF72 /* Debug configuration for PBXNativeTarget "Monopoly" */,
 				D31F5D1930621A5700A3FF72 /* Release configuration for PBXNativeTarget "Monopoly" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		D31F5D200000000000000012 /* Build configuration list for PBXNativeTarget "MonopolyTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D31F5D200000000000000010 /* Debug configuration for PBXNativeTarget "MonopolyTests" */,
+				D31F5D200000000000000011 /* Release configuration for PBXNativeTarget "MonopolyTests" */,
 			);
 			defaultConfigurationName = Release;
 		};
