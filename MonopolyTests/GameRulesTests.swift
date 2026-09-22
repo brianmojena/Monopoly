@@ -425,4 +425,192 @@ final class GameRulesTests: XCTestCase {
             XCTAssertEqual(error as? GameRuleError, .playerIsBankrupt(player.id))
         }
     }
+
+    func testPayTaxSuccessfullyRemovesMoneyFromTheGame() throws {
+        let payer = Player(name: "Ana", balance: 500)
+        let otherPlayer = Player(name: "Luis", balance: 100)
+        let state = GameState(players: [payer, otherPlayer], properties: [])
+
+        let result = try GameRules.payTax(in: state, playerID: payer.id, amount: 75)
+
+        XCTAssertEqual(result.players[0].balance, 425)
+        XCTAssertEqual(result.players[1].balance, 100)
+    }
+
+    func testPayTaxFailsWhenBalanceIsInsufficient() {
+        let payer = Player(name: "Ana", balance: 49)
+        let state = GameState(players: [payer], properties: [])
+
+        XCTAssertThrowsError(try GameRules.payTax(in: state, playerID: payer.id, amount: 50)) { error in
+            XCTAssertEqual(
+                error as? GameRuleError,
+                .insufficientFunds(playerID: payer.id, required: 50, available: 49)
+            )
+        }
+    }
+
+    func testCollectSalarySuccessfullyCreditsPlayer() throws {
+        let player = Player(name: "Ana", balance: 200)
+        let state = GameState(players: [player], properties: [])
+
+        let result = try GameRules.collectSalary(in: state, playerID: player.id, amount: 200)
+
+        XCTAssertEqual(result.players[0].balance, 400)
+    }
+
+    func testExecuteTradeExchangesPropertyForMoney() throws {
+        let property = Property(
+            name: "Ana's Property",
+            colorGroup: .brown,
+            purchasePrice: 60,
+            mortgageValue: 30,
+            baseRent: 10,
+            ownerID: nil
+        )
+        let firstPlayer = Player(name: "Ana", balance: 100, propertyIDs: [property.id])
+        let secondPlayer = Player(name: "Luis", balance: 50)
+        var ownedProperty = property
+        ownedProperty.ownerID = firstPlayer.id
+        let state = GameState(players: [firstPlayer, secondPlayer], properties: [ownedProperty])
+        let offer = TradeOffer(
+            fromPlayerID: firstPlayer.id,
+            toPlayerID: secondPlayer.id,
+            offeredPropertyIDs: [property.id],
+            requestedMoney: 50
+        )
+
+        let result = try GameRules.executeTrade(in: state, offer: offer)
+
+        XCTAssertEqual(result.players[0].balance, 150)
+        XCTAssertEqual(result.players[1].balance, 0)
+        XCTAssertEqual(result.players[0].propertyIDs, [])
+        XCTAssertEqual(result.players[1].propertyIDs, [property.id])
+        XCTAssertEqual(result.properties[0].ownerID, secondPlayer.id)
+    }
+
+    func testExecuteTradeExchangesPropertiesAndMoneyInBothDirections() throws {
+        let firstProperty = Property(name: "Ana's Property", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10)
+        let secondProperty = Property(name: "Luis's Property", colorGroup: .lightBlue, purchasePrice: 100, mortgageValue: 50, baseRent: 12)
+        let firstPlayer = Player(name: "Ana", balance: 100, propertyIDs: [firstProperty.id])
+        let secondPlayer = Player(name: "Luis", balance: 100, propertyIDs: [secondProperty.id])
+        var ownedFirstProperty = firstProperty
+        ownedFirstProperty.ownerID = firstPlayer.id
+        var ownedSecondProperty = secondProperty
+        ownedSecondProperty.ownerID = secondPlayer.id
+        let state = GameState(players: [firstPlayer, secondPlayer], properties: [ownedFirstProperty, ownedSecondProperty])
+        let offer = TradeOffer(
+            fromPlayerID: firstPlayer.id,
+            toPlayerID: secondPlayer.id,
+            offeredPropertyIDs: [firstProperty.id],
+            offeredMoney: 10,
+            requestedPropertyIDs: [secondProperty.id],
+            requestedMoney: 20
+        )
+
+        let result = try GameRules.executeTrade(in: state, offer: offer)
+
+        XCTAssertEqual(result.players[0].balance, 110)
+        XCTAssertEqual(result.players[1].balance, 90)
+        XCTAssertEqual(result.properties[0].ownerID, secondPlayer.id)
+        XCTAssertEqual(result.properties[1].ownerID, firstPlayer.id)
+        XCTAssertEqual(result.players[0].propertyIDs, [secondProperty.id])
+        XCTAssertEqual(result.players[1].propertyIDs, [firstProperty.id])
+    }
+
+    func testExecuteTradeFailsAtomicallyWhenOfferedPropertyIsNotOwned() {
+        let firstPlayer = Player(name: "Ana", balance: 100)
+        let secondPlayer = Player(name: "Luis", balance: 100)
+        let property = Property(name: "Luis's Property", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10, ownerID: secondPlayer.id)
+        let state = GameState(players: [firstPlayer, secondPlayer], properties: [property])
+        let offer = TradeOffer(
+            fromPlayerID: firstPlayer.id,
+            toPlayerID: secondPlayer.id,
+            offeredPropertyIDs: [property.id],
+            requestedMoney: 50
+        )
+
+        XCTAssertThrowsError(try GameRules.executeTrade(in: state, offer: offer)) { error in
+            XCTAssertEqual(
+                error as? GameRuleError,
+                .propertyNotOwnedByPlayer(propertyID: property.id, playerID: firstPlayer.id)
+            )
+        }
+        XCTAssertEqual(state.players[0].balance, 100)
+        XCTAssertEqual(state.players[1].balance, 100)
+        XCTAssertEqual(state.properties[0].ownerID, secondPlayer.id)
+    }
+
+    func testExecuteTradeFailsWhenOfferedMoneyIsInsufficient() {
+        let property = Property(name: "Ana's Property", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10, ownerID: nil)
+        let firstPlayer = Player(name: "Ana", balance: 9, propertyIDs: [property.id])
+        let secondPlayer = Player(name: "Luis", balance: 100)
+        var ownedProperty = property
+        ownedProperty.ownerID = firstPlayer.id
+        let state = GameState(players: [firstPlayer, secondPlayer], properties: [ownedProperty])
+        let offer = TradeOffer(
+            fromPlayerID: firstPlayer.id,
+            toPlayerID: secondPlayer.id,
+            offeredPropertyIDs: [property.id],
+            offeredMoney: 10
+        )
+
+        XCTAssertThrowsError(try GameRules.executeTrade(in: state, offer: offer)) { error in
+            XCTAssertEqual(
+                error as? GameRuleError,
+                .insufficientFunds(playerID: firstPlayer.id, required: 10, available: 9)
+            )
+        }
+    }
+
+    func testExecuteTradeFailsWhenParticipantIsBankrupt() {
+        let firstPlayer = Player(name: "Ana", balance: 100)
+        let secondPlayer = Player(name: "Luis", balance: 100, status: .bankrupt)
+        let state = GameState(players: [firstPlayer, secondPlayer], properties: [])
+        let offer = TradeOffer(fromPlayerID: firstPlayer.id, toPlayerID: secondPlayer.id)
+
+        XCTAssertThrowsError(try GameRules.executeTrade(in: state, offer: offer)) { error in
+            XCTAssertEqual(error as? GameRuleError, .playerIsBankrupt(secondPlayer.id))
+        }
+    }
+
+    func testExecuteTradePreservesConstructionAndMortgageState() throws {
+        let builtProperty = Property(
+            name: "Built Property",
+            colorGroup: .brown,
+            purchasePrice: 60,
+            mortgageValue: 30,
+            baseRent: 10,
+            constructionLevel: 2,
+            ownerID: nil
+        )
+        let mortgagedProperty = Property(
+            name: "Mortgaged Property",
+            colorGroup: .lightBlue,
+            purchasePrice: 100,
+            mortgageValue: 50,
+            baseRent: 12,
+            ownerID: nil,
+            isMortgaged: true
+        )
+        let firstPlayer = Player(name: "Ana", balance: 100, propertyIDs: [builtProperty.id])
+        let secondPlayer = Player(name: "Luis", balance: 100, propertyIDs: [mortgagedProperty.id])
+        var ownedBuiltProperty = builtProperty
+        ownedBuiltProperty.ownerID = firstPlayer.id
+        var ownedMortgagedProperty = mortgagedProperty
+        ownedMortgagedProperty.ownerID = secondPlayer.id
+        let state = GameState(players: [firstPlayer, secondPlayer], properties: [ownedBuiltProperty, ownedMortgagedProperty])
+        let offer = TradeOffer(
+            fromPlayerID: firstPlayer.id,
+            toPlayerID: secondPlayer.id,
+            offeredPropertyIDs: [builtProperty.id],
+            requestedPropertyIDs: [mortgagedProperty.id]
+        )
+
+        let result = try GameRules.executeTrade(in: state, offer: offer)
+
+        XCTAssertEqual(result.properties[0].constructionLevel, 2)
+        XCTAssertFalse(result.properties[0].isMortgaged)
+        XCTAssertEqual(result.properties[1].constructionLevel, 0)
+        XCTAssertTrue(result.properties[1].isMortgaged)
+    }
 }

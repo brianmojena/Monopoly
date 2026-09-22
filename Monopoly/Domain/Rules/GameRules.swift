@@ -81,6 +81,51 @@ enum GameRules {
         return RentResult(state: updatedState, amount: rent)
     }
 
+    static func payTax(
+        in state: GameState,
+        playerID: UUID,
+        amount: Int
+    ) throws -> GameState {
+        guard let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
+            throw GameRuleError.playerNotFound(playerID)
+        }
+        try requireActivePlayer(in: state, playerID: playerID)
+        guard amount >= 0 else {
+            throw GameRuleError.invalidAmount(amount)
+        }
+
+        let player = state.players[playerIndex]
+        guard player.balance >= amount else {
+            throw GameRuleError.insufficientFunds(
+                playerID: playerID,
+                required: amount,
+                available: player.balance
+            )
+        }
+
+        var updatedState = state
+        updatedState.players[playerIndex].balance -= amount
+        return updatedState
+    }
+
+    static func collectSalary(
+        in state: GameState,
+        playerID: UUID,
+        amount: Int
+    ) throws -> GameState {
+        guard let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
+            throw GameRuleError.playerNotFound(playerID)
+        }
+        try requireActivePlayer(in: state, playerID: playerID)
+        guard amount >= 0 else {
+            throw GameRuleError.invalidAmount(amount)
+        }
+
+        var updatedState = state
+        updatedState.players[playerIndex].balance += amount
+        return updatedState
+    }
+
     static func buildHouse(
         in state: GameState,
         propertyID: UUID,
@@ -352,6 +397,67 @@ enum GameRules {
         return updatedState
     }
 
+    static func executeTrade(
+        in state: GameState,
+        offer: TradeOffer
+    ) throws -> GameState {
+        guard offer.fromPlayerID != offer.toPlayerID else {
+            throw GameRuleError.tradeParticipantsMustDiffer
+        }
+        guard let fromPlayerIndex = state.players.firstIndex(where: { $0.id == offer.fromPlayerID }) else {
+            throw GameRuleError.playerNotFound(offer.fromPlayerID)
+        }
+        guard let toPlayerIndex = state.players.firstIndex(where: { $0.id == offer.toPlayerID }) else {
+            throw GameRuleError.playerNotFound(offer.toPlayerID)
+        }
+        try requireActivePlayer(in: state, playerID: offer.fromPlayerID)
+        try requireActivePlayer(in: state, playerID: offer.toPlayerID)
+        try requireNonNegativeTradeAmounts(in: offer)
+
+        let allPropertyIDs = offer.offeredPropertyIDs + offer.requestedPropertyIDs
+        try requireUniqueTradePropertyIDs(allPropertyIDs)
+        try requireTradeProperties(
+            in: state,
+            propertyIDs: offer.offeredPropertyIDs,
+            ownedBy: offer.fromPlayerID
+        )
+        try requireTradeProperties(
+            in: state,
+            propertyIDs: offer.requestedPropertyIDs,
+            ownedBy: offer.toPlayerID
+        )
+
+        let fromPlayer = state.players[fromPlayerIndex]
+        let toPlayer = state.players[toPlayerIndex]
+        guard fromPlayer.balance >= offer.offeredMoney else {
+            throw GameRuleError.insufficientFunds(
+                playerID: offer.fromPlayerID,
+                required: offer.offeredMoney,
+                available: fromPlayer.balance
+            )
+        }
+        guard toPlayer.balance >= offer.requestedMoney else {
+            throw GameRuleError.insufficientFunds(
+                playerID: offer.toPlayerID,
+                required: offer.requestedMoney,
+                available: toPlayer.balance
+            )
+        }
+
+        var updatedState = state
+        updatedState.players[fromPlayerIndex].balance += offer.requestedMoney - offer.offeredMoney
+        updatedState.players[toPlayerIndex].balance += offer.offeredMoney - offer.requestedMoney
+
+        for propertyID in offer.offeredPropertyIDs {
+            transferProperty(in: &updatedState, propertyID: propertyID, to: offer.toPlayerID)
+        }
+        for propertyID in offer.requestedPropertyIDs {
+            transferProperty(in: &updatedState, propertyID: propertyID, to: offer.fromPlayerID)
+        }
+
+        return updatedState
+    }
+
     private static func rentAmount(
         for property: Property,
         in state: GameState,
@@ -443,5 +549,58 @@ enum GameRules {
         guard player.status == .active else {
             throw GameRuleError.playerIsBankrupt(playerID)
         }
+    }
+
+    private static func requireNonNegativeTradeAmounts(in offer: TradeOffer) throws {
+        guard offer.offeredMoney >= 0 else {
+            throw GameRuleError.invalidAmount(offer.offeredMoney)
+        }
+        guard offer.requestedMoney >= 0 else {
+            throw GameRuleError.invalidAmount(offer.requestedMoney)
+        }
+    }
+
+    private static func requireUniqueTradePropertyIDs(_ propertyIDs: [UUID]) throws {
+        var seen = Set<UUID>()
+        for propertyID in propertyIDs {
+            guard seen.insert(propertyID).inserted else {
+                throw GameRuleError.duplicateTradeProperty(propertyID)
+            }
+        }
+    }
+
+    private static func requireTradeProperties(
+        in state: GameState,
+        propertyIDs: [UUID],
+        ownedBy playerID: UUID
+    ) throws {
+        for propertyID in propertyIDs {
+            guard let property = state.properties.first(where: { $0.id == propertyID }) else {
+                throw GameRuleError.propertyNotFound(propertyID)
+            }
+            guard property.ownerID == playerID else {
+                throw GameRuleError.propertyNotOwnedByPlayer(
+                    propertyID: propertyID,
+                    playerID: playerID
+                )
+            }
+        }
+    }
+
+    private static func transferProperty(
+        in state: inout GameState,
+        propertyID: UUID,
+        to playerID: UUID
+    ) {
+        guard let propertyIndex = state.properties.firstIndex(where: { $0.id == propertyID }),
+              let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
+            return
+        }
+
+        for index in state.players.indices {
+            state.players[index].propertyIDs.removeAll { $0 == propertyID }
+        }
+        state.properties[propertyIndex].ownerID = playerID
+        state.players[playerIndex].propertyIDs.append(propertyID)
     }
 }
