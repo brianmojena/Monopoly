@@ -8,17 +8,31 @@ struct GameBoardView: View {
         Group {
             if let state = model.gameState {
                 List {
-                    Section("Acciones libres") {
-                        Button {
-                            amountAction = .tax
-                        } label: {
-                            Label("Pagar impuesto", systemImage: "arrow.down.circle")
-                        }
+                    if isLocalPlayerActive(in: state) {
+                        Section("Acciones del jugador") {
+                            Button {
+                                amountAction = .tax
+                            } label: {
+                                Label("Pagar impuesto", systemImage: "arrow.down.circle")
+                            }
 
-                        Button {
-                            amountAction = .salary
-                        } label: {
-                            Label("Cobrar salario", systemImage: "arrow.up.circle")
+                            Button {
+                                amountAction = .salary
+                            } label: {
+                                Label("Cobrar salario", systemImage: "arrow.up.circle")
+                            }
+
+                            NavigationLink {
+                                TradeView(model: model)
+                            } label: {
+                                Label("Proponer intercambio", systemImage: "arrow.left.arrow.right")
+                            }
+
+                            NavigationLink {
+                                BankruptcyView(model: model)
+                            } label: {
+                                Label("Declararme en bancarrota", systemImage: "exclamationmark.triangle")
+                            }
                         }
                     }
 
@@ -27,16 +41,23 @@ struct GameBoardView: View {
                             HStack {
                                 VStack(alignment: .leading) {
                                     Text(player.name)
+                                        .strikethrough(player.status == .bankrupt)
                                     if player.id == model.localPlayerID {
                                         Text("Este dispositivo")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
+                                    }
+                                    if player.status == .bankrupt {
+                                        Text("Bancarrota")
+                                            .font(.caption)
+                                            .foregroundStyle(.red)
                                     }
                                 }
                                 Spacer()
                                 Text(currency(player.balance))
                                     .fontWeight(.semibold)
                             }
+                            .opacity(player.status == .bankrupt ? 0.65 : 1)
                         }
                     }
 
@@ -100,7 +121,7 @@ struct GameBoardView: View {
                 }
             }
 
-            if property.ownerID == nil, model.localPlayerID != nil {
+            if property.ownerID == nil, isLocalPlayerActive(in: state) {
                 Button("Comprar") {
                     model.buy(propertyID: property.id)
                 }
@@ -117,6 +138,13 @@ struct GameBoardView: View {
             return "Sin dueño"
         }
         return "Dueño: \(owner.name)"
+    }
+
+    private func isLocalPlayerActive(in state: GameState) -> Bool {
+        guard let localPlayerID = model.localPlayerID else {
+            return false
+        }
+        return state.players.first(where: { $0.id == localPlayerID })?.status == .active
     }
 
     private func currency(_ amount: Int) -> String {

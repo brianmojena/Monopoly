@@ -20,11 +20,25 @@ struct PropertyDetailView: View {
                         }
                     }
 
-                    if let localPlayerID = model.localPlayerID {
-                        if property.ownerID == nil {
+                    if let localPlayerID = model.localPlayerID,
+                       let localPlayer = state.players.first(where: { $0.id == localPlayerID }) {
+                        if localPlayer.status != .active {
                             Section {
-                                Text("Esta propiedad no tiene dueño.")
+                                Text("Este jugador está en bancarrota y ya no puede realizar acciones.")
                                     .foregroundStyle(.secondary)
+                            }
+                        } else if property.ownerID == nil {
+                            Section("Acciones") {
+                                Button("Comprar") {
+                                    model.buy(propertyID: property.id)
+                                }
+                                .buttonStyle(.borderedProminent)
+
+                                NavigationLink {
+                                    AuctionView(propertyID: property.id, model: model)
+                                } label: {
+                                    Label("Iniciar subasta", systemImage: "hammer")
+                                }
                             }
                         } else if property.ownerID != localPlayerID {
                             Section("Acción") {

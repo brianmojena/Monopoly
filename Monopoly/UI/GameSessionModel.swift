@@ -126,6 +126,41 @@ final class GameSessionModel: ObservableObject {
         send(.collectSalary(playerID: localPlayerID, amount: amount))
     }
 
+    func executeTrade(offer: TradeOffer) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de proponer un intercambio."
+            return
+        }
+
+        let localOffer = TradeOffer(
+            fromPlayerID: localPlayerID,
+            toPlayerID: offer.toPlayerID,
+            offeredPropertyIDs: offer.offeredPropertyIDs,
+            offeredMoney: offer.offeredMoney,
+            requestedPropertyIDs: offer.requestedPropertyIDs,
+            requestedMoney: offer.requestedMoney
+        )
+        send(.executeTrade(offer: localOffer))
+    }
+
+    func resolveAuction(propertyID: UUID, bids: [AuctionBid]) {
+        guard localPlayerID != nil else {
+            alertMessage = "Selecciona tu jugador antes de cerrar la subasta."
+            return
+        }
+
+        send(.resolveAuction(propertyID: propertyID, bids: bids))
+    }
+
+    func declareBankruptcy(creditor: DebtCreditor) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de declarar bancarrota."
+            return
+        }
+
+        send(.declareBankruptcy(playerID: localPlayerID, creditor: creditor))
+    }
+
     private func send(_ intent: GameIntent) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de realizar una acción."
