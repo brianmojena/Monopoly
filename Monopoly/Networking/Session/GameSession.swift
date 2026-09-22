@@ -103,12 +103,54 @@ final class GameSession {
         try submit(intent: intent, playerID: playerID)
     }
 
+    func submitLocal(intent: GameIntent, playerID: UUID) throws {
+        guard case .host = role else {
+            throw GameSessionError.hostCannotSubmitIntent
+        }
+
+        let outcome: Result<GameState, GameRuleError> = stateQueue.sync {
+            guard let state = _gameState else {
+                return .failure(.playerNotFound(playerID))
+            }
+
+            do {
+                let updatedState = try apply(intent, submittedBy: playerID, in: state)
+                _gameState = updatedState
+                return .success(updatedState)
+            } catch let error as GameRuleError {
+                return .failure(error)
+            } catch {
+                preconditionFailure("GameRules threw a non-GameRuleError: \(error)")
+            }
+        }
+
+        switch outcome {
+        case let .success(updatedState):
+            let snapshot = try encoder.encode(NetworkMessage.stateSnapshot(updatedState))
+            onStateChanged?(updatedState)
+            try transport.broadcast(data: snapshot)
+        case let .failure(error):
+            onIntentRejected?(error)
+        }
+    }
+
     private func peerConnected(_ peerID: PeerID) {
         stateQueue.sync {
             connectedPeerIDs.insert(peerID)
             if case .client = role, discoveredHostPeerID == nil {
                 discoveredHostPeerID = peerID
             }
+        }
+
+        guard case .host = role, let state = gameState else {
+            return
+        }
+
+        do {
+            let snapshot = try encoder.encode(NetworkMessage.stateSnapshot(state))
+            try transport.send(data: snapshot, to: peerID)
+        } catch {
+            onTransportError?(error)
         }
     }
 
