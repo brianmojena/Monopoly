@@ -6,19 +6,22 @@ struct Player: Identifiable, Codable, Equatable {
     var balance: Int
     var propertyIDs: [UUID]
     var status: PlayerStatus
+    var creditCardDebt: Int
 
     init(
         id: UUID = UUID(),
         name: String,
         balance: Int,
         propertyIDs: [UUID] = [],
-        status: PlayerStatus = .active
+        status: PlayerStatus = .active,
+        creditCardDebt: Int = 0
     ) {
         self.id = id
         self.name = name
         self.balance = balance
         self.propertyIDs = propertyIDs
         self.status = status
+        self.creditCardDebt = creditCardDebt
     }
 }
 

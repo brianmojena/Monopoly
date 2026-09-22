@@ -22,6 +22,14 @@ struct GameBoardView: View {
                                 Label("Cobrar salario", systemImage: "arrow.up.circle")
                             }
 
+                            if model.areCreditCardsEnabled {
+                                NavigationLink {
+                                    CreditCardView(model: model)
+                                } label: {
+                                    Label("Tarjeta de crédito", systemImage: "creditcard")
+                                }
+                            }
+
                             NavigationLink {
                                 TransferView(model: model)
                             } label: {
@@ -57,6 +65,11 @@ struct GameBoardView: View {
                                         Text("Bancarrota")
                                             .font(.caption)
                                             .foregroundStyle(.red)
+                                    }
+                                    if player.creditCardDebt > 0 {
+                                        Text("Deuda de tarjeta: \(currency(player.creditCardDebt))")
+                                            .font(.caption)
+                                            .foregroundStyle(.orange)
                                     }
                                 }
                                 Spacer()
@@ -95,7 +108,7 @@ struct GameBoardView: View {
             Text(model.alertMessage ?? "Inténtalo de nuevo.")
         }
         .sheet(item: $amountAction) { action in
-            AmountInputView(title: action.title) { amount in
+            AmountInputView(title: action.title, note: note(for: action)) { amount in
                 switch action {
                 case .tax:
                     model.payTax(amount: amount)
@@ -137,6 +150,17 @@ struct GameBoardView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func note(for action: AmountAction) -> String? {
+        guard action == .salary,
+              let localPlayerID = model.localPlayerID,
+              let debt = model.gameState?.players.first(where: { $0.id == localPlayerID })?.creditCardDebt,
+              debt > 0 else {
+            return nil
+        }
+        let minimumPayment = GameRules.creditCardMinimumPayment(forDebt: debt)
+        return "Al cobrar se descontará el pago mínimo de tu tarjeta: \(currency(minimumPayment)) (25% de \(currency(debt)))."
     }
 
     private func ownerName(for property: Property, state: GameState) -> String {

@@ -27,6 +27,8 @@ enum GameRuleError: Error, Equatable, Codable {
     case tradeParticipantsMustDiffer
     case duplicateTradeProperty(UUID)
     case transferParticipantsMustDiffer
+    case creditCardsDisabled
+    case creditLimitExceeded(requested: Int, available: Int)
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -38,6 +40,7 @@ enum GameRuleError: Error, Equatable, Codable {
         case colorGroup
         case amount
         case creditorID
+        case requested
     }
 
     private enum Code: String, Codable {
@@ -67,6 +70,8 @@ enum GameRuleError: Error, Equatable, Codable {
         case tradeParticipantsMustDiffer
         case duplicateTradeProperty
         case transferParticipantsMustDiffer
+        case creditCardsDisabled
+        case creditLimitExceeded
     }
 
     init(from decoder: Decoder) throws {
@@ -136,6 +141,13 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .duplicateTradeProperty(try container.decode(UUID.self, forKey: .propertyID))
         case .transferParticipantsMustDiffer:
             self = .transferParticipantsMustDiffer
+        case .creditCardsDisabled:
+            self = .creditCardsDisabled
+        case .creditLimitExceeded:
+            self = .creditLimitExceeded(
+                requested: try container.decode(Int.self, forKey: .requested),
+                available: try container.decode(Int.self, forKey: .available)
+            )
         }
     }
 
@@ -221,6 +233,12 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(propertyID, forKey: .propertyID)
         case .transferParticipantsMustDiffer:
             try container.encode(Code.transferParticipantsMustDiffer, forKey: .code)
+        case .creditCardsDisabled:
+            try container.encode(Code.creditCardsDisabled, forKey: .code)
+        case let .creditLimitExceeded(requested, available):
+            try container.encode(Code.creditLimitExceeded, forKey: .code)
+            try container.encode(requested, forKey: .requested)
+            try container.encode(available, forKey: .available)
         }
     }
 }

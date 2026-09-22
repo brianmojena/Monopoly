@@ -297,6 +297,10 @@ final class GameSession {
             return try GameRules.executeTrade(in: state, offer: normalizedOffer)
         case let .transferMoney(_, recipientID, amount):
             return try GameRules.transferMoney(in: state, from: playerID, to: recipientID, amount: amount)
+        case let .borrowOnCreditCard(_, amount):
+            return try GameRules.borrowOnCreditCard(in: state, playerID: playerID, amount: amount)
+        case let .payCreditCard(_, amount):
+            return try GameRules.payCreditCard(in: state, playerID: playerID, amount: amount)
         }
     }
 }

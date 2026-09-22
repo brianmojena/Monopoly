@@ -4,6 +4,7 @@ struct HostSetupView: View {
     @State private var playerNames = ["Jugador 1"]
     @State private var hostPlayerIndex = 0
     @State private var proximityPaymentsEnabled = false
+    @State private var creditCardsEnabled = true
     @State private var gameModel: GameSessionModel?
     @State private var isGameStarted = false
 
@@ -53,6 +54,16 @@ struct HostSetupView: View {
                             .tag(index)
                     }
                 }
+            }
+
+            Section {
+                Toggle(isOn: $creditCardsEnabled) {
+                    Label("Tarjetas de crédito", systemImage: "creditcard")
+                }
+            } header: {
+                Text("Reglas")
+            } footer: {
+                Text("Préstamos de hasta el 50% de tu patrimonio con un 10% de interés. Cada vez que pasas por GO se cobra un mínimo del 25% de la deuda.")
             }
 
             Section {
@@ -115,6 +126,7 @@ struct HostSetupView: View {
         let initialState = GameState(
             players: players,
             properties: PlaceholderProperties.all,
+            activeHouseRules: creditCardsEnabled ? [.creditCards] : [],
             proximityPaymentsEnabled: proximityPaymentsEnabled
         )
         let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")

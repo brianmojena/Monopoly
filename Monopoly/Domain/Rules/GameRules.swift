@@ -179,6 +179,100 @@ enum GameRules {
         var updatedState = state
         updatedState.players[playerIndex].balance += amount
 
+        let debt = updatedState.players[playerIndex].creditCardDebt
+        if debt > 0 {
+            let payment = min(creditCardMinimumPayment(forDebt: debt), updatedState.players[playerIndex].balance)
+            updatedState.players[playerIndex].balance -= payment
+            updatedState.players[playerIndex].creditCardDebt -= payment
+        }
+        return updatedState
+    }
+
+    static func netWorth(of playerID: UUID, in state: GameState) throws -> Int {
+        guard let player = state.players.first(where: { $0.id == playerID }) else {
+            throw GameRuleError.playerNotFound(playerID)
+        }
+
+        let propertiesValue = state.properties
+            .filter { $0.ownerID == playerID && !$0.isMortgaged }
+            .reduce(0) { total, property in
+                total + property.purchasePrice + property.constructionLevel * property.constructionCost
+            }
+        return player.balance + propertiesValue - player.creditCardDebt
+    }
+
+    // Net worth already subtracts the debt, and the debt is subtracted again from the
+    // 50% limit. Otherwise borrowed cash would count as net worth and repeated loans
+    // could grow without bound.
+    static func availableCredit(for playerID: UUID, in state: GameState) throws -> Int {
+        guard let player = state.players.first(where: { $0.id == playerID }) else {
+            throw GameRuleError.playerNotFound(playerID)
+        }
+        let limit = try netWorth(of: playerID, in: state) / 2
+        return max(0, limit - player.creditCardDebt)
+    }
+
+    static func creditCardDebt(forLoan amount: Int) -> Int {
+        amount * 11 / 10
+    }
+
+    // Rounded up so a small remaining debt is always paid off eventually.
+    static func creditCardMinimumPayment(forDebt debt: Int) -> Int {
+        (debt + 3) / 4
+    }
+
+    static func borrowOnCreditCard(
+        in state: GameState,
+        playerID: UUID,
+        amount: Int
+    ) throws -> GameState {
+        guard state.activeHouseRules.contains(.creditCards) else {
+            throw GameRuleError.creditCardsDisabled
+        }
+        guard let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
+            throw GameRuleError.playerNotFound(playerID)
+        }
+        try requireActivePlayer(in: state, playerID: playerID)
+        guard amount > 0 else {
+            throw GameRuleError.invalidAmount(amount)
+        }
+
+        let available = try availableCredit(for: playerID, in: state)
+        guard amount <= available else {
+            throw GameRuleError.creditLimitExceeded(requested: amount, available: available)
+        }
+
+        var updatedState = state
+        updatedState.players[playerIndex].balance += amount
+        updatedState.players[playerIndex].creditCardDebt += creditCardDebt(forLoan: amount)
+        return updatedState
+    }
+
+    static func payCreditCard(
+        in state: GameState,
+        playerID: UUID,
+        amount: Int
+    ) throws -> GameState {
+        guard let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
+            throw GameRuleError.playerNotFound(playerID)
+        }
+        try requireActivePlayer(in: state, playerID: playerID)
+
+        let player = state.players[playerIndex]
+        guard amount > 0, amount <= player.creditCardDebt else {
+            throw GameRuleError.invalidAmount(amount)
+        }
+        guard player.balance >= amount else {
+            throw GameRuleError.insufficientFunds(
+                playerID: playerID,
+                required: amount,
+                available: player.balance
+            )
+        }
+
+        var updatedState = state
+        updatedState.players[playerIndex].balance -= amount
+        updatedState.players[playerIndex].creditCardDebt -= amount
         return updatedState
     }
 
@@ -460,6 +554,7 @@ enum GameRules {
         var updatedState = state
         updatedState.players[bankruptPlayerIndex].status = .bankrupt
         updatedState.players[bankruptPlayerIndex].balance = 0
+        updatedState.players[bankruptPlayerIndex].creditCardDebt = 0
         updatedState.players[bankruptPlayerIndex].propertyIDs.removeAll()
 
         for propertyID in transferredPropertyIDs {

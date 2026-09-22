@@ -24,6 +24,10 @@ final class GameSessionModel: ObservableObject {
         gameState?.proximityPaymentsEnabled == true
     }
 
+    var areCreditCardsEnabled: Bool {
+        gameState?.activeHouseRules.contains(.creditCards) == true
+    }
+
     init(session: GameSession, role: Role, localPlayerID: UUID? = nil) {
         self.session = session
         self.role = role
@@ -150,6 +154,24 @@ final class GameSessionModel: ObservableObject {
         }
 
         send(.transferMoney(payerID: localPlayerID, recipientID: recipientID, amount: amount))
+    }
+
+    func borrowOnCreditCard(amount: Int) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de pedir un préstamo."
+            return
+        }
+
+        send(.borrowOnCreditCard(playerID: localPlayerID, amount: amount))
+    }
+
+    func payCreditCard(amount: Int) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de pagar la tarjeta."
+            return
+        }
+
+        send(.payCreditCard(playerID: localPlayerID, amount: amount))
     }
 
     func executeTrade(offer: TradeOffer) {

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AmountInputView: View {
     let title: String
+    var note: String?
     let onConfirm: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -18,7 +19,7 @@ struct AmountInputView: View {
                 } header: {
                     Text("Introduce el monto manualmente")
                 } footer: {
-                    Text("El dominio validará el monto y el saldo disponible.")
+                    Text(note ?? "El dominio validará el monto y el saldo disponible.")
                 }
             }
             .navigationTitle(title)

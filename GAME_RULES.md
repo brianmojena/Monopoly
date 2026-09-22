@@ -78,7 +78,7 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 ## 7. Fin de la partida
 
 - La partida termina cuando solo queda un jugador solvente (regla estándar), o por acuerdo de los jugadores en un límite de tiempo/rondas configurado antes de iniciar.
-- En caso de fin por tiempo, gana quien tenga mayor patrimonio neto (efectivo + valor actual de propiedades no hipotecadas + mitad del valor de construcciones).
+- En caso de fin por tiempo, gana quien tenga mayor patrimonio neto (efectivo + valor actual de propiedades no hipotecadas + mitad del valor de construcciones − deuda de tarjeta de crédito).
 
 ## 8. Reglas opcionales / configurables (house rules)
 
@@ -91,6 +91,16 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 | Sin subasta | Si un jugador no compra una propiedad, esta simplemente queda disponible para el siguiente jugador que caiga en ella, sin subasta. |
 | Bono en Casa aleatorio | Activa el evento aleatorio de bono monetario que el dispositivo físico Ultimate Banking entrega ocasionalmente. |
 | Saldo inicial personalizado | Permite definir un monto de dinero inicial distinto al valor por defecto. |
+| Tarjetas de crédito | **Activada por defecto** en la configuración del host (decisión de Brian). Ver sección 8.1. |
+
+### 8.1 Tarjetas de crédito
+
+- **Patrimonio** (para crédito): efectivo + precio de cada propiedad no hipotecada + nivel de construcción × costo de construcción − deuda de tarjeta. Las propiedades hipotecadas cuentan 0.
+- **Crédito disponible**: 50% del patrimonio menos la deuda de tarjeta actual. Restar la deuda evita encadenar préstamos, porque el efectivo prestado cuenta como patrimonio.
+- **Interés**: 10% fijo en el momento de pedir el préstamo (pides $1000 → debes $1100). La deuda no crece con el tiempo.
+- **Pago mínimo**: al cobrar el salario de GO se descuenta automáticamente el 25% de la deuda (redondeado hacia arriba). Si el efectivo (ya con el salario) no alcanza, se cobra todo lo que haya y el resto sigue como deuda; el saldo nunca queda negativo.
+- **Pagos anticipados**: se puede pagar cualquier monto hasta el total de la deuda en cualquier momento.
+- **Bancarrota**: la deuda de tarjeta se cancela; no pasa al acreedor.
 
 La app debe permitir seleccionar estas reglas opcionales al crear una partida, y el estado resultante debe ser visible para todos los jugadores conectados antes de empezar.
 

@@ -666,6 +666,100 @@ final class GameRulesTests: XCTestCase {
         }
     }
 
+    func testNetWorthCountsCashUnmortgagedPropertiesAndBuildingsMinusDebt() throws {
+        let player = Player(name: "Ana", balance: 500, creditCardDebt: 110)
+        let built = Property(name: "Built", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10, constructionCost: 50, constructionLevel: 2, ownerID: player.id)
+        let mortgaged = Property(name: "Mortgaged", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 4, ownerID: player.id, isMortgaged: true)
+        let state = GameState(players: [player], properties: [built, mortgaged])
+
+        XCTAssertEqual(try GameRules.netWorth(of: player.id, in: state), 500 + 100 + 2 * 50 - 110)
+    }
+
+    func testBorrowOnCreditCardAddsCashAndDebtWithTenPercentInterest() throws {
+        let player = Player(name: "Ana", balance: 1000)
+        let state = GameState(players: [player], properties: [], activeHouseRules: [.creditCards])
+
+        let result = try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 500)
+
+        XCTAssertEqual(result.players[0].balance, 1500)
+        XCTAssertEqual(result.players[0].creditCardDebt, 550)
+    }
+
+    func testBorrowOnCreditCardFailsAboveHalfOfNetWorth() {
+        let player = Player(name: "Ana", balance: 1000)
+        let state = GameState(players: [player], properties: [], activeHouseRules: [.creditCards])
+
+        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 501)) { error in
+            XCTAssertEqual(error as? GameRuleError, .creditLimitExceeded(requested: 501, available: 500))
+        }
+    }
+
+    func testBorrowOnCreditCardCannotBeChainedPastTheLimit() throws {
+        let player = Player(name: "Ana", balance: 1000)
+        let state = GameState(players: [player], properties: [], activeHouseRules: [.creditCards])
+
+        let afterLoan = try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 500)
+
+        XCTAssertEqual(try GameRules.availableCredit(for: player.id, in: afterLoan), 0)
+    }
+
+    func testBorrowOnCreditCardFailsWhenRuleIsDisabled() {
+        let player = Player(name: "Ana", balance: 1000)
+        let state = GameState(players: [player], properties: [])
+
+        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 100)) { error in
+            XCTAssertEqual(error as? GameRuleError, .creditCardsDisabled)
+        }
+    }
+
+    func testPayCreditCardReducesDebtAndCash() throws {
+        let player = Player(name: "Ana", balance: 300, creditCardDebt: 550)
+        let state = GameState(players: [player], properties: [])
+
+        let result = try GameRules.payCreditCard(in: state, playerID: player.id, amount: 200)
+
+        XCTAssertEqual(result.players[0].balance, 100)
+        XCTAssertEqual(result.players[0].creditCardDebt, 350)
+    }
+
+    func testPayCreditCardFailsWhenPayingMoreThanTheDebt() {
+        let player = Player(name: "Ana", balance: 300, creditCardDebt: 100)
+        let state = GameState(players: [player], properties: [])
+
+        XCTAssertThrowsError(try GameRules.payCreditCard(in: state, playerID: player.id, amount: 101)) { error in
+            XCTAssertEqual(error as? GameRuleError, .invalidAmount(101))
+        }
+    }
+
+    func testCollectSalaryChargesQuarterOfCreditCardDebtRoundedUp() throws {
+        let player = Player(name: "Ana", balance: 100, creditCardDebt: 550)
+        let state = GameState(players: [player], properties: [])
+
+        let result = try GameRules.collectSalary(in: state, playerID: player.id, amount: 200)
+
+        XCTAssertEqual(result.players[0].balance, 300 - 138)
+        XCTAssertEqual(result.players[0].creditCardDebt, 550 - 138)
+    }
+
+    func testCollectSalaryChargesOnlyAvailableCashWhenMinimumIsNotCovered() throws {
+        let player = Player(name: "Ana", balance: 0, creditCardDebt: 2000)
+        let state = GameState(players: [player], properties: [])
+
+        let result = try GameRules.collectSalary(in: state, playerID: player.id, amount: 200)
+
+        XCTAssertEqual(result.players[0].balance, 0)
+        XCTAssertEqual(result.players[0].creditCardDebt, 1800)
+    }
+
+    func testDeclareBankruptcyClearsCreditCardDebt() throws {
+        let player = Player(name: "Ana", balance: 10, creditCardDebt: 500)
+        let state = GameState(players: [player], properties: [])
+
+        let result = try GameRules.declareBankruptcy(in: state, playerID: player.id, creditor: .bank)
+
+        XCTAssertEqual(result.players[0].creditCardDebt, 0)
+    }
+
     func testExecuteTradeExchangesPropertyForMoney() throws {
         let property = Property(
             name: "Ana's Property",
@@ -841,7 +935,9 @@ final class NetworkingTests: XCTestCase {
                 propertyID: propertyID,
                 bids: [AuctionBid(playerID: playerID, amount: 100)]
             ),
-            .transferMoney(payerID: playerID, recipientID: otherPlayerID, amount: 50)
+            .transferMoney(payerID: playerID, recipientID: otherPlayerID, amount: 50),
+            .borrowOnCreditCard(playerID: playerID, amount: 300),
+            .payCreditCard(playerID: playerID, amount: 100)
         ]
 
         for intent in intents {
@@ -855,8 +951,9 @@ final class NetworkingTests: XCTestCase {
         let playerID = UUID()
         let propertyID = UUID()
         let state = GameState(
-            players: [Player(id: playerID, name: "Ana", balance: 100)],
+            players: [Player(id: playerID, name: "Ana", balance: 100, creditCardDebt: 220)],
             properties: [Property(id: propertyID, name: "Property", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10)],
+            activeHouseRules: [.creditCards],
             proximityPaymentsEnabled: true
         )
         let messages: [NetworkMessage] = [
@@ -867,6 +964,7 @@ final class NetworkingTests: XCTestCase {
             .stateSnapshot(state),
             .intentRejected(.insufficientFunds(playerID: playerID, required: 200, available: 100)),
             .intentRejected(.transferParticipantsMustDiffer),
+            .intentRejected(.creditLimitExceeded(requested: 600, available: 500)),
             .proximitySignal(ProximitySignal(
                 sessionID: UUID(),
                 kind: .invite,

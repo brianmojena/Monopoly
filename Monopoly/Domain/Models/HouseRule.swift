@@ -6,4 +6,5 @@ enum HouseRule: String, Codable, CaseIterable, Equatable, Hashable {
     case noAuction
     case randomHomeBonus
     case customStartingBalance
+    case creditCards
 }
