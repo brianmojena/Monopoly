@@ -613,6 +613,59 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(result.players[0].balance, 400)
     }
 
+    func testTransferMoneyMovesAmountBetweenPlayers() throws {
+        let payer = Player(name: "Ana", balance: 300)
+        let recipient = Player(name: "Luis", balance: 100)
+        let state = GameState(players: [payer, recipient], properties: [])
+
+        let result = try GameRules.transferMoney(in: state, from: payer.id, to: recipient.id, amount: 50)
+
+        XCTAssertEqual(result.players[0].balance, 250)
+        XCTAssertEqual(result.players[1].balance, 150)
+    }
+
+    func testTransferMoneyFailsWhenBalanceIsInsufficient() {
+        let payer = Player(name: "Ana", balance: 49)
+        let recipient = Player(name: "Luis", balance: 100)
+        let state = GameState(players: [payer, recipient], properties: [])
+
+        XCTAssertThrowsError(try GameRules.transferMoney(in: state, from: payer.id, to: recipient.id, amount: 50)) { error in
+            XCTAssertEqual(
+                error as? GameRuleError,
+                .insufficientFunds(playerID: payer.id, required: 50, available: 49)
+            )
+        }
+    }
+
+    func testTransferMoneyFailsForNonPositiveAmount() {
+        let payer = Player(name: "Ana", balance: 100)
+        let recipient = Player(name: "Luis", balance: 100)
+        let state = GameState(players: [payer, recipient], properties: [])
+
+        XCTAssertThrowsError(try GameRules.transferMoney(in: state, from: payer.id, to: recipient.id, amount: 0)) { error in
+            XCTAssertEqual(error as? GameRuleError, .invalidAmount(0))
+        }
+    }
+
+    func testTransferMoneyFailsWhenPayingYourself() {
+        let payer = Player(name: "Ana", balance: 100)
+        let state = GameState(players: [payer], properties: [])
+
+        XCTAssertThrowsError(try GameRules.transferMoney(in: state, from: payer.id, to: payer.id, amount: 10)) { error in
+            XCTAssertEqual(error as? GameRuleError, .transferParticipantsMustDiffer)
+        }
+    }
+
+    func testTransferMoneyFailsWhenRecipientIsBankrupt() {
+        let payer = Player(name: "Ana", balance: 100)
+        let recipient = Player(name: "Luis", balance: 0, status: .bankrupt)
+        let state = GameState(players: [payer, recipient], properties: [])
+
+        XCTAssertThrowsError(try GameRules.transferMoney(in: state, from: payer.id, to: recipient.id, amount: 10)) { error in
+            XCTAssertEqual(error as? GameRuleError, .playerIsBankrupt(recipient.id))
+        }
+    }
+
     func testExecuteTradeExchangesPropertyForMoney() throws {
         let property = Property(
             name: "Ana's Property",
@@ -787,7 +840,8 @@ final class NetworkingTests: XCTestCase {
             .resolveAuction(
                 propertyID: propertyID,
                 bids: [AuctionBid(playerID: playerID, amount: 100)]
-            )
+            ),
+            .transferMoney(payerID: playerID, recipientID: otherPlayerID, amount: 50)
         ]
 
         for intent in intents {
@@ -802,7 +856,8 @@ final class NetworkingTests: XCTestCase {
         let propertyID = UUID()
         let state = GameState(
             players: [Player(id: playerID, name: "Ana", balance: 100)],
-            properties: [Property(id: propertyID, name: "Property", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10)]
+            properties: [Property(id: propertyID, name: "Property", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10)],
+            proximityPaymentsEnabled: true
         )
         let messages: [NetworkMessage] = [
             .intent(
@@ -810,7 +865,15 @@ final class NetworkingTests: XCTestCase {
                 intent: .buyProperty(playerID: playerID, propertyID: propertyID)
             ),
             .stateSnapshot(state),
-            .intentRejected(.insufficientFunds(playerID: playerID, required: 200, available: 100))
+            .intentRejected(.insufficientFunds(playerID: playerID, required: 200, available: 100)),
+            .intentRejected(.transferParticipantsMustDiffer),
+            .proximitySignal(ProximitySignal(
+                sessionID: UUID(),
+                kind: .invite,
+                senderPlayerID: playerID,
+                recipientPlayerID: UUID(),
+                discoveryToken: Data([0x01, 0x02])
+            ))
         ]
 
         for message in messages {
@@ -919,6 +982,86 @@ final class NetworkingTests: XCTestCase {
         XCTAssertEqual(host.gameState?.players[0].balance, 100)
         XCTAssertEqual(client.gameState?.players[0].balance, 100)
         XCTAssertEqual(client.gameState?.properties[0].ownerID, player.id)
+    }
+}
+
+extension NetworkingTests {
+    func testGameSessionHostAppliesTransferAsTheSubmittingPlayer() throws {
+        let payer = Player(name: "Ana", balance: 200)
+        let recipient = Player(name: "Luis", balance: 100)
+        let initialState = GameState(players: [payer, recipient], properties: [])
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: initialState)
+        let client = GameSession(
+            transport: clientTransport,
+            role: .client,
+            initialState: initialState,
+            hostPeerID: hostTransport.localPeerID
+        )
+        hostTransport.connect(to: clientTransport)
+
+        try client.submit(
+            intent: .transferMoney(payerID: recipient.id, recipientID: recipient.id, amount: 75),
+            playerID: payer.id
+        )
+
+        XCTAssertEqual(host.gameState?.players[0].balance, 125)
+        XCTAssertEqual(host.gameState?.players[1].balance, 175)
+    }
+
+    func testGameSessionHostRelaysProximitySignalBetweenClients() throws {
+        let initialState = GameState(players: [], properties: [], proximityPaymentsEnabled: true)
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let payerTransport = InMemoryGameTransport(peerID: PeerID("payer"))
+        let receiverTransport = InMemoryGameTransport(peerID: PeerID("receiver"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: initialState)
+        let payer = GameSession(transport: payerTransport, role: .client, hostPeerID: hostTransport.localPeerID)
+        let receiver = GameSession(transport: receiverTransport, role: .client, hostPeerID: hostTransport.localPeerID)
+        hostTransport.connect(to: payerTransport)
+        hostTransport.connect(to: receiverTransport)
+        var hostSignals: [ProximitySignal] = []
+        var receiverSignals: [ProximitySignal] = []
+        host.onProximitySignal = { hostSignals.append($0) }
+        receiver.onProximitySignal = { receiverSignals.append($0) }
+        let signal = ProximitySignal(
+            sessionID: UUID(),
+            kind: .invite,
+            senderPlayerID: UUID(),
+            recipientPlayerID: UUID(),
+            discoveryToken: Data([0xAB])
+        )
+
+        try payer.sendProximitySignal(signal)
+
+        XCTAssertEqual(hostSignals, [signal])
+        XCTAssertEqual(receiverSignals, [signal])
+        XCTAssertEqual(host.gameState, initialState)
+    }
+
+    func testGameSessionHostBroadcastsItsOwnProximitySignal() throws {
+        let initialState = GameState(players: [], properties: [], proximityPaymentsEnabled: true)
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: initialState)
+        let client = GameSession(transport: clientTransport, role: .client, hostPeerID: hostTransport.localPeerID)
+        hostTransport.connect(to: clientTransport)
+        var clientSignals: [ProximitySignal] = []
+        client.onProximitySignal = { clientSignals.append($0) }
+        let signal = ProximitySignal(
+            sessionID: UUID(),
+            kind: .cancel,
+            senderPlayerID: UUID(),
+            recipientPlayerID: UUID()
+        )
+
+        try host.sendProximitySignal(signal)
+
+        XCTAssertEqual(clientSignals, [signal])
+    }
+
+    func testGameStateDisablesProximityPaymentsByDefault() {
+        XCTAssertFalse(GameState(players: [], properties: []).proximityPaymentsEnabled)
     }
 }
 

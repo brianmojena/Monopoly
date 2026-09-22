@@ -66,6 +66,7 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 - **Salir de la Cárcel**: pagando una fianza fija, usando una carta "Salir de la cárcel gratis", o sacando dobles (gestión física de dados).
 - **Salida (Go)**: al pasar o caer en la casilla de Salida, el jugador cobra el monto de salario definido.
 - **Suerte / Caja de Comunidad**: las cartas se manejan físicamente; cuando una carta tiene efecto monetario, el jugador reporta a la app para aplicar el efecto (cobrar/pagar).
+- **Pago libre entre jugadores**: para efectos que obligan a pagar a otro jugador (ej. cartas "paga $50 a cada jugador"), un jugador puede transferir un monto positivo a otro jugador activo. Falla si el monto no es positivo, si no tiene saldo suficiente, si se paga a sí mismo o si alguno de los dos está en bancarrota.
 
 ## 6. Bancarrota
 

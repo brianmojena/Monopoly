@@ -178,6 +178,43 @@ enum GameRules {
 
         var updatedState = state
         updatedState.players[playerIndex].balance += amount
+
+        return updatedState
+    }
+
+    static func transferMoney(
+        in state: GameState,
+        from payerID: UUID,
+        to recipientID: UUID,
+        amount: Int
+    ) throws -> GameState {
+        guard payerID != recipientID else {
+            throw GameRuleError.transferParticipantsMustDiffer
+        }
+        guard let payerIndex = state.players.firstIndex(where: { $0.id == payerID }) else {
+            throw GameRuleError.playerNotFound(payerID)
+        }
+        guard let recipientIndex = state.players.firstIndex(where: { $0.id == recipientID }) else {
+            throw GameRuleError.playerNotFound(recipientID)
+        }
+        try requireActivePlayer(in: state, playerID: payerID)
+        try requireActivePlayer(in: state, playerID: recipientID)
+        guard amount > 0 else {
+            throw GameRuleError.invalidAmount(amount)
+        }
+
+        let payer = state.players[payerIndex]
+        guard payer.balance >= amount else {
+            throw GameRuleError.insufficientFunds(
+                playerID: payerID,
+                required: amount,
+                available: payer.balance
+            )
+        }
+
+        var updatedState = state
+        updatedState.players[payerIndex].balance -= amount
+        updatedState.players[recipientIndex].balance += amount
         return updatedState
     }
 

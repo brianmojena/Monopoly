@@ -23,6 +23,12 @@ struct GameBoardView: View {
                             }
 
                             NavigationLink {
+                                TransferView(model: model)
+                            } label: {
+                                Label("Pagar a un jugador", systemImage: "arrow.right.circle")
+                            }
+
+                            NavigationLink {
                                 TradeView(model: model)
                             } label: {
                                 Label("Proponer intercambio", systemImage: "arrow.left.arrow.right")
@@ -98,6 +104,7 @@ struct GameBoardView: View {
                 }
             }
         }
+        .proximityReceiverBanner(model: model)
     }
 
     @ViewBuilder

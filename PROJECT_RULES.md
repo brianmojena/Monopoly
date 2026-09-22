@@ -19,6 +19,7 @@ Este documento define **cómo se construye** este proyecto: alcance técnico, ar
 
 - **Plataforma**: iOS nativo, Swift + SwiftUI. Se parte del proyecto Xcode ya presente en el repo (`Monopoly.xcodeproj` / carpeta `Monopoly/`).
 - **Conectividad multi-dispositivo**: red local, sin servidor externo ni cuentas en la nube. Usar el framework **MultipeerConnectivity** de Apple (descubrimiento vía Bluetooth/Wi-Fi local, sin necesidad de internet). Esto evita depender de infraestructura de backend y funciona bien para una partida presencial alrededor de una mesa.
+- **Pagos por proximidad (opcional)**: iOS no permite NFC entre dos iPhone (Core NFC solo lee etiquetas y la emulación de tarjeta requiere un acuerdo comercial con Apple). Como alternativa, Brian aprobó usar **NearbyInteraction (UWB)** para "pagar acercando iPhones": los tokens de descubrimiento se intercambian por la misma sesión MultipeerConnectivity (el host reenvía las señales entre clientes) y la proximidad solo identifica al jugador que cobra; el pago en sí sigue siendo un `GameIntent` validado por el host. Se activa por partida desde la configuración del host y está **desactivado por defecto**; los botones de pago normales siempre siguen disponibles. Requiere iPhone 11 o posterior (excepto SE) en ambos jugadores.
 - **Modelo de red**: host-autoritativo. El host mantiene el estado canónico de la partida (`GameState`); los clientes envían **intenciones** (ej. "quiero pagar renta de $200 a Juan"), el host las valida y aplica, y retransmite el nuevo estado a todos los peers.
 - **Persistencia**: el estado de la partida vive en memoria durante el juego; se debe considerar guardado local (ej. `Codable` + archivo o `SwiftData`) para poder recuperar una partida si la app se cierra por error, al menos en el dispositivo host.
 - **Sin backend en la nube** en esta fase del proyecto. No usar Firebase, CloudKit u otro servicio remoto salvo que se decida explícitamente más adelante y se actualice este documento.
@@ -43,7 +44,7 @@ La lógica de reglas del juego (ver `GAME_RULES.md`) debe vivir en una capa de d
 - Después de cada entrega de Codex, la revisión debe verificar:
   - Fidelidad a las reglas del juego (`GAME_RULES.md`).
   - Que la lógica de dominio esté separada de la UI.
-  - Que no se introduzcan dependencias de red/nube fuera de MultipeerConnectivity sin aprobación explícita de Brian.
+  - Que no se introduzcan dependencias de red/nube fuera de MultipeerConnectivity (y NearbyInteraction para los pagos por proximidad) sin aprobación explícita de Brian.
   - Que el código compile y, cuando existan, los tests pasen.
 
 ## 6. Convenciones de código

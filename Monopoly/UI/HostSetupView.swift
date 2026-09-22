@@ -3,6 +3,7 @@ import SwiftUI
 struct HostSetupView: View {
     @State private var playerNames = ["Jugador 1"]
     @State private var hostPlayerIndex = 0
+    @State private var proximityPaymentsEnabled = false
     @State private var gameModel: GameSessionModel?
     @State private var isGameStarted = false
 
@@ -55,6 +56,16 @@ struct HostSetupView: View {
             }
 
             Section {
+                Toggle(isOn: $proximityPaymentsEnabled) {
+                    Label("Pagar acercando iPhones", systemImage: "wave.3.right")
+                }
+            } header: {
+                Text("Pagos")
+            } footer: {
+                Text("Opcional. Los pagos normales siguen disponibles; esto añade la opción de pagar acercando tu iPhone al de otro jugador (UWB, iPhone 11 o posterior, excepto SE).")
+            }
+
+            Section {
                 Button("Iniciar partida") {
                     startGame()
                 }
@@ -101,7 +112,11 @@ struct HostSetupView: View {
                 balance: GameSessionModel.placeholderInitialBalance
             )
         }
-        let initialState = GameState(players: players, properties: PlaceholderProperties.all)
+        let initialState = GameState(
+            players: players,
+            properties: PlaceholderProperties.all,
+            proximityPaymentsEnabled: proximityPaymentsEnabled
+        )
         let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
         let session = GameSession(transport: transport, role: .host, initialState: initialState)
         gameModel = GameSessionModel(

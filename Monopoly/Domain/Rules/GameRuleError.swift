@@ -26,6 +26,7 @@ enum GameRuleError: Error, Equatable, Codable {
     case invalidBid
     case tradeParticipantsMustDiffer
     case duplicateTradeProperty(UUID)
+    case transferParticipantsMustDiffer
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -65,6 +66,7 @@ enum GameRuleError: Error, Equatable, Codable {
         case invalidBid
         case tradeParticipantsMustDiffer
         case duplicateTradeProperty
+        case transferParticipantsMustDiffer
     }
 
     init(from decoder: Decoder) throws {
@@ -132,6 +134,8 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .tradeParticipantsMustDiffer
         case .duplicateTradeProperty:
             self = .duplicateTradeProperty(try container.decode(UUID.self, forKey: .propertyID))
+        case .transferParticipantsMustDiffer:
+            self = .transferParticipantsMustDiffer
         }
     }
 
@@ -215,6 +219,8 @@ enum GameRuleError: Error, Equatable, Codable {
         case let .duplicateTradeProperty(propertyID):
             try container.encode(Code.duplicateTradeProperty, forKey: .code)
             try container.encode(propertyID, forKey: .propertyID)
+        case .transferParticipantsMustDiffer:
+            try container.encode(Code.transferParticipantsMustDiffer, forKey: .code)
         }
     }
 }

@@ -16,7 +16,13 @@ final class GameSessionModel: ObservableObject {
     @Published private(set) var alertMessage: String?
     @Published private(set) var localPlayerID: UUID?
 
+    let proximity = ProximityPaymentCoordinator()
+
     private let session: GameSession
+
+    var isProximityPaymentEnabled: Bool {
+        gameState?.proximityPaymentsEnabled == true
+    }
 
     init(session: GameSession, role: Role, localPlayerID: UUID? = nil) {
         self.session = session
@@ -38,6 +44,17 @@ final class GameSessionModel: ObservableObject {
             DispatchQueue.main.async {
                 self?.alertMessage = "Error de conexión: \(error.localizedDescription)"
             }
+        }
+        session.onProximitySignal = { [weak self] signal in
+            DispatchQueue.main.async {
+                guard let self, self.isProximityPaymentEnabled else {
+                    return
+                }
+                self.proximity.handle(signal, localPlayerID: self.localPlayerID)
+            }
+        }
+        proximity.sendSignal = { [weak self] signal in
+            self?.sendProximitySignal(signal)
         }
     }
 
@@ -126,6 +143,15 @@ final class GameSessionModel: ObservableObject {
         send(.collectSalary(playerID: localPlayerID, amount: amount))
     }
 
+    func transfer(to recipientID: UUID, amount: Int) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de pagar a otro jugador."
+            return
+        }
+
+        send(.transferMoney(payerID: localPlayerID, recipientID: recipientID, amount: amount))
+    }
+
     func executeTrade(offer: TradeOffer) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de proponer un intercambio."
@@ -176,6 +202,14 @@ final class GameSessionModel: ObservableObject {
             }
         } catch {
             alertMessage = "No se pudo enviar la acción: \(error.localizedDescription)"
+        }
+    }
+
+    private func sendProximitySignal(_ signal: ProximitySignal) {
+        do {
+            try session.sendProximitySignal(signal)
+        } catch {
+            alertMessage = "No se pudo contactar al otro iPhone: \(error.localizedDescription)"
         }
     }
 

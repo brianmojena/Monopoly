@@ -13,6 +13,7 @@ enum GameIntent: Codable, Equatable {
     case unmortgageProperty(propertyID: UUID, playerID: UUID)
     case declareBankruptcy(playerID: UUID, creditor: DebtCreditor)
     case executeTrade(offer: TradeOffer)
+    case transferMoney(payerID: UUID, recipientID: UUID, amount: Int)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -23,6 +24,7 @@ enum GameIntent: Codable, Equatable {
         case bids
         case creditor
         case offer
+        case recipientID
     }
 
     private enum IntentType: String, Codable {
@@ -38,6 +40,7 @@ enum GameIntent: Codable, Equatable {
         case unmortgageProperty
         case declareBankruptcy
         case executeTrade
+        case transferMoney
     }
 
     init(from decoder: Decoder) throws {
@@ -102,6 +105,12 @@ enum GameIntent: Codable, Equatable {
             )
         case .executeTrade:
             self = .executeTrade(offer: try container.decode(TradeOffer.self, forKey: .offer))
+        case .transferMoney:
+            self = .transferMoney(
+                payerID: try container.decode(UUID.self, forKey: .payerID),
+                recipientID: try container.decode(UUID.self, forKey: .recipientID),
+                amount: try container.decode(Int.self, forKey: .amount)
+            )
         }
     }
 
@@ -156,6 +165,11 @@ enum GameIntent: Codable, Equatable {
         case let .executeTrade(offer):
             try container.encode(IntentType.executeTrade, forKey: .type)
             try container.encode(offer, forKey: .offer)
+        case let .transferMoney(payerID, recipientID, amount):
+            try container.encode(IntentType.transferMoney, forKey: .type)
+            try container.encode(payerID, forKey: .payerID)
+            try container.encode(recipientID, forKey: .recipientID)
+            try container.encode(amount, forKey: .amount)
         }
     }
 }

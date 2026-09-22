@@ -38,6 +38,7 @@ Cualquier prompt que se le dé a Codex debe asumir que quien lo lee no tiene mem
 - iOS nativo con SwiftUI, sobre el proyecto Xcode ya existente.
 - Conectividad por red local (MultipeerConnectivity), sin backend en la nube.
 - Un dispositivo host actúa como banca/fuente de verdad; los demás son clientes.
+- Pagos "acercando iPhones" como opción desactivada por defecto, implementados con NearbyInteraction (UWB) porque iOS no permite NFC entre iPhones (ver `PROJECT_RULES.md` sección 3).
 - Se soportan reglas oficiales de Ultimate Banking por defecto, más un set de house rules opcionales configurables por partida (ver sección 8 de `GAME_RULES.md`).
 
 ## Pendientes conocidos

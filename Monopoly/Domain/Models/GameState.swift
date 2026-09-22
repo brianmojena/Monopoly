@@ -5,16 +5,19 @@ struct GameState: Codable, Equatable {
     var properties: [Property]
     var currentPlayerID: UUID?
     var activeHouseRules: Set<HouseRule>
+    var proximityPaymentsEnabled: Bool
 
     init(
         players: [Player],
         properties: [Property],
         currentPlayerID: UUID? = nil,
-        activeHouseRules: Set<HouseRule> = []
+        activeHouseRules: Set<HouseRule> = [],
+        proximityPaymentsEnabled: Bool = false
     ) {
         self.players = players
         self.properties = properties
         self.currentPlayerID = currentPlayerID
         self.activeHouseRules = activeHouseRules
+        self.proximityPaymentsEnabled = proximityPaymentsEnabled
     }
 }

@@ -3,6 +3,7 @@ import SwiftUI
 struct PropertyDetailView: View {
     let propertyID: UUID
     @ObservedObject var model: GameSessionModel
+    @State private var proximityPayment: ProximityPayment?
 
     var body: some View {
         Group {
@@ -46,6 +47,14 @@ struct PropertyDetailView: View {
                                     model.payRent(propertyID: property.id)
                                 }
                                 .buttonStyle(.borderedProminent)
+
+                                if model.isProximityPaymentEnabled {
+                                    Button {
+                                        proximityPayment = .rent(propertyID: property.id)
+                                    } label: {
+                                        Label("Pagar renta acercando iPhones", systemImage: "wave.3.right")
+                                    }
+                                }
                             }
                         } else {
                             ownPropertyActions(for: property)
@@ -73,6 +82,10 @@ struct PropertyDetailView: View {
         } message: {
             Text(model.alertMessage ?? "Inténtalo de nuevo.")
         }
+        .sheet(item: $proximityPayment) { payment in
+            ProximityPaymentView(payment: payment, model: model)
+        }
+        .proximityReceiverBanner(model: model)
     }
 
     @ViewBuilder
