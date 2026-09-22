@@ -769,3 +769,207 @@ final class GameRulesTests: XCTestCase {
         XCTAssertTrue(result.properties[1].isMortgaged)
     }
 }
+
+final class NetworkingTests: XCTestCase {
+    func testGameIntentRoundTripsThroughCodable() throws {
+        let playerID = UUID()
+        let propertyID = UUID()
+        let otherPlayerID = UUID()
+        let offer = TradeOffer(
+            fromPlayerID: playerID,
+            toPlayerID: otherPlayerID,
+            offeredPropertyIDs: [propertyID],
+            requestedMoney: 40
+        )
+        let intents: [GameIntent] = [
+            .buyProperty(playerID: playerID, propertyID: propertyID),
+            .executeTrade(offer: offer),
+            .resolveAuction(
+                propertyID: propertyID,
+                bids: [AuctionBid(playerID: playerID, amount: 100)]
+            )
+        ]
+
+        for intent in intents {
+            let data = try JSONEncoder().encode(intent)
+            let decoded = try JSONDecoder().decode(GameIntent.self, from: data)
+            XCTAssertEqual(decoded, intent)
+        }
+    }
+
+    func testNetworkMessageVariantsRoundTripThroughCodable() throws {
+        let playerID = UUID()
+        let propertyID = UUID()
+        let state = GameState(
+            players: [Player(id: playerID, name: "Ana", balance: 100)],
+            properties: [Property(id: propertyID, name: "Property", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10)]
+        )
+        let messages: [NetworkMessage] = [
+            .intent(
+                playerID: playerID,
+                intent: .buyProperty(playerID: playerID, propertyID: propertyID)
+            ),
+            .stateSnapshot(state),
+            .intentRejected(.insufficientFunds(playerID: playerID, required: 200, available: 100))
+        ]
+
+        for message in messages {
+            let data = try JSONEncoder().encode(message)
+            let decoded = try JSONDecoder().decode(NetworkMessage.self, from: data)
+            XCTAssertEqual(decoded, message)
+        }
+    }
+
+    func testGameSessionHostAppliesValidIntentAndBroadcastsSnapshot() throws {
+        let player = Player(name: "Ana", balance: 200)
+        let property = Property(name: "Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10)
+        let initialState = GameState(players: [player], properties: [property])
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let receivingTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: initialState)
+        hostTransport.connect(to: receivingTransport)
+
+        let intent = NetworkMessage.intent(
+            playerID: player.id,
+            intent: .buyProperty(playerID: player.id, propertyID: property.id)
+        )
+        hostTransport.inject(try JSONEncoder().encode(intent), from: receivingTransport.localPeerID)
+
+        XCTAssertEqual(host.gameState?.players[0].balance, 100)
+        XCTAssertEqual(host.gameState?.properties[0].ownerID, player.id)
+        XCTAssertEqual(hostTransport.broadcastMessages.count, 1)
+    }
+
+    func testGameSessionHostRejectsInvalidIntentWithoutMutationOrBroadcast() throws {
+        let owner = Player(name: "Luis", balance: 200)
+        let requester = Player(name: "Ana", balance: 200)
+        let property = Property(
+            name: "Property",
+            colorGroup: .brown,
+            purchasePrice: 100,
+            mortgageValue: 50,
+            baseRent: 10,
+            ownerID: owner.id
+        )
+        let initialState = GameState(players: [requester, owner], properties: [property])
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: initialState)
+        let client = GameSession(
+            transport: clientTransport,
+            role: .client,
+            initialState: initialState,
+            hostPeerID: hostTransport.localPeerID
+        )
+        var rejection: GameRuleError?
+        client.onIntentRejected = { rejection = $0 }
+        hostTransport.connect(to: clientTransport)
+
+        try client.submit(
+            intent: .buyProperty(playerID: requester.id, propertyID: property.id),
+            playerID: requester.id
+        )
+
+        XCTAssertEqual(rejection, .propertyAlreadyOwned(propertyID: property.id, ownerID: owner.id))
+        XCTAssertEqual(host.gameState, initialState)
+        XCTAssertEqual(hostTransport.broadcastMessages.count, 0)
+    }
+
+    func testGameSessionClientReplacesLocalStateFromSnapshot() throws {
+        let player = Player(name: "Ana", balance: 100)
+        let property = Property(name: "Property", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10)
+        let initialState = GameState(players: [player], properties: [property])
+        var updatedState = initialState
+        updatedState.players[0].balance = 40
+        updatedState.properties[0].ownerID = player.id
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let client = GameSession(
+            transport: clientTransport,
+            role: .client,
+            initialState: initialState,
+            hostPeerID: PeerID("host")
+        )
+
+        let snapshot = try JSONEncoder().encode(NetworkMessage.stateSnapshot(updatedState))
+        clientTransport.inject(snapshot, from: PeerID("host"))
+
+        XCTAssertEqual(client.gameState, updatedState)
+    }
+
+    func testGameSessionRoundTripUpdatesClientAfterIntent() throws {
+        let player = Player(name: "Ana", balance: 200)
+        let property = Property(name: "Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10)
+        let initialState = GameState(players: [player], properties: [property])
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: initialState)
+        let client = GameSession(
+            transport: clientTransport,
+            role: .client,
+            initialState: initialState,
+            hostPeerID: hostTransport.localPeerID
+        )
+        hostTransport.connect(to: clientTransport)
+
+        try client.submit(
+            intent: .buyProperty(playerID: player.id, propertyID: property.id),
+            playerID: player.id
+        )
+
+        XCTAssertEqual(host.gameState?.players[0].balance, 100)
+        XCTAssertEqual(client.gameState?.players[0].balance, 100)
+        XCTAssertEqual(client.gameState?.properties[0].ownerID, player.id)
+    }
+}
+
+private final class InMemoryGameTransport: GameTransport {
+    let localPeerID: PeerID
+
+    var onDataReceived: ((Data, PeerID) -> Void)?
+    var onPeerConnected: ((PeerID) -> Void)?
+    var onPeerDisconnected: ((PeerID) -> Void)?
+
+    private var peers: [PeerID: InMemoryGameTransport] = [:]
+    private(set) var sentMessages: [(data: Data, peerID: PeerID)] = []
+    private(set) var broadcastMessages: [Data] = []
+
+    init(peerID: PeerID) {
+        self.localPeerID = peerID
+    }
+
+    func connect(to other: InMemoryGameTransport) {
+        peers[other.localPeerID] = other
+        other.peers[localPeerID] = self
+        onPeerConnected?(other.localPeerID)
+        other.onPeerConnected?(localPeerID)
+    }
+
+    func send(data: Data, to peer: PeerID) throws {
+        guard let destination = peers[peer] else {
+            throw GameTransportError.peerNotConnected(peer)
+        }
+
+        sentMessages.append((data: data, peerID: peer))
+        destination.onDataReceived?(data, localPeerID)
+    }
+
+    func broadcast(data: Data) throws {
+        broadcastMessages.append(data)
+        for destination in peers.values {
+            destination.onDataReceived?(data, localPeerID)
+        }
+    }
+
+    func startHosting() {
+    }
+
+    func startBrowsing() {
+    }
+
+    func stop() {
+    }
+
+    func inject(_ data: Data, from peerID: PeerID) {
+        onDataReceived?(data, peerID)
+    }
+}

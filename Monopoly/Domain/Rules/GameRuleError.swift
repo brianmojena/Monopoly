@@ -1,6 +1,6 @@
 import Foundation
 
-enum GameRuleError: Error, Equatable {
+enum GameRuleError: Error, Equatable, Codable {
     case playerNotFound(UUID)
     case propertyNotFound(UUID)
     case insufficientFunds(playerID: UUID, required: Int, available: Int)
@@ -26,4 +26,195 @@ enum GameRuleError: Error, Equatable {
     case invalidBid
     case tradeParticipantsMustDiffer
     case duplicateTradeProperty(UUID)
+
+    private enum CodingKeys: String, CodingKey {
+        case code
+        case playerID
+        case propertyID
+        case ownerID
+        case required
+        case available
+        case colorGroup
+        case amount
+        case creditorID
+    }
+
+    private enum Code: String, Codable {
+        case playerNotFound
+        case propertyNotFound
+        case insufficientFunds
+        case propertyAlreadyOwned
+        case propertyNotOwnedByPlayer
+        case propertyHasNoOwner
+        case propertyHasNoBuildings
+        case propertyHasBuildings
+        case propertyIsMortgaged
+        case propertyAlreadyMortgaged
+        case propertyIsNotMortgaged
+        case playerDoesNotOwnMonopoly
+        case propertyHasMaximumHouses
+        case propertyMustHaveFourHouses
+        case propertyAlreadyHasHotel
+        case violatesUniformConstruction
+        case invalidRentTable
+        case playerIsBankrupt
+        case invalidDebtAmount
+        case invalidBankruptcyCreditor
+        case invalidAmount
+        case auctionsDisabled
+        case invalidBid
+        case tradeParticipantsMustDiffer
+        case duplicateTradeProperty
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let code = try container.decode(Code.self, forKey: .code)
+
+        switch code {
+        case .playerNotFound:
+            self = .playerNotFound(try container.decode(UUID.self, forKey: .playerID))
+        case .propertyNotFound:
+            self = .propertyNotFound(try container.decode(UUID.self, forKey: .propertyID))
+        case .insufficientFunds:
+            self = .insufficientFunds(
+                playerID: try container.decode(UUID.self, forKey: .playerID),
+                required: try container.decode(Int.self, forKey: .required),
+                available: try container.decode(Int.self, forKey: .available)
+            )
+        case .propertyAlreadyOwned:
+            self = .propertyAlreadyOwned(
+                propertyID: try container.decode(UUID.self, forKey: .propertyID),
+                ownerID: try container.decode(UUID.self, forKey: .ownerID)
+            )
+        case .propertyNotOwnedByPlayer:
+            self = .propertyNotOwnedByPlayer(
+                propertyID: try container.decode(UUID.self, forKey: .propertyID),
+                playerID: try container.decode(UUID.self, forKey: .playerID)
+            )
+        case .propertyHasNoOwner:
+            self = .propertyHasNoOwner(try container.decode(UUID.self, forKey: .propertyID))
+        case .propertyHasNoBuildings:
+            self = .propertyHasNoBuildings(try container.decode(UUID.self, forKey: .propertyID))
+        case .propertyHasBuildings:
+            self = .propertyHasBuildings(try container.decode(UUID.self, forKey: .propertyID))
+        case .propertyIsMortgaged:
+            self = .propertyIsMortgaged(try container.decode(UUID.self, forKey: .propertyID))
+        case .propertyAlreadyMortgaged:
+            self = .propertyAlreadyMortgaged(try container.decode(UUID.self, forKey: .propertyID))
+        case .propertyIsNotMortgaged:
+            self = .propertyIsNotMortgaged(try container.decode(UUID.self, forKey: .propertyID))
+        case .playerDoesNotOwnMonopoly:
+            self = .playerDoesNotOwnMonopoly(try container.decode(ColorGroup.self, forKey: .colorGroup))
+        case .propertyHasMaximumHouses:
+            self = .propertyHasMaximumHouses(try container.decode(UUID.self, forKey: .propertyID))
+        case .propertyMustHaveFourHouses:
+            self = .propertyMustHaveFourHouses(try container.decode(UUID.self, forKey: .propertyID))
+        case .propertyAlreadyHasHotel:
+            self = .propertyAlreadyHasHotel(try container.decode(UUID.self, forKey: .propertyID))
+        case .violatesUniformConstruction:
+            self = .violatesUniformConstruction(try container.decode(UUID.self, forKey: .propertyID))
+        case .invalidRentTable:
+            self = .invalidRentTable(try container.decode(UUID.self, forKey: .propertyID))
+        case .playerIsBankrupt:
+            self = .playerIsBankrupt(try container.decode(UUID.self, forKey: .playerID))
+        case .invalidDebtAmount:
+            self = .invalidDebtAmount(try container.decode(Int.self, forKey: .amount))
+        case .invalidBankruptcyCreditor:
+            self = .invalidBankruptcyCreditor(try container.decode(UUID.self, forKey: .creditorID))
+        case .invalidAmount:
+            self = .invalidAmount(try container.decode(Int.self, forKey: .amount))
+        case .auctionsDisabled:
+            self = .auctionsDisabled
+        case .invalidBid:
+            self = .invalidBid
+        case .tradeParticipantsMustDiffer:
+            self = .tradeParticipantsMustDiffer
+        case .duplicateTradeProperty:
+            self = .duplicateTradeProperty(try container.decode(UUID.self, forKey: .propertyID))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        switch self {
+        case let .playerNotFound(playerID):
+            try container.encode(Code.playerNotFound, forKey: .code)
+            try container.encode(playerID, forKey: .playerID)
+        case let .propertyNotFound(propertyID):
+            try container.encode(Code.propertyNotFound, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .insufficientFunds(playerID, required, available):
+            try container.encode(Code.insufficientFunds, forKey: .code)
+            try container.encode(playerID, forKey: .playerID)
+            try container.encode(required, forKey: .required)
+            try container.encode(available, forKey: .available)
+        case let .propertyAlreadyOwned(propertyID, ownerID):
+            try container.encode(Code.propertyAlreadyOwned, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+            try container.encode(ownerID, forKey: .ownerID)
+        case let .propertyNotOwnedByPlayer(propertyID, playerID):
+            try container.encode(Code.propertyNotOwnedByPlayer, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+            try container.encode(playerID, forKey: .playerID)
+        case let .propertyHasNoOwner(propertyID):
+            try container.encode(Code.propertyHasNoOwner, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .propertyHasNoBuildings(propertyID):
+            try container.encode(Code.propertyHasNoBuildings, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .propertyHasBuildings(propertyID):
+            try container.encode(Code.propertyHasBuildings, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .propertyIsMortgaged(propertyID):
+            try container.encode(Code.propertyIsMortgaged, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .propertyAlreadyMortgaged(propertyID):
+            try container.encode(Code.propertyAlreadyMortgaged, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .propertyIsNotMortgaged(propertyID):
+            try container.encode(Code.propertyIsNotMortgaged, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .playerDoesNotOwnMonopoly(colorGroup):
+            try container.encode(Code.playerDoesNotOwnMonopoly, forKey: .code)
+            try container.encode(colorGroup, forKey: .colorGroup)
+        case let .propertyHasMaximumHouses(propertyID):
+            try container.encode(Code.propertyHasMaximumHouses, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .propertyMustHaveFourHouses(propertyID):
+            try container.encode(Code.propertyMustHaveFourHouses, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .propertyAlreadyHasHotel(propertyID):
+            try container.encode(Code.propertyAlreadyHasHotel, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .violatesUniformConstruction(propertyID):
+            try container.encode(Code.violatesUniformConstruction, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .invalidRentTable(propertyID):
+            try container.encode(Code.invalidRentTable, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        case let .playerIsBankrupt(playerID):
+            try container.encode(Code.playerIsBankrupt, forKey: .code)
+            try container.encode(playerID, forKey: .playerID)
+        case let .invalidDebtAmount(amount):
+            try container.encode(Code.invalidDebtAmount, forKey: .code)
+            try container.encode(amount, forKey: .amount)
+        case let .invalidBankruptcyCreditor(creditorID):
+            try container.encode(Code.invalidBankruptcyCreditor, forKey: .code)
+            try container.encode(creditorID, forKey: .creditorID)
+        case let .invalidAmount(amount):
+            try container.encode(Code.invalidAmount, forKey: .code)
+            try container.encode(amount, forKey: .amount)
+        case .auctionsDisabled:
+            try container.encode(Code.auctionsDisabled, forKey: .code)
+        case .invalidBid:
+            try container.encode(Code.invalidBid, forKey: .code)
+        case .tradeParticipantsMustDiffer:
+            try container.encode(Code.tradeParticipantsMustDiffer, forKey: .code)
+        case let .duplicateTradeProperty(propertyID):
+            try container.encode(Code.duplicateTradeProperty, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+        }
+    }
 }
