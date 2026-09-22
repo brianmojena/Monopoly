@@ -38,6 +38,61 @@ enum GameRules {
         return updatedState
     }
 
+    static func resolveAuction(
+        in state: GameState,
+        propertyID: UUID,
+        bids: [AuctionBid]
+    ) throws -> GameState {
+        guard !state.activeHouseRules.contains(.noAuction) else {
+            throw GameRuleError.auctionsDisabled
+        }
+        guard let propertyIndex = state.properties.firstIndex(where: { $0.id == propertyID }) else {
+            throw GameRuleError.propertyNotFound(propertyID)
+        }
+
+        let property = state.properties[propertyIndex]
+        guard property.ownerID == nil else {
+            throw GameRuleError.propertyAlreadyOwned(
+                propertyID: propertyID,
+                ownerID: property.ownerID!
+            )
+        }
+
+        var highestBid = 0
+        var winningBid: AuctionBid?
+
+        for bid in bids {
+            try requireActivePlayer(in: state, playerID: bid.playerID)
+            guard bid.amount > highestBid else {
+                throw GameRuleError.invalidBid
+            }
+            highestBid = bid.amount
+            winningBid = bid
+        }
+
+        guard let winningBid else {
+            return state
+        }
+
+        guard let winnerIndex = state.players.firstIndex(where: { $0.id == winningBid.playerID }) else {
+            throw GameRuleError.playerNotFound(winningBid.playerID)
+        }
+        let winner = state.players[winnerIndex]
+        guard winner.balance >= winningBid.amount else {
+            throw GameRuleError.insufficientFunds(
+                playerID: winningBid.playerID,
+                required: winningBid.amount,
+                available: winner.balance
+            )
+        }
+
+        var updatedState = state
+        updatedState.players[winnerIndex].balance -= winningBid.amount
+        updatedState.players[winnerIndex].propertyIDs.append(propertyID)
+        updatedState.properties[propertyIndex].ownerID = winningBid.playerID
+        return updatedState
+    }
+
     static func collectRent(
         in state: GameState,
         from payerID: UUID,

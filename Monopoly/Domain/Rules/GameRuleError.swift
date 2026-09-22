@@ -22,6 +22,8 @@ enum GameRuleError: Error, Equatable {
     case invalidDebtAmount(Int)
     case invalidBankruptcyCreditor(UUID)
     case invalidAmount(Int)
+    case auctionsDisabled
+    case invalidBid
     case tradeParticipantsMustDiffer
     case duplicateTradeProperty(UUID)
 }

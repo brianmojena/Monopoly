@@ -38,6 +38,161 @@ final class GameRulesTests: XCTestCase {
         }
     }
 
+    func testResolveAuctionWithSingleBidTransfersBidAmountAndOwnership() throws {
+        let bidder = Player(name: "Ana", balance: 200)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10)
+        let state = GameState(players: [bidder], properties: [property])
+
+        let result = try GameRules.resolveAuction(
+            in: state,
+            propertyID: property.id,
+            bids: [AuctionBid(playerID: bidder.id, amount: 75)]
+        )
+
+        XCTAssertEqual(result.players[0].balance, 125)
+        XCTAssertEqual(result.players[0].propertyIDs, [property.id])
+        XCTAssertEqual(result.properties[0].ownerID, bidder.id)
+    }
+
+    func testResolveAuctionWithIncreasingBidsChargesHighestBidNotListingPrice() throws {
+        let firstBidder = Player(name: "Ana", balance: 200)
+        let secondBidder = Player(name: "Luis", balance: 200)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10)
+        let state = GameState(players: [firstBidder, secondBidder], properties: [property])
+
+        let result = try GameRules.resolveAuction(
+            in: state,
+            propertyID: property.id,
+            bids: [
+                AuctionBid(playerID: firstBidder.id, amount: 40),
+                AuctionBid(playerID: secondBidder.id, amount: 125)
+            ]
+        )
+
+        XCTAssertEqual(result.players[0].balance, 200)
+        XCTAssertEqual(result.players[1].balance, 75)
+        XCTAssertEqual(result.players[1].propertyIDs, [property.id])
+        XCTAssertEqual(result.properties[0].ownerID, secondBidder.id)
+    }
+
+    func testResolveAuctionWithNoBidsLeavesStateUnchanged() throws {
+        let bidder = Player(name: "Ana", balance: 200)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10)
+        let state = GameState(players: [bidder], properties: [property])
+
+        let result = try GameRules.resolveAuction(in: state, propertyID: property.id, bids: [])
+
+        XCTAssertEqual(result, state)
+        XCTAssertNil(result.properties[0].ownerID)
+    }
+
+    func testResolveAuctionFailsAtomicallyWhenBidDoesNotIncrease() {
+        let firstBidder = Player(name: "Ana", balance: 200)
+        let secondBidder = Player(name: "Luis", balance: 200)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10)
+        let state = GameState(players: [firstBidder, secondBidder], properties: [property])
+
+        XCTAssertThrowsError(
+            try GameRules.resolveAuction(
+                in: state,
+                propertyID: property.id,
+                bids: [
+                    AuctionBid(playerID: firstBidder.id, amount: 100),
+                    AuctionBid(playerID: secondBidder.id, amount: 80)
+                ]
+            )
+        ) { error in
+            XCTAssertEqual(error as? GameRuleError, .invalidBid)
+        }
+        XCTAssertEqual(state, GameState(players: [firstBidder, secondBidder], properties: [property]))
+    }
+
+    func testResolveAuctionFailsWhenWinnerCannotCoverBid() {
+        let bidder = Player(name: "Ana", balance: 99)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 50, mortgageValue: 25, baseRent: 10)
+        let state = GameState(players: [bidder], properties: [property])
+
+        XCTAssertThrowsError(
+            try GameRules.resolveAuction(
+                in: state,
+                propertyID: property.id,
+                bids: [AuctionBid(playerID: bidder.id, amount: 100)]
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? GameRuleError,
+                .insufficientFunds(playerID: bidder.id, required: 100, available: 99)
+            )
+        }
+        XCTAssertEqual(state, GameState(players: [bidder], properties: [property]))
+    }
+
+    func testResolveAuctionFailsWhenPropertyAlreadyHasOwner() {
+        let bidder = Player(name: "Ana", balance: 200)
+        let owner = Player(name: "Luis", balance: 200)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10, ownerID: owner.id)
+        let state = GameState(players: [bidder, owner], properties: [property])
+
+        XCTAssertThrowsError(
+            try GameRules.resolveAuction(
+                in: state,
+                propertyID: property.id,
+                bids: [AuctionBid(playerID: bidder.id, amount: 100)]
+            )
+        ) { error in
+            XCTAssertEqual(error as? GameRuleError, .propertyAlreadyOwned(propertyID: property.id, ownerID: owner.id))
+        }
+    }
+
+    func testResolveAuctionFailsWhenAuctionsAreDisabled() {
+        let bidder = Player(name: "Ana", balance: 200)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10)
+        let state = GameState(players: [bidder], properties: [property], activeHouseRules: [.noAuction])
+
+        XCTAssertThrowsError(
+            try GameRules.resolveAuction(
+                in: state,
+                propertyID: property.id,
+                bids: [AuctionBid(playerID: bidder.id, amount: 100)]
+            )
+        ) { error in
+            XCTAssertEqual(error as? GameRuleError, .auctionsDisabled)
+        }
+    }
+
+    func testResolveAuctionFailsWhenBidderIsBankrupt() {
+        let bidder = Player(name: "Ana", balance: 200, status: .bankrupt)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10)
+        let state = GameState(players: [bidder], properties: [property])
+
+        XCTAssertThrowsError(
+            try GameRules.resolveAuction(
+                in: state,
+                propertyID: property.id,
+                bids: [AuctionBid(playerID: bidder.id, amount: 100)]
+            )
+        ) { error in
+            XCTAssertEqual(error as? GameRuleError, .playerIsBankrupt(bidder.id))
+        }
+    }
+
+    func testPlayerWhoDeclinedPurchaseCanWinAuction() throws {
+        let playerWhoDeclined = Player(name: "Ana", balance: 200)
+        let otherPlayer = Player(name: "Luis", balance: 200)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10)
+        let state = GameState(players: [playerWhoDeclined, otherPlayer], properties: [property])
+
+        let result = try GameRules.resolveAuction(
+            in: state,
+            propertyID: property.id,
+            bids: [AuctionBid(playerID: otherPlayer.id, amount: 40), AuctionBid(playerID: playerWhoDeclined.id, amount: 60)]
+        )
+
+        XCTAssertEqual(result.properties[0].ownerID, playerWhoDeclined.id)
+        XCTAssertEqual(result.players[0].propertyIDs, [property.id])
+        XCTAssertEqual(result.players[0].balance, 140)
+    }
+
     func testCollectRentSuccessfullyTransfersBaseRent() throws {
         let payer = Player(name: "Ana", balance: 100)
         let owner = Player(name: "Luis", balance: 50)
