@@ -112,19 +112,12 @@ struct PropertyDetailView: View {
     }
 
     private func currentRent(for property: Property, in state: GameState) -> Int {
-        if property.constructionLevel == 0 {
-            let groupProperties = state.properties.filter { $0.colorGroup == property.colorGroup }
-            if let ownerID = property.ownerID {
-                let ownsMonopoly = groupProperties.count >= 2 && groupProperties.allSatisfy { $0.ownerID == ownerID }
-                return ownsMonopoly ? property.baseRent * 2 : property.baseRent
-            }
+        guard let ownerID = property.ownerID else {
             return property.baseRent
         }
-
-        guard property.rentByConstructionLevel.indices.contains(property.constructionLevel) else {
-            return property.baseRent
-        }
-        return property.rentByConstructionLevel[property.constructionLevel]
+        // Delegates to the domain's own rent calculation instead of keeping a
+        // second copy of the monopoly-double/per-level formula here.
+        return (try? GameRules.rentAmount(for: property, in: state, ownerID: ownerID)) ?? property.baseRent
     }
 
     private func constructionDescription(for property: Property) -> String {

@@ -513,7 +513,7 @@ enum GameRules {
         return updatedState
     }
 
-    private static func rentAmount(
+    static func rentAmount(
         for property: Property,
         in state: GameState,
         ownerID: UUID
