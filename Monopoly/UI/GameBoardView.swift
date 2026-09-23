@@ -532,26 +532,26 @@ struct GameBoardView: View {
                         .fill(Lux.hairline)
                         .frame(height: 1)
                 }
-                propertyRow(property, state: state)
+                propertyRow(property, number: index + 1, state: state)
             }
         }
     }
 
-    private func propertyRow(_ property: Property, state: GameState) -> some View {
+    /// `number` is the property's place in board order, to find it on the physical
+    /// board at a glance; the photo only shows in the detail.
+    private func propertyRow(_ property: Property, number: Int, state: GameState) -> some View {
         HStack(spacing: 12) {
             NavigationLink {
                 PropertyDetailView(propertyID: property.id, model: model)
             } label: {
                 HStack(spacing: 12) {
-                    PropertyPhotoView(property: property)
-                        .frame(width: 58, height: 40)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(alignment: .bottom) {
-                            Rectangle()
-                                .fill(property.colorGroup.swatch)
-                                .frame(height: 3)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    Text("\(number)")
+                        .font(.app(.headline, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(property.colorGroup.hasLightSwatch ? .black : .white)
+                        .frame(width: 40, height: 40)
+                        .background(property.colorGroup.swatch, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .accessibilityLabel("Propiedad \(number)")
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(property.name)

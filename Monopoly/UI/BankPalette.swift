@@ -42,6 +42,16 @@ extension ColorGroup {
             return Color(red: 0.1, green: 0.25, blue: 0.65)
         }
     }
+
+    /// Swatches bright enough to need dark text on top.
+    var hasLightSwatch: Bool {
+        switch self {
+        case .lightBlue, .orange, .yellow:
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 /// The game board's look: a dark exchange-style surface with a single gold accent,
