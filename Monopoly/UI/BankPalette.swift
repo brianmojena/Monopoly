@@ -44,21 +44,48 @@ extension ColorGroup {
     }
 }
 
-/// A rounded card surface used across the game board.
+/// The game board's look: a dark exchange-style surface with a single gold accent,
+/// shown the same whatever the system appearance.
+enum Lux {
+    static let background = Color(red: 0.043, green: 0.055, blue: 0.067)
+    static let surface = Color(red: 0.094, green: 0.102, blue: 0.125)
+    static let elevated = Color(red: 0.118, green: 0.137, blue: 0.161)
+    static let hairline = Color.white.opacity(0.07)
+    static let gold = Color(red: 0.941, green: 0.725, blue: 0.043)
+    static let champagne = Color(red: 0.843, green: 0.722, blue: 0.451)
+    static let textPrimary = Color(red: 0.918, green: 0.925, blue: 0.937)
+    static let textSecondary = Color(red: 0.518, green: 0.557, blue: 0.612)
+    static let up = Color(red: 0.055, green: 0.796, blue: 0.506)
+    static let down = Color(red: 0.965, green: 0.275, blue: 0.365)
+
+    static let goldGradient = LinearGradient(
+        colors: [champagne, gold, champagne],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+}
+
+/// A dark card surface used across the game board.
 struct BankCard<Content: View>: View {
     var title: String?
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             if let title {
-                Text(title)
-                    .font(.headline)
+                Text(title.uppercased())
+                    .font(.caption.weight(.semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(Lux.textSecondary)
             }
             content
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Lux.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Lux.hairline, lineWidth: 1)
+        }
     }
 }

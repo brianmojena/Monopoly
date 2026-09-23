@@ -7,7 +7,7 @@ struct GameBoardView: View {
     @State private var isShowingRules = false
     @State private var isConfirmingFreeParking = false
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
 
     var body: some View {
         Group {
@@ -15,7 +15,7 @@ struct GameBoardView: View {
                 FinalRankingView(state: state)
             } else if let state = model.gameState {
                 ScrollView {
-                    VStack(spacing: 20) {
+                    VStack(spacing: 18) {
                         if model.role == .client, !model.isHostConnected {
                             connectionBanner
                         }
@@ -26,12 +26,12 @@ struct GameBoardView: View {
                             pendingLifeCardBanner(pending)
                         }
 
-                        if let profile = model.localProfile {
-                            HappinessSection(model: model, profile: profile, isShowingRole: $isShowingRole)
-                        }
-
                         if isLocalPlayerActive(in: state) {
                             actionsGrid(state)
+                        }
+
+                        if let profile = model.localProfile {
+                            HappinessSection(model: model, profile: profile, isShowingRole: $isShowingRole)
                         }
 
                         playersCard(state)
@@ -42,14 +42,19 @@ struct GameBoardView: View {
                     .frame(maxWidth: 640)
                     .frame(maxWidth: .infinity)
                 }
-                .background(Color(.systemGroupedBackground).ignoresSafeArea())
+                .background(backdrop)
             } else {
                 ProgressView("Cargando partida…")
             }
         }
+        .foregroundStyle(Lux.textPrimary)
+        .tint(Lux.gold)
+        .preferredColorScheme(.dark)
         .navigationTitle("Partida")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Lux.background, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
 #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -126,63 +131,126 @@ struct GameBoardView: View {
         }
     }
 
+    private var backdrop: some View {
+        ZStack(alignment: .top) {
+            Lux.background
+
+            RadialGradient(
+                colors: [Lux.gold.opacity(0.10), .clear],
+                center: .top,
+                startRadius: 0,
+                endRadius: 360
+            )
+            .frame(height: 420)
+        }
+        .ignoresSafeArea()
+    }
+
     // MARK: Balance
 
     private func balanceCard(_ state: GameState) -> some View {
         let player = localPlayer(in: state)
 
-        return VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 8) {
-                chip(roundTitle(state), systemImage: "arrow.triangle.2.circlepath")
-                if model.isFreeParkingEnabled {
-                    chip("Bote \(currency(state.freeParkingPot))", systemImage: "parkingsign.circle.fill")
+        return VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("BANCA PRIVADA")
+                        .font(.caption2.weight(.bold))
+                        .tracking(2.4)
+                        .foregroundStyle(Lux.goldGradient)
+                    Text(player?.name ?? "Jugador")
+                        .font(.system(.title3, design: .serif, weight: .semibold))
                 }
                 Spacer()
                 playerSwitcher
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(player.map { "Saldo de \($0.name)" } ?? "Saldo")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.8))
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Saldo disponible")
+                    .font(.footnote)
+                    .foregroundStyle(Lux.textSecondary)
                 Text(currency(player?.balance ?? 0))
-                    .font(.system(size: 48, weight: .black, design: .rounded))
+                    .font(.system(size: 46, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                     .contentTransition(.numericText(value: Double(player?.balance ?? 0)))
                     .animation(.spring, value: player?.balance)
 
-                if let player, player.creditCardDebt > 0 {
-                    Label("Deuda de tarjeta: \(currency(player.creditCardDebt))", systemImage: "creditcard")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.boardGold)
-                }
-                if player?.status == .bankrupt {
-                    Label("En bancarrota", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white)
+                HStack(spacing: 8) {
+                    if let player, player.creditCardDebt > 0 {
+                        stat("Deuda", value: currency(player.creditCardDebt), color: Lux.down)
+                    }
+                    if player?.status == .bankrupt {
+                        stat("Estado", value: "Bancarrota", color: Lux.down)
+                    }
                 }
             }
 
-            boardStripe
+            HStack(spacing: 0) {
+                metric("Ronda", value: roundValue(state))
+                divider
+                metric("Propiedades", value: "\(player.map { $0.propertyIDs.count } ?? 0)")
+                if model.isFreeParkingEnabled {
+                    divider
+                    metric("Bote", value: currency(state.freeParkingPot), isGold: true)
+                }
+            }
+            .padding(.vertical, 12)
+            .background(Lux.elevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             turnControls
         }
-        .foregroundStyle(.white)
         .padding(20)
-        .background(
-            LinearGradient(
-                colors: [Color.bankGreen, Color.boardGreen],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 28, style: .continuous)
-        )
+        .background(Lux.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(.white.opacity(0.12), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [Lux.champagne.opacity(0.55), Lux.hairline, Lux.champagne.opacity(0.25)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         }
-        .shadow(color: Color.bankGreen.opacity(0.25), radius: 16, y: 8)
+        .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
+    }
+
+    private func metric(_ title: String, value: String, isGold: Bool = false) -> some View {
+        VStack(spacing: 3) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.semibold))
+                .tracking(1)
+                .foregroundStyle(Lux.textSecondary)
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(isGold ? Lux.gold : Lux.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Lux.hairline)
+            .frame(width: 1, height: 28)
+    }
+
+    private func stat(_ title: String, value: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Text(title)
+                .foregroundStyle(Lux.textSecondary)
+            Text(value)
+                .foregroundStyle(color)
+                .monospacedDigit()
+        }
+        .font(.caption.weight(.semibold))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.12), in: Capsule())
     }
 
     @ViewBuilder
@@ -202,11 +270,16 @@ struct GameBoardView: View {
                     }
                 }
             } label: {
-                Label("Cambiar", systemImage: "person.2.fill")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.white.opacity(0.18), in: Capsule())
+                HStack(spacing: 4) {
+                    Text("Cambiar")
+                    Image(systemName: "chevron.up.chevron.down")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Lux.textPrimary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Lux.elevated, in: Capsule())
+                .overlay(Capsule().stroke(Lux.hairline, lineWidth: 1))
             }
         }
     }
@@ -219,21 +292,27 @@ struct GameBoardView: View {
                     model.endTurn()
                 } label: {
                     HStack {
-                        Label("Es tu turno", systemImage: "person.fill.checkmark")
+                        Circle()
+                            .fill(Lux.up)
+                            .frame(width: 8, height: 8)
+                        Text("Es tu turno")
                         Spacer()
                         Text("Terminar turno")
-                        Image(systemName: "chevron.right")
+                        Image(systemName: "arrow.right")
                     }
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Color.bankGreen)
+                    .foregroundStyle(.black)
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 13)
-                    .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .padding(.vertical, 14)
+                    .background(Lux.goldGradient, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
             } else {
-                HStack {
-                    Label("Turno de \(currentPlayer.name)", systemImage: "hourglass")
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(Lux.textSecondary)
+                    Text("Turno de \(currentPlayer.name)")
                         .font(.subheadline.weight(.semibold))
                     Spacer()
                     if model.role == .host {
@@ -241,37 +320,15 @@ struct GameBoardView: View {
                             model.skipTurn()
                         }
                         .font(.caption.weight(.bold))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(.white.opacity(0.18), in: Capsule())
+                        .foregroundStyle(Lux.gold)
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .padding(.vertical, 13)
+                .background(Lux.elevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
         }
-    }
-
-    private var boardStripe: some View {
-        HStack(spacing: 4) {
-            ForEach(ColorGroup.allCases, id: \.self) { group in
-                Rectangle().fill(group.swatch)
-            }
-        }
-        .frame(height: 6)
-        .clipShape(Capsule())
-        .accessibilityHidden(true)
-    }
-
-    private func chip(_ text: String, systemImage: String) -> some View {
-        Label(text, systemImage: systemImage)
-            .font(.caption.weight(.semibold))
-            .lineLimit(1)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.white.opacity(0.14), in: Capsule())
     }
 
     // MARK: Actions
@@ -279,35 +336,24 @@ struct GameBoardView: View {
     private func actionsGrid(_ state: GameState) -> some View {
         let isMyTurn = model.isLocalPlayersTurn
 
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Acciones")
-                    .font(.title3.weight(.bold))
-                Spacer()
-                if !isMyTurn {
-                    Text("\(Image(systemName: "lock.fill")) solo en tu turno")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            LazyVGrid(columns: columns, spacing: 12) {
+        return BankCard(title: "Operaciones") {
+            LazyVGrid(columns: columns, spacing: 18) {
                 NavigationLink {
                     TransferView(model: model)
                 } label: {
-                    ActionTile(title: "Pagar", detail: "A un jugador", icon: "arrow.up.right", tint: .boardRed)
+                    ActionTile(title: "Pagar", icon: "arrow.up.right")
                 }
 
                 NavigationLink {
                     CollectWithQRView(model: model)
                 } label: {
-                    ActionTile(title: "Cobrar", detail: "Con QR", icon: "arrow.down.left", tint: .boardGreen)
+                    ActionTile(title: "Cobrar", icon: "arrow.down.left")
                 }
 
                 tileButton(isEnabled: isMyTurn) {
                     amountAction = .salary
                 } label: {
-                    ActionTile(title: "GO", detail: "Cobrar salario", icon: "flag.checkered", tint: .blue, isLocked: !isMyTurn)
+                    ActionTile(title: "GO", icon: "flag.checkered", isLocked: !isMyTurn)
                 }
 
                 if model.isFreeParkingEnabled {
@@ -315,12 +361,11 @@ struct GameBoardView: View {
                         isConfirmingFreeParking = true
                     } label: {
                         ActionTile(
-                            title: "Free Parking",
-                            detail: "Bote \(currency(state.freeParkingPot))",
+                            title: "Parking",
                             icon: "parkingsign",
-                            tint: .boardGold,
+                            detail: currency(state.freeParkingPot),
                             isLocked: !isMyTurn,
-                            isHighlighted: state.freeParkingPot > 0
+                            isFeatured: state.freeParkingPot > 0
                         )
                     }
                 }
@@ -329,58 +374,60 @@ struct GameBoardView: View {
                     tileButton(isEnabled: isMyTurn && model.localPendingLifeCard == nil) {
                         model.drawLifeCard()
                     } label: {
-                        ActionTile(title: "Sacar tarjeta", detail: "Tarjeta de Vida", icon: "rectangle.stack.fill", tint: .orange, isLocked: !isMyTurn)
+                        ActionTile(title: "Tarjeta", icon: "suit.spade.fill", isLocked: !isMyTurn)
                     }
                 }
 
                 tileButton(isEnabled: isMyTurn) {
                     amountAction = .tax
                 } label: {
-                    ActionTile(title: "Impuesto", detail: "Pagar al banco", icon: "building.columns.fill", tint: .brown, isLocked: !isMyTurn)
+                    ActionTile(title: "Impuesto", icon: "building.columns", isLocked: !isMyTurn)
                 }
 
                 tileButton(isEnabled: isMyTurn) {
                     amountAction = .travel
                 } label: {
-                    ActionTile(title: "Viajar", detail: "Desde $\(TravelRoute.sameSide.fare)", icon: "airplane", tint: .cyan, isLocked: !isMyTurn)
+                    ActionTile(title: "Viajar", icon: "airplane", isLocked: !isMyTurn)
                 }
 
                 NavigationLink {
                     PayWithQRView(model: model)
                 } label: {
-                    ActionTile(title: "Pagar QR", detail: "Escanear", icon: "qrcode.viewfinder", tint: .teal)
+                    ActionTile(title: "Escanear", icon: "qrcode.viewfinder")
                 }
 
                 NavigationLink {
                     MarketView(model: model)
                 } label: {
-                    ActionTile(
-                        title: "Mercado",
-                        detail: "Tratos",
-                        icon: "chart.line.uptrend.xyaxis",
-                        tint: .purple,
-                        badge: model.dealsAwaitingLocalPlayer.count
-                    )
+                    ActionTile(title: "Mercado", icon: "chart.line.uptrend.xyaxis", badge: model.dealsAwaitingLocalPlayer.count)
                 }
 
                 if model.areCreditCardsEnabled {
                     NavigationLink {
                         CreditCardView(model: model)
                     } label: {
-                        ActionTile(title: "Tarjeta", detail: "Crédito", icon: "creditcard.fill", tint: .indigo)
+                        ActionTile(title: "Crédito", icon: "creditcard")
                     }
                 }
             }
             .buttonStyle(.plain)
 
+            Rectangle()
+                .fill(Lux.hairline)
+                .frame(height: 1)
+
             NavigationLink {
                 BankruptcyView(model: model)
             } label: {
-                Label("Declararme en bancarrota", systemImage: "exclamationmark.triangle")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 4)
+                HStack {
+                    Image(systemName: "exclamationmark.triangle")
+                    Text("Declararme en bancarrota")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Lux.down.opacity(0.9))
             }
             .buttonStyle(.plain)
         }
@@ -393,7 +440,7 @@ struct GameBoardView: View {
     ) -> some View {
         Button(action: action, label: label)
             .disabled(!isEnabled)
-            .opacity(isEnabled ? 1 : 0.45)
+            .opacity(isEnabled ? 1 : 0.4)
     }
 
     private func pendingLifeCardBanner(_ pending: LifeCardDraw) -> some View {
@@ -401,16 +448,21 @@ struct GameBoardView: View {
             model.presentedLifeCard = pending
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "questionmark.circle.fill")
-                    .font(.title2)
+                Image(systemName: "suit.spade.fill")
+                    .foregroundStyle(Lux.gold)
                 Text("Tienes una Tarjeta de Vida por decidir")
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                 Spacer()
                 Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Lux.textSecondary)
             }
-            .foregroundStyle(.white)
             .padding(16)
-            .background(Color.orange.gradient, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(Lux.gold.opacity(0.1), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Lux.gold.opacity(0.5), lineWidth: 1)
+            }
         }
         .buttonStyle(.plain)
     }
@@ -418,12 +470,18 @@ struct GameBoardView: View {
     private var connectionBanner: some View {
         HStack(spacing: 12) {
             ProgressView()
+                .tint(Lux.gold)
             Text("Se perdió la conexión con el host. Esperando a que vuelva a abrir la partida…")
-                .font(.subheadline)
+                .font(.footnote)
+                .foregroundStyle(Lux.textSecondary)
         }
-        .padding(16)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.yellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(Lux.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Lux.gold.opacity(0.35), lineWidth: 1)
+        }
     }
 
     // MARK: Players and properties
@@ -432,66 +490,80 @@ struct GameBoardView: View {
         BankCard(title: "Jugadores") {
             ForEach(Array(state.players.enumerated()), id: \.element.id) { index, player in
                 if index > 0 {
-                    Divider()
+                    Rectangle()
+                        .fill(Lux.hairline)
+                        .frame(height: 1)
                 }
-                playerRow(player, state: state)
+                playerRow(player, rank: index + 1, state: state)
             }
         }
     }
 
-    private func playerRow(_ player: Player, state: GameState) -> some View {
+    private func playerRow(_ player: Player, rank: Int, state: GameState) -> some View {
         let isCurrent = player.id == state.currentPlayerID
 
         return HStack(spacing: 12) {
+            Text("\(rank)")
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(Lux.textSecondary)
+                .frame(width: 16)
+
             Text(String(player.name.prefix(1)).uppercased())
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(width: 38, height: 38)
-                .background(isCurrent ? Color.boardGold : Color.boardGreen, in: Circle())
+                .font(.system(.subheadline, design: .serif, weight: .bold))
+                .foregroundStyle(isCurrent ? .black : Lux.textPrimary)
+                .frame(width: 34, height: 34)
+                .background {
+                    if isCurrent {
+                        Circle().fill(Lux.goldGradient)
+                    } else {
+                        Circle().fill(Lux.elevated)
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(player.name)
-                        .font(.body.weight(.semibold))
+                        .font(.subheadline.weight(.semibold))
                         .strikethrough(player.status == .bankrupt)
-                    if isCurrent {
-                        Text("TURNO")
+                    if player.id == model.localPlayerID {
+                        Text("TÚ")
                             .font(.caption2.weight(.heavy))
-                            .foregroundStyle(Color.boardGold)
+                            .foregroundStyle(Lux.gold)
                     }
                 }
-                if player.id == model.localPlayerID {
-                    Text("Este dispositivo")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if player.status == .bankrupt {
-                    Text("Bancarrota")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-                if player.creditCardDebt > 0 {
-                    Text("Deuda de tarjeta: \(currency(player.creditCardDebt))")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
+                Text(playerDetail(player, isCurrent: isCurrent))
+                    .font(.caption)
+                    .foregroundStyle(player.status == .bankrupt || player.creditCardDebt > 0 ? Lux.down : Lux.textSecondary)
             }
 
             Spacer()
 
             Text(currency(player.balance))
-                .font(.body.weight(.bold))
+                .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
         }
-        .opacity(player.status == .bankrupt ? 0.6 : 1)
+        .opacity(player.status == .bankrupt ? 0.5 : 1)
         .accessibilityElement(children: .combine)
+    }
+
+    private func playerDetail(_ player: Player, isCurrent: Bool) -> String {
+        if player.status == .bankrupt {
+            return "Bancarrota"
+        }
+        if player.creditCardDebt > 0 {
+            return "Deuda \(currency(player.creditCardDebt))"
+        }
+        return isCurrent ? "En turno" : "\(player.propertyIDs.count) propiedades"
     }
 
     private func propertiesCard(_ state: GameState) -> some View {
         BankCard(title: "Propiedades") {
             ForEach(Array(state.properties.enumerated()), id: \.element.id) { index, property in
                 if index > 0 {
-                    Divider()
+                    Rectangle()
+                        .fill(Lux.hairline)
+                        .frame(height: 1)
                 }
                 propertyRow(property, state: state)
             }
@@ -504,40 +576,52 @@ struct GameBoardView: View {
                 PropertyDetailView(propertyID: property.id, model: model)
             } label: {
                 HStack(spacing: 12) {
-                    RoundedRectangle(cornerRadius: 3)
+                    Circle()
                         .fill(property.colorGroup.swatch)
-                        .frame(width: 6, height: 38)
+                        .frame(width: 8, height: 8)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(property.name)
                             .font(.subheadline.weight(.semibold))
                         Text(ownerName(for: property, state: state))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Lux.textSecondary)
                             .lineLimit(1)
                     }
 
                     Spacer()
 
-                    Text(currency(property.purchasePrice))
-                        .font(.subheadline.weight(.semibold))
-                        .monospacedDigit()
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.tertiary)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(currency(property.purchasePrice))
+                            .font(.subheadline.weight(.semibold))
+                            .monospacedDigit()
+                        if property.isMortgaged {
+                            Text("Hipotecada")
+                                .font(.caption2)
+                                .foregroundStyle(Lux.down)
+                        } else if property.constructionLevel > 0 {
+                            Text("Nivel \(property.constructionLevel)")
+                                .font(.caption2)
+                                .foregroundStyle(Lux.up)
+                        }
+                    }
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
             if property.ownerID == nil, isLocalPlayerActive(in: state), model.isLocalPlayersTurn {
-                Button("Comprar") {
+                Button {
                     model.buy(propertyID: property.id)
+                } label: {
+                    Text("Comprar")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Lux.gold, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.boardGreen)
-                .controlSize(.small)
+                .buttonStyle(.plain)
             }
         }
     }
@@ -548,11 +632,11 @@ struct GameBoardView: View {
         state.players.first(where: { $0.id == model.localPlayerID })
     }
 
-    private func roundTitle(_ state: GameState) -> String {
+    private func roundValue(_ state: GameState) -> String {
         guard let roundLimit = state.monopolife?.roundLimit else {
-            return "Ronda \(state.round)"
+            return "\(state.round)"
         }
-        return "Ronda \(state.round) de \(roundLimit)"
+        return "\(state.round)/\(roundLimit)"
     }
 
     private func ownerName(for property: Property, state: GameState) -> String {
@@ -573,65 +657,65 @@ struct GameBoardView: View {
     }
 }
 
+/// An exchange-style shortcut: a gold glyph on a dark tile with its name below.
 private struct ActionTile: View {
     let title: String
-    var detail: String?
     let icon: String
-    let tint: Color
+    var detail: String?
     var badge = 0
     var isLocked = false
-    var isHighlighted = false
+    var isFeatured = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                Image(systemName: icon)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 42, height: 42)
-                    .background(tint.gradient, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-
-                Spacer(minLength: 0)
-
-                if badge > 0 {
-                    Text("\(badge)")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(.red, in: Capsule())
-                } else if isLocked {
-                    Image(systemName: "lock.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+        VStack(spacing: 7) {
+            Image(systemName: icon)
+                .font(.system(size: 19, weight: .medium))
+                .foregroundStyle(isFeatured ? AnyShapeStyle(Color.black) : AnyShapeStyle(Lux.goldGradient))
+                .frame(width: 50, height: 50)
+                .background {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(isFeatured ? AnyShapeStyle(Lux.goldGradient) : AnyShapeStyle(Lux.elevated))
                 }
-            }
-
-            Spacer(minLength: 0)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.primary)
-                if let detail {
-                    Text(detail)
-                        .font(.caption2.weight(isHighlighted ? .bold : .regular))
-                        .foregroundStyle(isHighlighted ? tint : .secondary)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .stroke(Lux.hairline, lineWidth: 1)
                 }
+                .overlay(alignment: .topTrailing) {
+                    if badge > 0 {
+                        Text("\(badge)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 5)
+                            .frame(minWidth: 18, minHeight: 18)
+                            .background(Lux.gold, in: Capsule())
+                            .offset(x: 5, y: -5)
+                    } else if isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(Lux.textSecondary)
+                            .padding(4)
+                            .background(Lux.surface, in: Circle())
+                            .offset(x: 4, y: -4)
+                    }
+                }
+
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(Lux.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            if let detail {
+                Text(detail)
+                    .font(.caption2.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Lux.gold)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay {
-            if isHighlighted {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(tint.opacity(0.7), lineWidth: 2)
-            }
-        }
-        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
 }

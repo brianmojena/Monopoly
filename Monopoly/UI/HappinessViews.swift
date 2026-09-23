@@ -16,9 +16,10 @@ struct HappinessSection: View {
                     .background(profile.role.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 16))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Tu felicidad")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                    Text("TU FELICIDAD")
+                        .font(.caption2.weight(.semibold))
+                        .tracking(1.2)
+                        .foregroundStyle(Lux.textSecondary)
                     Text("\(profile.happiness) 😊")
                         .font(.system(.largeTitle, design: .rounded, weight: .black))
                         .contentTransition(.numericText(value: Double(profile.happiness)))
@@ -51,11 +52,11 @@ struct HappinessSection: View {
                 }
             }
             .buttonStyle(.bordered)
-            .tint(profile.role.color)
+            .tint(Lux.gold)
 
             Text("Tu rol y tu felicidad son secretos. Gana quien tenga más felicidad al terminar la última ronda.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Lux.textSecondary)
         }
     }
 }
