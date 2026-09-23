@@ -1,5 +1,30 @@
 import Foundation
 
+extension GameRuleError {
+    /// Errors that plausibly mean the game state moved on since a deal was proposed
+    /// (a balance dropped, shares changed hands, an investment's headroom was used
+    /// up elsewhere, a player went bankrupt) rather than the deal being malformed.
+    /// Used by `GameRules.acceptDeal` to decide whether a settle failure should
+    /// silently withdraw the deal or surface as a real error.
+    var isDealStaleness: Bool {
+        switch self {
+        case .insufficientFunds,
+             .notEnoughShares,
+             .propertyAlreadyOwned,
+             .propertyNotOwnedByPlayer,
+             .playerIsBankrupt,
+             .rentInvestmentPercentageExceeded,
+             .rentInvestmentNotFound,
+             .propertyIsMortgaged,
+             .propertyAlreadyMortgaged,
+             .propertyIsNotMortgaged:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 enum GameRuleError: Error, Equatable, Codable {
     case playerNotFound(UUID)
     case propertyNotFound(UUID)
@@ -7,16 +32,14 @@ enum GameRuleError: Error, Equatable, Codable {
     case propertyAlreadyOwned(propertyID: UUID, ownerID: UUID)
     case propertyNotOwnedByPlayer(propertyID: UUID, playerID: UUID)
     case propertyHasNoOwner(UUID)
-    case propertyHasNoBuildings(UUID)
-    case propertyHasBuildings(UUID)
+    case propertyAtMinimumLevel(UUID)
+    case propertyHasLevel(UUID)
     case propertyIsMortgaged(UUID)
     case propertyAlreadyMortgaged(UUID)
     case propertyIsNotMortgaged(UUID)
     case playerDoesNotOwnMonopoly(ColorGroup)
-    case propertyHasMaximumHouses(UUID)
-    case propertyMustHaveFourHouses(UUID)
-    case propertyAlreadyHasHotel(UUID)
-    case violatesUniformConstruction(UUID)
+    case propertyAtMaximumLevel(UUID)
+    case violatesUniformLevel(UUID)
     case invalidRentTable(UUID)
     case playerIsBankrupt(UUID)
     case invalidDebtAmount(Int)
@@ -37,6 +60,9 @@ enum GameRuleError: Error, Equatable, Codable {
     case invalidDeal
     case notEnoughShares(propertyID: UUID, playerID: UUID)
     case cannotAcceptOwnOffer
+    case invalidRentInvestmentPercentage(Int)
+    case rentInvestmentPercentageExceeded(propertyID: UUID, recipientID: UUID, requested: Int, available: Int)
+    case rentInvestmentNotFound(UUID)
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -52,6 +78,8 @@ enum GameRuleError: Error, Equatable, Codable {
         case installments
         case loanID
         case dealID
+        case recipientID
+        case investmentID
     }
 
     private enum Code: String, Codable {
@@ -61,16 +89,14 @@ enum GameRuleError: Error, Equatable, Codable {
         case propertyAlreadyOwned
         case propertyNotOwnedByPlayer
         case propertyHasNoOwner
-        case propertyHasNoBuildings
-        case propertyHasBuildings
+        case propertyAtMinimumLevel
+        case propertyHasLevel
         case propertyIsMortgaged
         case propertyAlreadyMortgaged
         case propertyIsNotMortgaged
         case playerDoesNotOwnMonopoly
-        case propertyHasMaximumHouses
-        case propertyMustHaveFourHouses
-        case propertyAlreadyHasHotel
-        case violatesUniformConstruction
+        case propertyAtMaximumLevel
+        case violatesUniformLevel
         case invalidRentTable
         case playerIsBankrupt
         case invalidDebtAmount
@@ -91,6 +117,9 @@ enum GameRuleError: Error, Equatable, Codable {
         case invalidDeal
         case notEnoughShares
         case cannotAcceptOwnOffer
+        case invalidRentInvestmentPercentage
+        case rentInvestmentPercentageExceeded
+        case rentInvestmentNotFound
     }
 
     init(from decoder: Decoder) throws {
@@ -120,10 +149,10 @@ enum GameRuleError: Error, Equatable, Codable {
             )
         case .propertyHasNoOwner:
             self = .propertyHasNoOwner(try container.decode(UUID.self, forKey: .propertyID))
-        case .propertyHasNoBuildings:
-            self = .propertyHasNoBuildings(try container.decode(UUID.self, forKey: .propertyID))
-        case .propertyHasBuildings:
-            self = .propertyHasBuildings(try container.decode(UUID.self, forKey: .propertyID))
+        case .propertyAtMinimumLevel:
+            self = .propertyAtMinimumLevel(try container.decode(UUID.self, forKey: .propertyID))
+        case .propertyHasLevel:
+            self = .propertyHasLevel(try container.decode(UUID.self, forKey: .propertyID))
         case .propertyIsMortgaged:
             self = .propertyIsMortgaged(try container.decode(UUID.self, forKey: .propertyID))
         case .propertyAlreadyMortgaged:
@@ -132,14 +161,10 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .propertyIsNotMortgaged(try container.decode(UUID.self, forKey: .propertyID))
         case .playerDoesNotOwnMonopoly:
             self = .playerDoesNotOwnMonopoly(try container.decode(ColorGroup.self, forKey: .colorGroup))
-        case .propertyHasMaximumHouses:
-            self = .propertyHasMaximumHouses(try container.decode(UUID.self, forKey: .propertyID))
-        case .propertyMustHaveFourHouses:
-            self = .propertyMustHaveFourHouses(try container.decode(UUID.self, forKey: .propertyID))
-        case .propertyAlreadyHasHotel:
-            self = .propertyAlreadyHasHotel(try container.decode(UUID.self, forKey: .propertyID))
-        case .violatesUniformConstruction:
-            self = .violatesUniformConstruction(try container.decode(UUID.self, forKey: .propertyID))
+        case .propertyAtMaximumLevel:
+            self = .propertyAtMaximumLevel(try container.decode(UUID.self, forKey: .propertyID))
+        case .violatesUniformLevel:
+            self = .violatesUniformLevel(try container.decode(UUID.self, forKey: .propertyID))
         case .invalidRentTable:
             self = .invalidRentTable(try container.decode(UUID.self, forKey: .propertyID))
         case .playerIsBankrupt:
@@ -186,6 +211,17 @@ enum GameRuleError: Error, Equatable, Codable {
             )
         case .cannotAcceptOwnOffer:
             self = .cannotAcceptOwnOffer
+        case .invalidRentInvestmentPercentage:
+            self = .invalidRentInvestmentPercentage(try container.decode(Int.self, forKey: .amount))
+        case .rentInvestmentPercentageExceeded:
+            self = .rentInvestmentPercentageExceeded(
+                propertyID: try container.decode(UUID.self, forKey: .propertyID),
+                recipientID: try container.decode(UUID.self, forKey: .recipientID),
+                requested: try container.decode(Int.self, forKey: .amount),
+                available: try container.decode(Int.self, forKey: .available)
+            )
+        case .rentInvestmentNotFound:
+            self = .rentInvestmentNotFound(try container.decode(UUID.self, forKey: .investmentID))
         }
     }
 
@@ -215,11 +251,11 @@ enum GameRuleError: Error, Equatable, Codable {
         case let .propertyHasNoOwner(propertyID):
             try container.encode(Code.propertyHasNoOwner, forKey: .code)
             try container.encode(propertyID, forKey: .propertyID)
-        case let .propertyHasNoBuildings(propertyID):
-            try container.encode(Code.propertyHasNoBuildings, forKey: .code)
+        case let .propertyAtMinimumLevel(propertyID):
+            try container.encode(Code.propertyAtMinimumLevel, forKey: .code)
             try container.encode(propertyID, forKey: .propertyID)
-        case let .propertyHasBuildings(propertyID):
-            try container.encode(Code.propertyHasBuildings, forKey: .code)
+        case let .propertyHasLevel(propertyID):
+            try container.encode(Code.propertyHasLevel, forKey: .code)
             try container.encode(propertyID, forKey: .propertyID)
         case let .propertyIsMortgaged(propertyID):
             try container.encode(Code.propertyIsMortgaged, forKey: .code)
@@ -233,17 +269,11 @@ enum GameRuleError: Error, Equatable, Codable {
         case let .playerDoesNotOwnMonopoly(colorGroup):
             try container.encode(Code.playerDoesNotOwnMonopoly, forKey: .code)
             try container.encode(colorGroup, forKey: .colorGroup)
-        case let .propertyHasMaximumHouses(propertyID):
-            try container.encode(Code.propertyHasMaximumHouses, forKey: .code)
+        case let .propertyAtMaximumLevel(propertyID):
+            try container.encode(Code.propertyAtMaximumLevel, forKey: .code)
             try container.encode(propertyID, forKey: .propertyID)
-        case let .propertyMustHaveFourHouses(propertyID):
-            try container.encode(Code.propertyMustHaveFourHouses, forKey: .code)
-            try container.encode(propertyID, forKey: .propertyID)
-        case let .propertyAlreadyHasHotel(propertyID):
-            try container.encode(Code.propertyAlreadyHasHotel, forKey: .code)
-            try container.encode(propertyID, forKey: .propertyID)
-        case let .violatesUniformConstruction(propertyID):
-            try container.encode(Code.violatesUniformConstruction, forKey: .code)
+        case let .violatesUniformLevel(propertyID):
+            try container.encode(Code.violatesUniformLevel, forKey: .code)
             try container.encode(propertyID, forKey: .propertyID)
         case let .invalidRentTable(propertyID):
             try container.encode(Code.invalidRentTable, forKey: .code)
@@ -300,6 +330,18 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(playerID, forKey: .playerID)
         case .cannotAcceptOwnOffer:
             try container.encode(Code.cannotAcceptOwnOffer, forKey: .code)
+        case let .invalidRentInvestmentPercentage(percentage):
+            try container.encode(Code.invalidRentInvestmentPercentage, forKey: .code)
+            try container.encode(percentage, forKey: .amount)
+        case let .rentInvestmentPercentageExceeded(propertyID, recipientID, requested, available):
+            try container.encode(Code.rentInvestmentPercentageExceeded, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+            try container.encode(recipientID, forKey: .recipientID)
+            try container.encode(requested, forKey: .amount)
+            try container.encode(available, forKey: .available)
+        case let .rentInvestmentNotFound(investmentID):
+            try container.encode(Code.rentInvestmentNotFound, forKey: .code)
+            try container.encode(investmentID, forKey: .investmentID)
         }
     }
 }

@@ -9,13 +9,17 @@ struct Property: Identifiable, Codable, Equatable {
     /// A property is split into 10 shares of 10% each.
     static let totalShares = 10
 
+    /// Percentage of the purchase price charged when reaching each level.
+    /// The array is indexed by `level - 1` and applies to every property.
+    static let levelUpCostPercentages = [50, 75, 100, 150, 200]
+    static let maximumLevel = levelUpCostPercentages.count
+
     let id: UUID
     var name: String
     var colorGroup: ColorGroup
     var purchasePrice: Int
     var mortgageValue: Int
     var baseRent: Int
-    var constructionCost: Int
     var rentByConstructionLevel: [Int]
     var constructionLevel: Int
     /// Shareholders in the order they acquired their first share; empty while the
@@ -67,7 +71,6 @@ struct Property: Identifiable, Codable, Equatable {
         purchasePrice: Int,
         mortgageValue: Int,
         baseRent: Int,
-        constructionCost: Int = 50,
         rentByConstructionLevel: [Int]? = nil,
         constructionLevel: Int = 0,
         ownerID: UUID? = nil,
@@ -80,7 +83,6 @@ struct Property: Identifiable, Codable, Equatable {
         self.purchasePrice = purchasePrice
         self.mortgageValue = mortgageValue
         self.baseRent = baseRent
-        self.constructionCost = constructionCost
         self.rentByConstructionLevel = rentByConstructionLevel ?? [
             baseRent,
             baseRent * 5,
@@ -94,5 +96,14 @@ struct Property: Identifiable, Codable, Equatable {
             ?? ownerID.map { [PropertyShare(playerID: $0, shares: Self.totalShares)] }
             ?? []
         self.isMortgaged = isMortgaged
+    }
+
+    /// Cost of reaching `level` from the previous level, rounded up.
+    static func levelUpCost(purchasePrice: Int, level: Int) -> Int {
+        guard level >= 1, level <= levelUpCostPercentages.count else {
+            return 0
+        }
+        let percentage = levelUpCostPercentages[level - 1]
+        return (purchasePrice * percentage + 99) / 100
     }
 }

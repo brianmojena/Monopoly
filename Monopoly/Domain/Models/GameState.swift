@@ -8,6 +8,7 @@ struct GameState: Codable, Equatable {
     var activeHouseRules: Set<HouseRule>
     var proximityPaymentsEnabled: Bool
     var marketDeals: [MarketDeal]
+    var rentInvestments: [RentInvestment]
 
     init(
         players: [Player],
@@ -16,7 +17,8 @@ struct GameState: Codable, Equatable {
         round: Int = 1,
         activeHouseRules: Set<HouseRule> = [],
         proximityPaymentsEnabled: Bool = false,
-        marketDeals: [MarketDeal] = []
+        marketDeals: [MarketDeal] = [],
+        rentInvestments: [RentInvestment] = []
     ) {
         self.players = players
         self.properties = properties
@@ -25,5 +27,41 @@ struct GameState: Codable, Equatable {
         self.activeHouseRules = activeHouseRules
         self.proximityPaymentsEnabled = proximityPaymentsEnabled
         self.marketDeals = marketDeals
+        self.rentInvestments = rentInvestments
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case players
+        case properties
+        case currentPlayerID
+        case round
+        case activeHouseRules
+        case proximityPaymentsEnabled
+        case marketDeals
+        case rentInvestments
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        players = try container.decode([Player].self, forKey: .players)
+        properties = try container.decode([Property].self, forKey: .properties)
+        currentPlayerID = try container.decodeIfPresent(UUID.self, forKey: .currentPlayerID)
+        round = try container.decode(Int.self, forKey: .round)
+        activeHouseRules = try container.decode(Set<HouseRule>.self, forKey: .activeHouseRules)
+        proximityPaymentsEnabled = try container.decode(Bool.self, forKey: .proximityPaymentsEnabled)
+        marketDeals = try container.decode([MarketDeal].self, forKey: .marketDeals)
+        rentInvestments = try container.decodeIfPresent([RentInvestment].self, forKey: .rentInvestments) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(players, forKey: .players)
+        try container.encode(properties, forKey: .properties)
+        try container.encodeIfPresent(currentPlayerID, forKey: .currentPlayerID)
+        try container.encode(round, forKey: .round)
+        try container.encode(activeHouseRules, forKey: .activeHouseRules)
+        try container.encode(proximityPaymentsEnabled, forKey: .proximityPaymentsEnabled)
+        try container.encode(marketDeals, forKey: .marketDeals)
+        try container.encode(rentInvestments, forKey: .rentInvestments)
     }
 }

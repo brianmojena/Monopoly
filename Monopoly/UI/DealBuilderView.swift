@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DealBuilderView: View {
-    enum Mode {
+    enum Mode: Equatable {
         case deal
         case openOffer
     }
@@ -11,6 +11,11 @@ struct DealBuilderView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var lines = [DraftTransfer()]
+    @State private var investmentEnabled = false
+    @State private var investmentRecipientID: UUID?
+    @State private var investmentPropertyID: UUID?
+    @State private var investmentAmountText = ""
+    @State private var investmentPercentage = 10
 
     var body: some View {
         Group {
@@ -20,6 +25,10 @@ struct DealBuilderView: View {
                         Text(introText)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                    }
+
+                    if case .deal = mode {
+                        investmentSection(state: state, localPlayerID: localPlayerID)
                     }
 
                     ForEach($lines) { $line in
@@ -39,7 +48,7 @@ struct DealBuilderView: View {
                             propose(localPlayerID: localPlayerID)
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(buildTransfers(localPlayerID: localPlayerID) == nil)
+                        .disabled(draftDeal(localPlayerID: localPlayerID) == nil)
                     } footer: {
                         Text(mode == .deal
                              ? "Se ejecuta cuando todos los jugadores del trato lo acepten. Tú lo aceptas al proponerlo."
@@ -115,6 +124,57 @@ struct DealBuilderView: View {
         }
     }
 
+    private func investmentSection(state: GameState, localPlayerID: UUID) -> some View {
+        Section {
+            Toggle("Incluir inversión de renta", isOn: $investmentEnabled)
+
+            if investmentEnabled {
+                Picker("Receptor", selection: $investmentRecipientID) {
+                    Text("Elige jugador").tag(UUID?.none)
+                    ForEach(state.players.filter { $0.status == .active && $0.id != localPlayerID }) { player in
+                        Text(player.name).tag(Optional(player.id))
+                    }
+                }
+
+                let properties = investmentProperties(state: state)
+                Picker("Propiedad", selection: $investmentPropertyID) {
+                    Text("Elige propiedad").tag(UUID?.none)
+                    ForEach(properties) { property in
+                        Text(property.name).tag(Optional(property.id))
+                    }
+                }
+
+                TextField("Pago único", text: $investmentAmountText)
+#if os(iOS)
+                    .keyboardType(.numberPad)
+#endif
+
+                Stepper(value: $investmentPercentage, in: 1...100) {
+                    Text("Parte de la renta: \(investmentPercentage)%")
+                }
+
+                if let property = properties.first(where: { $0.id == investmentPropertyID }) {
+                    Text(state.ownershipSummary(of: property))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text("El pago se añade automáticamente como parte del trato. La inversión dura hasta que ambos acuerden cancelarla.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Inversión")
+        }
+    }
+
+    private func investmentProperties(state: GameState) -> [Property] {
+        guard let recipientID = investmentRecipientID else {
+            return []
+        }
+        return state.properties.filter { $0.shares(of: recipientID) > 0 }
+    }
+
     @ViewBuilder
     private func sharesEditor(line binding: Binding<DraftTransfer>, state: GameState, localPlayerID: UUID) -> some View {
         let line = binding.wrappedValue
@@ -166,9 +226,12 @@ struct DealBuilderView: View {
         }
     }
 
-    private func buildTransfers(localPlayerID: UUID) -> [DealTransfer]? {
+    private func buildTransfers(localPlayerID: UUID, skippingEmptyLines: Bool = false) -> [DealTransfer]? {
         var transfers: [DealTransfer] = []
         for line in lines {
+            if skippingEmptyLines && line.isEmpty {
+                continue
+            }
             let asset: DealAsset
             if line.isMoney {
                 guard let amount = Int(line.amountText), amount > 0 else {
@@ -198,11 +261,50 @@ struct DealBuilderView: View {
         return transfers
     }
 
+    private func draftDeal(localPlayerID: UUID) -> MarketDeal? {
+        var transfers = buildTransfers(
+            localPlayerID: localPlayerID,
+            skippingEmptyLines: investmentEnabled
+        ) ?? []
+        var proposedInvestment: RentInvestment?
+
+        if investmentEnabled {
+            guard let recipientID = investmentRecipientID,
+                  recipientID != localPlayerID,
+                  let propertyID = investmentPropertyID,
+                  let amount = Int(investmentAmountText),
+                  amount > 0,
+                  (1...100).contains(investmentPercentage) else {
+                return nil
+            }
+            proposedInvestment = RentInvestment(
+                investorID: localPlayerID,
+                recipientID: recipientID,
+                propertyID: propertyID,
+                percentage: investmentPercentage
+            )
+            transfers.append(DealTransfer(
+                from: .player(localPlayerID),
+                to: .player(recipientID),
+                asset: .money(amount)
+            ))
+        }
+
+        guard !transfers.isEmpty else {
+            return nil
+        }
+        return MarketDeal(
+            proposerID: localPlayerID,
+            transfers: transfers,
+            proposedInvestment: proposedInvestment
+        )
+    }
+
     private func propose(localPlayerID: UUID) {
-        guard let transfers = buildTransfers(localPlayerID: localPlayerID) else {
+        guard let deal = draftDeal(localPlayerID: localPlayerID) else {
             return
         }
-        model.proposeDeal(MarketDeal(proposerID: localPlayerID, transfers: transfers))
+        model.proposeDeal(deal)
         dismiss()
     }
 }
@@ -216,4 +318,8 @@ private struct DraftTransfer: Identifiable {
     var amountText = ""
     var propertyID: UUID?
     var shareCount = 1
+
+    var isEmpty: Bool {
+        fromID == nil && toID == nil && amountText.isEmpty && propertyID == nil
+    }
 }

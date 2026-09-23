@@ -6,17 +6,27 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D31F5D200000000000000004 /* GameRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31F5D200000000000000001 /* GameRulesTests.swift */; };
+		D31F5D200000000000000005 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D31F5D200000000000000003 /* XCTest.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D31F5D200000000000000014 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D31F5D0430621A5500A3FF72 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D31F5D0B30621A5500A3FF72;
+			remoteInfo = Monopoly;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		D31F5D0C30621A5500A3FF72 /* Monopoly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Monopoly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D31F5D200000000000000001 /* GameRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameRulesTests.swift; sourceTree = "<group>"; };
 		D31F5D200000000000000002 /* MonopolyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MonopolyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D31F5D200000000000000003 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
-
-/* Begin PBXBuildFile section */
-		D31F5D200000000000000004 /* GameRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31F5D200000000000000001 /* GameRulesTests.swift */; };
-		D31F5D200000000000000005 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D31F5D200000000000000003 /* XCTest.framework */; };
-/* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D31F5D0E30621A5500A3FF72 /* Monopoly */ = {
@@ -32,15 +42,30 @@
 			files = (
 			);
 		};
+		D31F5D200000000000000009 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				D31F5D200000000000000005 /* XCTest.framework in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		D3027DA330633E560078DB81 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				D31F5D200000000000000003 /* XCTest.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		D31F5D0330621A5500A3FF72 = {
 			isa = PBXGroup;
 			children = (
 				D31F5D0E30621A5500A3FF72 /* Monopoly */,
 				D31F5D200000000000000006 /* MonopolyTests */,
 				D31F5D0D30621A5500A3FF72 /* Products */,
+				D3027DA330633E560078DB81 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -141,25 +166,12 @@
 			files = (
 			);
 		};
+		D31F5D20000000000000000A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXContainerItemProxy section */
-		D31F5D200000000000000014 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = D31F5D0430621A5500A3FF72 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D31F5D0B30621A5500A3FF72;
-			remoteInfo = Monopoly;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXTargetDependency section */
-		D31F5D200000000000000013 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D31F5D0B30621A5500A3FF72 /* Monopoly */;
-			targetProxy = D31F5D200000000000000014 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin PBXSourcesBuildPhase section */
 		D31F5D0830621A5500A3FF72 /* Sources */ = {
@@ -169,34 +181,19 @@
 		};
 		D31F5D200000000000000008 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				D31F5D200000000000000004 /* GameRulesTests.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXFrameworksBuildPhase section */
-		D31F5D200000000000000009 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D31F5D200000000000000005 /* XCTest.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
+/* Begin PBXTargetDependency section */
+		D31F5D200000000000000013 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D31F5D0B30621A5500A3FF72 /* Monopoly */;
+			targetProxy = D31F5D200000000000000014 /* PBXContainerItemProxy */;
 		};
-/* End PBXFrameworksBuildPhase section */
-
-/* Begin PBXResourcesBuildPhase section */
-		D31F5D20000000000000000A /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		D31F5D1530621A5700A3FF72 /* Debug configuration for PBXProject "Monopoly" */ = {
@@ -328,7 +325,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Monopoly-Info.plist;
+				INFOPLIST_FILE = "Monopoly-Info.plist";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -373,7 +370,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Monopoly-Info.plist;
+				INFOPLIST_FILE = "Monopoly-Info.plist";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

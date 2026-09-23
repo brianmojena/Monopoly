@@ -143,7 +143,25 @@ enum GameRules {
         var updatedState = state
         updatedState.players[payerIndex].balance -= amountDue
         for portion in portions {
-            credit(portion.amount, to: portion.playerID, in: &updatedState)
+            // `filter` preserves `state.rentInvestments`'s order, i.e. the order each
+            // investment was accepted in the Mercado (oldest first) — the same
+            // seniority tie-break GAME_RULES 4.7 already uses for shareholders, kept
+            // here so which investor's cut is computed (and rounded) first is a
+            // defined rule rather than incidental array order.
+            let investments = state.rentInvestments.filter {
+                $0.propertyID == propertyID && $0.recipientID == portion.playerID
+            }
+            // Clamped defensively: percentages are capped at 100% combined when an
+            // investment is proposed, but this guarantees the recipient is never
+            // left with a negative remainder even if that invariant is ever broken.
+            var remaining = portion.amount
+            for investment in investments {
+                let amount = min(portion.amount * investment.percentage / 100, remaining)
+                guard amount > 0 else { continue }
+                credit(amount, to: investment.investorID, in: &updatedState)
+                remaining -= amount
+            }
+            credit(remaining, to: portion.playerID, in: &updatedState)
         }
         return RentResult(state: updatedState, amount: amountDue)
     }
@@ -232,7 +250,15 @@ enum GameRules {
         let propertiesValue = state.properties
             .filter { !$0.isMortgaged }
             .reduce(0) { total, property in
-                let fullValue = property.purchasePrice + property.constructionLevel * property.constructionCost
+                let paidLevelCosts: Int
+                if property.constructionLevel > 0 {
+                    paidLevelCosts = (1...property.constructionLevel).reduce(0) { total, level in
+                        total + Property.levelUpCost(purchasePrice: property.purchasePrice, level: level)
+                    }
+                } else {
+                    paidLevelCosts = 0
+                }
+                let fullValue = property.purchasePrice + paidLevelCosts
                 return total + fullValue * property.shares(of: playerID) / Property.totalShares
             }
         return player.balance + propertiesValue - player.creditCardDebt
@@ -367,7 +393,7 @@ enum GameRules {
         return updatedState
     }
 
-    static func buildHouse(
+    static func levelUp(
         in state: GameState,
         propertyID: UUID,
         playerID: UUID
@@ -382,56 +408,21 @@ enum GameRules {
             throw GameRuleError.propertyIsMortgaged(propertyID)
         }
         try requireMonopoly(in: state, for: property, ownerID: playerID)
-        guard property.constructionLevel < 4 else {
-            if property.constructionLevel == 4 {
-                throw GameRuleError.propertyHasMaximumHouses(propertyID)
-            }
-            throw GameRuleError.propertyAlreadyHasHotel(propertyID)
+        guard property.constructionLevel < Property.maximumLevel else {
+            throw GameRuleError.propertyAtMaximumLevel(propertyID)
         }
 
         let targetLevel = property.constructionLevel + 1
-        try requireUniformConstruction(in: state, for: property, targetLevel: targetLevel)
+        try requireUniformLevel(in: state, for: property, targetLevel: targetLevel)
 
         var updatedState = state
-        try chargeShareholders(property.constructionCost, of: property, in: &updatedState)
+        let cost = Property.levelUpCost(purchasePrice: property.purchasePrice, level: targetLevel)
+        try chargeShareholders(cost, of: property, in: &updatedState)
         updatedState.properties[propertyIndex].constructionLevel = targetLevel
         return updatedState
     }
 
-    static func buildHotel(
-        in state: GameState,
-        propertyID: UUID,
-        playerID: UUID
-    ) throws -> GameState {
-        let (propertyIndex, property) = try buildingContext(
-            in: state,
-            propertyID: propertyID,
-            playerID: playerID
-        )
-
-        guard !property.isMortgaged else {
-            throw GameRuleError.propertyIsMortgaged(propertyID)
-        }
-        try requireMonopoly(in: state, for: property, ownerID: playerID)
-        guard property.constructionLevel == 4 else {
-            if property.constructionLevel == 5 {
-                throw GameRuleError.propertyAlreadyHasHotel(propertyID)
-            }
-            throw GameRuleError.propertyMustHaveFourHouses(propertyID)
-        }
-
-        let groupProperties = state.properties.filter { $0.colorGroup == property.colorGroup }
-        guard groupProperties.allSatisfy({ $0.constructionLevel == 4 }) else {
-            throw GameRuleError.propertyMustHaveFourHouses(propertyID)
-        }
-
-        var updatedState = state
-        try chargeShareholders(property.constructionCost, of: property, in: &updatedState)
-        updatedState.properties[propertyIndex].constructionLevel = 5
-        return updatedState
-    }
-
-    static func sellHouse(
+    static func levelDown(
         in state: GameState,
         propertyID: UUID,
         playerID: UUID
@@ -443,19 +434,21 @@ enum GameRules {
         )
 
         guard property.constructionLevel > 0 else {
-            throw GameRuleError.propertyHasNoBuildings(propertyID)
+            throw GameRuleError.propertyAtMinimumLevel(propertyID)
         }
 
         let targetLevel = property.constructionLevel - 1
-        try requireUniformConstructionAfterSelling(
+        try requireUniformLevelAfterSelling(
             in: state,
             for: property,
             targetLevel: targetLevel
         )
 
-        // A hotel is treated as one construction level for resale: level 5 becomes level 4,
-        // and the shareholders receive half of the hotel's construction cost.
-        let resaleValue = property.constructionCost / 2
+        let levelCost = Property.levelUpCost(
+            purchasePrice: property.purchasePrice,
+            level: property.constructionLevel
+        )
+        let resaleValue = levelCost / 2
         var updatedState = state
         payShareholders(resaleValue, of: property, in: &updatedState)
         updatedState.properties[propertyIndex].constructionLevel = targetLevel
@@ -480,7 +473,7 @@ enum GameRules {
             throw GameRuleError.propertyNotOwnedByPlayer(propertyID: propertyID, playerID: playerID)
         }
         guard property.constructionLevel == 0 else {
-            throw GameRuleError.propertyHasBuildings(propertyID)
+            throw GameRuleError.propertyHasLevel(propertyID)
         }
         guard !property.isMortgaged else {
             throw GameRuleError.propertyAlreadyMortgaged(propertyID)
@@ -598,6 +591,9 @@ enum GameRules {
             updatedState.players[creditorIndex].balance += bankruptBalance
         }
         updatedState.marketDeals.removeAll { $0.participantIDs.contains(playerID) }
+        updatedState.rentInvestments.removeAll {
+            $0.investorID == playerID || $0.recipientID == playerID
+        }
         reindexPropertyIDs(in: &updatedState)
 
         if updatedState.currentPlayerID == playerID {
@@ -691,7 +687,7 @@ enum GameRules {
         }
     }
 
-    private static func requireUniformConstruction(
+    private static func requireUniformLevel(
         in state: GameState,
         for property: Property,
         targetLevel: Int
@@ -701,11 +697,11 @@ enum GameRules {
             let level = $0.id == property.id ? targetLevel : $0.constructionLevel
             return abs(targetLevel - level) <= 1
         }) else {
-            throw GameRuleError.violatesUniformConstruction(property.id)
+            throw GameRuleError.violatesUniformLevel(property.id)
         }
     }
 
-    private static func requireUniformConstructionAfterSelling(
+    private static func requireUniformLevelAfterSelling(
         in state: GameState,
         for property: Property,
         targetLevel: Int
@@ -715,16 +711,15 @@ enum GameRules {
             $0.id == property.id ? targetLevel : $0.constructionLevel
         }
         guard let minimumLevel = levels.min(), let maximumLevel = levels.max(), maximumLevel - minimumLevel <= 1 else {
-            throw GameRuleError.violatesUniformConstruction(property.id)
+            throw GameRuleError.violatesUniformLevel(property.id)
         }
     }
 
     private static func constructionResaleValue(for property: Property) -> Int {
-        // Matches sellHouse: every construction level (houses and the hotel alike)
-        // resells for half of constructionCost, one level at a time, so fully
-        // liquidating a property is constructionLevel * constructionCost / 2.
         guard property.constructionLevel > 0 else { return 0 }
-        return property.constructionLevel * property.constructionCost / 2
+        return (1...property.constructionLevel).reduce(0) { total, level in
+            total + Property.levelUpCost(purchasePrice: property.purchasePrice, level: level) / 2
+        }
     }
 
     static func requireActivePlayer(in state: GameState, playerID: UUID) throws {

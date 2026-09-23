@@ -504,12 +504,10 @@ final class GameSession {
                 amount: amount,
                 postponedLoanIDs: postponedLoanIDs
             )
-        case let .buildHouse(propertyID, _):
-            return try GameRules.buildHouse(in: state, propertyID: propertyID, playerID: playerID)
-        case let .buildHotel(propertyID, _):
-            return try GameRules.buildHotel(in: state, propertyID: propertyID, playerID: playerID)
-        case let .sellHouse(propertyID, _):
-            return try GameRules.sellHouse(in: state, propertyID: propertyID, playerID: playerID)
+        case let .levelUp(propertyID, _):
+            return try GameRules.levelUp(in: state, propertyID: propertyID, playerID: playerID)
+        case let .levelDown(propertyID, _):
+            return try GameRules.levelDown(in: state, propertyID: propertyID, playerID: playerID)
         case let .mortgageProperty(propertyID, _):
             return try GameRules.mortgageProperty(in: state, propertyID: propertyID, playerID: playerID)
         case let .unmortgageProperty(propertyID, _):

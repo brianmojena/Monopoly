@@ -44,6 +44,10 @@ extension GameState {
         "\(partyName(transfer.from)) → \(partyName(transfer.to)): \(describe(transfer.asset))"
     }
 
+    func describe(_ investment: RentInvestment) -> String {
+        "\(playerName(investment.investorID)) invierte en \(propertyName(investment.propertyID)) de \(playerName(investment.recipientID)) por \(investment.percentage)% de su renta"
+    }
+
     func describe(_ purchase: SharedPurchase) -> [String] {
         let price = properties.first(where: { $0.id == purchase.propertyID })?.purchasePrice ?? 0
         let costs = GameRules.split(price, among: purchase.buyers)

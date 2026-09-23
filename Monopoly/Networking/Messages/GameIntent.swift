@@ -6,9 +6,8 @@ enum GameIntent: Codable, Equatable {
     case collectRent(payerID: UUID, propertyID: UUID)
     case payTax(playerID: UUID, amount: Int)
     case collectSalary(playerID: UUID, amount: Int, postponedLoanIDs: Set<UUID> = [])
-    case buildHouse(propertyID: UUID, playerID: UUID)
-    case buildHotel(propertyID: UUID, playerID: UUID)
-    case sellHouse(propertyID: UUID, playerID: UUID)
+    case levelUp(propertyID: UUID, playerID: UUID)
+    case levelDown(propertyID: UUID, playerID: UUID)
     case mortgageProperty(propertyID: UUID, playerID: UUID)
     case unmortgageProperty(propertyID: UUID, playerID: UUID)
     case declareBankruptcy(playerID: UUID, creditor: DebtCreditor)
@@ -43,9 +42,8 @@ enum GameIntent: Codable, Equatable {
         case collectRent
         case payTax
         case collectSalary
-        case buildHouse
-        case buildHotel
-        case sellHouse
+        case levelUp
+        case levelDown
         case mortgageProperty
         case unmortgageProperty
         case declareBankruptcy
@@ -90,18 +88,13 @@ enum GameIntent: Codable, Equatable {
                 amount: try container.decode(Int.self, forKey: .amount),
                 postponedLoanIDs: try container.decode(Set<UUID>.self, forKey: .postponedLoanIDs)
             )
-        case .buildHouse:
-            self = .buildHouse(
+        case .levelUp:
+            self = .levelUp(
                 propertyID: try container.decode(UUID.self, forKey: .propertyID),
                 playerID: try container.decode(UUID.self, forKey: .playerID)
             )
-        case .buildHotel:
-            self = .buildHotel(
-                propertyID: try container.decode(UUID.self, forKey: .propertyID),
-                playerID: try container.decode(UUID.self, forKey: .playerID)
-            )
-        case .sellHouse:
-            self = .sellHouse(
+        case .levelDown:
+            self = .levelDown(
                 propertyID: try container.decode(UUID.self, forKey: .propertyID),
                 playerID: try container.decode(UUID.self, forKey: .playerID)
             )
@@ -176,16 +169,12 @@ enum GameIntent: Codable, Equatable {
             try container.encode(playerID, forKey: .playerID)
             try container.encode(amount, forKey: .amount)
             try container.encode(postponedLoanIDs, forKey: .postponedLoanIDs)
-        case let .buildHouse(propertyID, playerID):
-            try container.encode(IntentType.buildHouse, forKey: .type)
+        case let .levelUp(propertyID, playerID):
+            try container.encode(IntentType.levelUp, forKey: .type)
             try container.encode(propertyID, forKey: .propertyID)
             try container.encode(playerID, forKey: .playerID)
-        case let .buildHotel(propertyID, playerID):
-            try container.encode(IntentType.buildHotel, forKey: .type)
-            try container.encode(propertyID, forKey: .propertyID)
-            try container.encode(playerID, forKey: .playerID)
-        case let .sellHouse(propertyID, playerID):
-            try container.encode(IntentType.sellHouse, forKey: .type)
+        case let .levelDown(propertyID, playerID):
+            try container.encode(IntentType.levelDown, forKey: .type)
             try container.encode(propertyID, forKey: .propertyID)
             try container.encode(playerID, forKey: .playerID)
         case let .mortgageProperty(propertyID, playerID):
@@ -241,7 +230,7 @@ extension GameIntent {
         switch self {
         case .buyProperty, .resolveAuction, .collectRent, .payTax, .collectSalary, .borrowOnCreditCard:
             return true
-        case .buildHouse, .buildHotel, .sellHouse, .mortgageProperty, .unmortgageProperty,
+        case .levelUp, .levelDown, .mortgageProperty, .unmortgageProperty,
              .declareBankruptcy, .proposeDeal, .acceptDeal, .rejectDeal, .transferMoney, .payCreditCard,
              .endTurn, .skipTurn:
             return false

@@ -299,31 +299,22 @@ final class GameSessionModel: ObservableObject {
         send(.unmortgageProperty(propertyID: propertyID, playerID: localPlayerID))
     }
 
-    func buildHouse(propertyID: UUID) {
+    func levelUp(propertyID: UUID) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de construir."
             return
         }
 
-        send(.buildHouse(propertyID: propertyID, playerID: localPlayerID))
+        send(.levelUp(propertyID: propertyID, playerID: localPlayerID))
     }
 
-    func buildHotel(propertyID: UUID) {
-        guard let localPlayerID else {
-            alertMessage = "Selecciona tu jugador antes de construir."
-            return
-        }
-
-        send(.buildHotel(propertyID: propertyID, playerID: localPlayerID))
-    }
-
-    func sellHouse(propertyID: UUID) {
+    func levelDown(propertyID: UUID) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de vender construcciones."
             return
         }
 
-        send(.sellHouse(propertyID: propertyID, playerID: localPlayerID))
+        send(.levelDown(propertyID: propertyID, playerID: localPlayerID))
     }
 
     func payTax(amount: Int) {
@@ -381,7 +372,9 @@ final class GameSessionModel: ObservableObject {
             id: deal.id,
             proposerID: localPlayerID,
             transfers: deal.transfers,
-            sharedPurchase: deal.sharedPurchase
+            sharedPurchase: deal.sharedPurchase,
+            proposedInvestment: deal.proposedInvestment,
+            cancelInvestment: deal.cancelInvestment
         )))
     }
 

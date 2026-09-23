@@ -14,7 +14,7 @@ struct PropertyDetailView: View {
                         LabeledContent(property.ownership.count > 1 ? "Administra" : "Dueño", value: ownerName(for: property, state: state))
                         LabeledContent("Precio", value: currency(property.purchasePrice))
                         LabeledContent("Renta actual", value: currency(currentRent(for: property, in: state)))
-                        LabeledContent("Construcción", value: constructionDescription(for: property))
+                        LabeledContent("Nivel", value: "\(property.constructionLevel) de \(Property.maximumLevel)")
                         LabeledContent("Hipotecada", value: property.isMortgaged ? "Sí" : "No")
                         if property.isMortgaged {
                             LabeledContent("Valor de hipoteca", value: currency(property.mortgageValue))
@@ -29,7 +29,7 @@ struct PropertyDetailView: View {
                         } header: {
                             Text("Accionistas")
                         } footer: {
-                            Text("La renta, los costos de construir o deshipotecar y lo que se cobra al hipotecar o vender casas se reparten según el %. Quien tiene más % administra.")
+                            Text("La renta, los costos de subir o bajar de nivel, deshipotecar e hipotecar se reparten según el %. Quien tiene más % administra.")
                         }
                     }
 
@@ -135,21 +135,22 @@ struct PropertyDetailView: View {
                     .buttonStyle(.bordered)
                 }
 
-                if property.constructionLevel < 4 {
-                    Button("Construir casa") {
-                        model.buildHouse(propertyID: property.id)
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else if property.constructionLevel == 4 {
-                    Button("Construir hotel") {
-                        model.buildHotel(propertyID: property.id)
+                if property.constructionLevel < Property.maximumLevel {
+                    let nextLevel = property.constructionLevel + 1
+                    let cost = Property.levelUpCost(purchasePrice: property.purchasePrice, level: nextLevel)
+                    Button("Subir de nivel a \(nextLevel) (\(currency(cost)))") {
+                        model.levelUp(propertyID: property.id)
                     }
                     .buttonStyle(.borderedProminent)
                 }
 
                 if property.constructionLevel > 0 {
-                    Button(property.constructionLevel == 5 ? "Vender hotel" : "Vender casa") {
-                        model.sellHouse(propertyID: property.id)
+                    let levelCost = Property.levelUpCost(
+                        purchasePrice: property.purchasePrice,
+                        level: property.constructionLevel
+                    )
+                    Button("Bajar de nivel (devuelve \(currency(levelCost / 2)))") {
+                        model.levelDown(propertyID: property.id)
                     }
                     .buttonStyle(.bordered)
                 }
@@ -190,17 +191,6 @@ struct PropertyDetailView: View {
         // Delegates to the domain's own rent calculation instead of keeping a
         // second copy of the monopoly-double/per-level formula here.
         return (try? GameRules.rentAmount(for: property, in: state, ownerID: ownerID)) ?? property.baseRent
-    }
-
-    private func constructionDescription(for property: Property) -> String {
-        switch property.constructionLevel {
-        case 0:
-            return "Sin construcciones"
-        case 1...4:
-            return "\(property.constructionLevel) casa(s)"
-        default:
-            return "Hotel"
-        }
     }
 
     private func currency(_ amount: Int) -> String {

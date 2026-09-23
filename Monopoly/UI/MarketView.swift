@@ -8,6 +8,7 @@ struct MarketView: View {
             if let state = model.gameState, let localPlayerID = model.localPlayerID {
                 List {
                     holdingsSection(state: state, localPlayerID: localPlayerID)
+                    investmentsSection(state: state, localPlayerID: localPlayerID)
 
                     Section {
                         NavigationLink {
@@ -69,6 +70,40 @@ struct MarketView: View {
             Text(model.alertMessage ?? "Inténtalo de nuevo.")
         }
         .proximityReceiverBanner(model: model)
+    }
+
+    private func investmentsSection(state: GameState, localPlayerID: UUID) -> some View {
+        let investments = state.rentInvestments.filter {
+            $0.investorID == localPlayerID || $0.recipientID == localPlayerID
+        }
+        return Section("Inversiones activas") {
+            if investments.isEmpty {
+                Text("No participas en inversiones activas.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(investments) { investment in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(state.describe(investment))
+                            .font(.subheadline)
+
+                        HStack {
+                            Text(investment.investorID == localPlayerID ? "Inversor" : "Receptor")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Proponer cancelación") {
+                                model.proposeDeal(MarketDeal(
+                                    proposerID: localPlayerID,
+                                    cancelInvestment: investment
+                                ))
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
     }
 
     private func holdingsSection(state: GameState, localPlayerID: UUID) -> some View {
@@ -147,6 +182,12 @@ private struct DealCard: View {
                         Text("• \(line)")
                     }
                 }
+                if let investment = deal.proposedInvestment {
+                    Text("• \(state.describe(investment))")
+                }
+                if let investment = deal.cancelInvestment {
+                    Text("• Cancelar inversión: \(state.describe(investment))")
+                }
                 ForEach(Array(deal.transfers.enumerated()), id: \.offset) { _, transfer in
                     Text("• \(state.describe(transfer))")
                 }
@@ -171,6 +212,12 @@ private struct DealCard: View {
         if deal.sharedPurchase != nil {
             return "Compra compartida"
         }
+        if deal.proposedInvestment != nil {
+            return "Inversión de renta"
+        }
+        if deal.cancelInvestment != nil {
+            return "Cancelación de inversión"
+        }
         return "Trato de \(state.playerName(deal.proposerID))"
     }
 
@@ -178,7 +225,12 @@ private struct DealCard: View {
         if deal.isOpenOffer {
             return "megaphone"
         }
-        return deal.sharedPurchase != nil ? "house.and.flag" : "arrow.triangle.swap"
+        if deal.sharedPurchase != nil {
+            return "house.and.flag"
+        }
+        return deal.proposedInvestment != nil || deal.cancelInvestment != nil
+            ? "percent"
+            : "arrow.triangle.swap"
     }
 
     private var statusText: String {

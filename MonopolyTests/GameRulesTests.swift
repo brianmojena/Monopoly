@@ -282,72 +282,123 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(result.state.players[1].balance, 900)
     }
 
-    func testBuildHouseSucceedsWithCompleteColorGroup() throws {
+    func testLevelUpSucceedsWithCompleteColorGroup() throws {
         let owner = Player(name: "Luis", balance: 100)
-        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionCost: 50, ownerID: owner.id)
-        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, constructionCost: 50, ownerID: owner.id)
+        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, ownerID: owner.id)
+        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, ownerID: owner.id)
         let state = GameState(players: [owner], properties: [firstProperty, secondProperty])
 
-        let result = try GameRules.buildHouse(in: state, propertyID: firstProperty.id, playerID: owner.id)
+        let result = try GameRules.levelUp(in: state, propertyID: firstProperty.id, playerID: owner.id)
 
-        XCTAssertEqual(result.players[0].balance, 50)
+        XCTAssertEqual(result.players[0].balance, 70)
         XCTAssertEqual(result.properties[0].constructionLevel, 1)
     }
 
-    func testBuildHouseFailsWithoutCompleteColorGroup() {
+    func testLevelUpFailsWithoutCompleteColorGroup() {
         let owner = Player(name: "Luis", balance: 100)
-        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionCost: 50, ownerID: owner.id)
-        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, constructionCost: 50)
+        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, ownerID: owner.id)
+        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25)
         let state = GameState(players: [owner], properties: [firstProperty, secondProperty])
 
-        XCTAssertThrowsError(try GameRules.buildHouse(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
+        XCTAssertThrowsError(try GameRules.levelUp(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
             XCTAssertEqual(error as? GameRuleError, .playerDoesNotOwnMonopoly(.brown))
         }
     }
 
-    func testBuildHouseFailsWhenBalanceIsInsufficient() {
-        let owner = Player(name: "Luis", balance: 49)
-        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionCost: 50, ownerID: owner.id)
-        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, constructionCost: 50, ownerID: owner.id)
+    func testLevelUpFailsWhenBalanceIsInsufficient() {
+        let owner = Player(name: "Luis", balance: 29)
+        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, ownerID: owner.id)
+        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, ownerID: owner.id)
         let state = GameState(players: [owner], properties: [firstProperty, secondProperty])
 
-        XCTAssertThrowsError(try GameRules.buildHouse(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
-            XCTAssertEqual(error as? GameRuleError, .insufficientFunds(playerID: owner.id, required: 50, available: 49))
+        XCTAssertThrowsError(try GameRules.levelUp(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
+            XCTAssertEqual(error as? GameRuleError, .insufficientFunds(playerID: owner.id, required: 30, available: 29))
         }
     }
 
-    func testBuildHouseFailsWhenItViolatesUniformConstruction() {
+    func testLevelUpFailsWhenItViolatesUniformLevel() {
         let owner = Player(name: "Luis", balance: 100)
-        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionCost: 50, constructionLevel: 1, ownerID: owner.id)
-        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, constructionCost: 50, ownerID: owner.id)
+        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionLevel: 1, ownerID: owner.id)
+        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, ownerID: owner.id)
         let state = GameState(players: [owner], properties: [firstProperty, secondProperty])
 
-        XCTAssertThrowsError(try GameRules.buildHouse(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
-            XCTAssertEqual(error as? GameRuleError, .violatesUniformConstruction(firstProperty.id))
+        XCTAssertThrowsError(try GameRules.levelUp(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
+            XCTAssertEqual(error as? GameRuleError, .violatesUniformLevel(firstProperty.id))
         }
     }
 
-    func testBuildHotelSucceedsAfterAllPropertiesReachFourHouses() throws {
-        let owner = Player(name: "Luis", balance: 50)
-        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionCost: 50, constructionLevel: 4, ownerID: owner.id)
-        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, constructionCost: 50, constructionLevel: 4, ownerID: owner.id)
+    func testLevelUpSucceedsAtTheFifthLevel() throws {
+        let owner = Player(name: "Luis", balance: 120)
+        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionLevel: 4, ownerID: owner.id)
+        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, constructionLevel: 4, ownerID: owner.id)
         let state = GameState(players: [owner], properties: [firstProperty, secondProperty])
 
-        let result = try GameRules.buildHotel(in: state, propertyID: firstProperty.id, playerID: owner.id)
+        let result = try GameRules.levelUp(in: state, propertyID: firstProperty.id, playerID: owner.id)
 
         XCTAssertEqual(result.players[0].balance, 0)
         XCTAssertEqual(result.properties[0].constructionLevel, 5)
         XCTAssertEqual(result.properties[1].constructionLevel, 4)
     }
 
-    func testBuildHouseFailsForMortgagedProperty() {
+    func testLevelUpFailsForMortgagedProperty() {
         let owner = Player(name: "Luis", balance: 100)
-        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionCost: 50, ownerID: owner.id, isMortgaged: true)
-        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, constructionCost: 50, ownerID: owner.id)
+        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, ownerID: owner.id, isMortgaged: true)
+        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, ownerID: owner.id)
         let state = GameState(players: [owner], properties: [firstProperty, secondProperty])
 
-        XCTAssertThrowsError(try GameRules.buildHouse(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
+        XCTAssertThrowsError(try GameRules.levelUp(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
             XCTAssertEqual(error as? GameRuleError, .propertyIsMortgaged(firstProperty.id))
+        }
+    }
+
+    func testLevelUpChargesThePercentageCostForEachLevel() throws {
+        let expectedCosts = [30, 45, 60, 90, 120]
+
+        for (index, expectedCost) in expectedCosts.enumerated() {
+            let owner = Player(name: "Luis", balance: 1_000)
+            let firstProperty = Property(
+                name: "First",
+                colorGroup: .brown,
+                purchasePrice: 60,
+                mortgageValue: 30,
+                baseRent: 20,
+                constructionLevel: index,
+                ownerID: owner.id
+            )
+            let secondProperty = Property(
+                name: "Second",
+                colorGroup: .brown,
+                purchasePrice: 60,
+                mortgageValue: 30,
+                baseRent: 25,
+                constructionLevel: index,
+                ownerID: owner.id
+            )
+            let state = GameState(players: [owner], properties: [firstProperty, secondProperty])
+
+            let result = try GameRules.levelUp(in: state, propertyID: firstProperty.id, playerID: owner.id)
+
+            XCTAssertEqual(result.players[0].balance, 1_000 - expectedCost)
+            XCTAssertEqual(result.properties[0].constructionLevel, index + 1)
+        }
+    }
+
+    func testLevelUpCostsRoundUpToTheNextWholeUnit() {
+        XCTAssertEqual(Property.levelUpCost(purchasePrice: 61, level: 1), 31)
+        XCTAssertEqual(Property.levelUpCost(purchasePrice: 61, level: 2), 46)
+        XCTAssertEqual(Property.levelUpCost(purchasePrice: 61, level: 3), 61)
+        XCTAssertEqual(Property.levelUpCost(purchasePrice: 61, level: 4), 92)
+        XCTAssertEqual(Property.levelUpCost(purchasePrice: 61, level: 5), 122)
+    }
+
+    func testLevelUpFailsAtMaximumLevel() {
+        let owner = Player(name: "Luis", balance: 1_000)
+        let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionLevel: 5, ownerID: owner.id)
+        let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, constructionLevel: 5, ownerID: owner.id)
+        let state = GameState(players: [owner], properties: [firstProperty, secondProperty])
+
+        XCTAssertThrowsError(try GameRules.levelUp(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
+            XCTAssertEqual(error as? GameRuleError, .propertyAtMaximumLevel(firstProperty.id))
         }
     }
 
@@ -362,13 +413,13 @@ final class GameRulesTests: XCTestCase {
         XCTAssertTrue(result.properties[0].isMortgaged)
     }
 
-    func testMortgagePropertyFailsWhenPropertyHasBuildings() {
+    func testMortgagePropertyFailsWhenPropertyIsAboveBaseLevel() {
         let player = Player(name: "Ana", balance: 100)
         let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 20, constructionLevel: 1, ownerID: player.id)
         let state = GameState(players: [player], properties: [property])
 
         XCTAssertThrowsError(try GameRules.mortgageProperty(in: state, propertyID: property.id, playerID: player.id)) { error in
-            XCTAssertEqual(error as? GameRuleError, .propertyHasBuildings(property.id))
+            XCTAssertEqual(error as? GameRuleError, .propertyHasLevel(property.id))
         }
     }
 
@@ -393,7 +444,7 @@ final class GameRulesTests: XCTestCase {
         }
     }
 
-    func testSellHouseSuccessfullyCreditsHalfConstructionCost() throws {
+    func testLevelDownSuccessfullyCreditsHalfLevelCost() throws {
         let owner = Player(name: "Luis", balance: 0)
         let firstProperty = Property(
             name: "First",
@@ -401,7 +452,6 @@ final class GameRulesTests: XCTestCase {
             purchasePrice: 60,
             mortgageValue: 30,
             baseRent: 20,
-            constructionCost: 50,
             constructionLevel: 1,
             ownerID: owner.id
         )
@@ -411,27 +461,25 @@ final class GameRulesTests: XCTestCase {
             purchasePrice: 60,
             mortgageValue: 30,
             baseRent: 25,
-            constructionCost: 50,
             constructionLevel: 1,
             ownerID: owner.id
         )
         let state = GameState(players: [owner], properties: [firstProperty, secondProperty])
 
-        let result = try GameRules.sellHouse(in: state, propertyID: firstProperty.id, playerID: owner.id)
+        let result = try GameRules.levelDown(in: state, propertyID: firstProperty.id, playerID: owner.id)
 
         XCTAssertEqual(result.players[0].balance, 25)
         XCTAssertEqual(result.properties[0].constructionLevel, 0)
     }
 
-    func testSellHotelCreditsHalfHotelCostAndLeavesFourHouses() throws {
+    func testLevelDownFromTheFifthLevelCreditsHalfLevelCost() throws {
         let owner = Player(name: "Luis", balance: 0)
-        let hotelProperty = Property(
-            name: "Hotel Property",
+        let maxLevelProperty = Property(
+            name: "Max Level Property",
             colorGroup: .brown,
             purchasePrice: 60,
             mortgageValue: 30,
             baseRent: 20,
-            constructionCost: 50,
             constructionLevel: 5,
             ownerID: owner.id
         )
@@ -441,46 +489,45 @@ final class GameRulesTests: XCTestCase {
             purchasePrice: 60,
             mortgageValue: 30,
             baseRent: 25,
-            constructionCost: 50,
             constructionLevel: 4,
             ownerID: owner.id
         )
-        let state = GameState(players: [owner], properties: [hotelProperty, otherProperty])
+        let state = GameState(players: [owner], properties: [maxLevelProperty, otherProperty])
 
-        let result = try GameRules.sellHouse(in: state, propertyID: hotelProperty.id, playerID: owner.id)
+        let result = try GameRules.levelDown(in: state, propertyID: maxLevelProperty.id, playerID: owner.id)
 
-        XCTAssertEqual(result.players[0].balance, 25)
+        XCTAssertEqual(result.players[0].balance, 60)
         XCTAssertEqual(result.properties[0].constructionLevel, 4)
     }
 
-    func testSellHouseFailsWhenItViolatesUniformConstruction() {
+    func testLevelDownFailsWhenItViolatesUniformLevel() {
         let owner = Player(name: "Luis", balance: 0)
         let firstProperty = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionLevel: 1, ownerID: owner.id)
         let secondProperty = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 25, constructionLevel: 2, ownerID: owner.id)
         let state = GameState(players: [owner], properties: [firstProperty, secondProperty])
 
-        XCTAssertThrowsError(try GameRules.sellHouse(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
-            XCTAssertEqual(error as? GameRuleError, .violatesUniformConstruction(firstProperty.id))
+        XCTAssertThrowsError(try GameRules.levelDown(in: state, propertyID: firstProperty.id, playerID: owner.id)) { error in
+            XCTAssertEqual(error as? GameRuleError, .violatesUniformLevel(firstProperty.id))
         }
     }
 
-    func testSellHouseFailsWhenPropertyHasNoBuildings() {
+    func testLevelDownFailsAtMinimumLevel() {
         let owner = Player(name: "Luis", balance: 0)
         let property = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, ownerID: owner.id)
         let state = GameState(players: [owner], properties: [property])
 
-        XCTAssertThrowsError(try GameRules.sellHouse(in: state, propertyID: property.id, playerID: owner.id)) { error in
-            XCTAssertEqual(error as? GameRuleError, .propertyHasNoBuildings(property.id))
+        XCTAssertThrowsError(try GameRules.levelDown(in: state, propertyID: property.id, playerID: owner.id)) { error in
+            XCTAssertEqual(error as? GameRuleError, .propertyAtMinimumLevel(property.id))
         }
     }
 
-    func testSellHouseFailsWhenPropertyIsNotOwnedByPlayer() {
+    func testLevelDownFailsWhenPropertyIsNotOwnedByPlayer() {
         let player = Player(name: "Ana", balance: 0)
         let owner = Player(name: "Luis", balance: 0)
         let property = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, constructionLevel: 1, ownerID: owner.id)
         let state = GameState(players: [player, owner], properties: [property])
 
-        XCTAssertThrowsError(try GameRules.sellHouse(in: state, propertyID: property.id, playerID: player.id)) { error in
+        XCTAssertThrowsError(try GameRules.levelDown(in: state, propertyID: property.id, playerID: player.id)) { error in
             XCTAssertEqual(error as? GameRuleError, .propertyNotOwnedByPlayer(propertyID: property.id, playerID: player.id))
         }
     }
@@ -488,13 +535,13 @@ final class GameRulesTests: XCTestCase {
     func testCanCoverDebtIncludesPotentialMortgagesAndBuildingSales() throws {
         let player = Player(name: "Ana", balance: 20)
         let mortgagableProperty = Property(name: "Mortgageable", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10, ownerID: player.id)
-        let builtProperty = Property(name: "Built", colorGroup: .lightBlue, purchasePrice: 100, mortgageValue: 50, baseRent: 10, constructionCost: 100, constructionLevel: 1, ownerID: player.id)
+        let builtProperty = Property(name: "Built", colorGroup: .lightBlue, purchasePrice: 100, mortgageValue: 50, baseRent: 10, constructionLevel: 1, ownerID: player.id)
         let state = GameState(players: [player], properties: [mortgagableProperty, builtProperty])
 
         let result = try GameRules.canCoverDebt(
             in: state,
             playerID: player.id,
-            debt: Debt(amount: 170, creditor: .bank)
+            debt: Debt(amount: 145, creditor: .bank)
         )
 
         XCTAssertTrue(result)
@@ -502,7 +549,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCanCoverDebtReturnsFalseWhenLiquidatingEverythingIsInsufficient() throws {
         let player = Player(name: "Ana", balance: 10)
-        let property = Property(name: "Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 30, baseRent: 10, constructionCost: 50, constructionLevel: 1, ownerID: player.id)
+        let property = Property(name: "Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 30, baseRent: 10, constructionLevel: 1, ownerID: player.id)
         let state = GameState(players: [player], properties: [property])
 
         let result = try GameRules.canCoverDebt(
@@ -669,11 +716,11 @@ final class GameRulesTests: XCTestCase {
     func testNetWorthCountsCashUnmortgagedPropertiesAndBuildingsMinusDebt() throws {
         let loan = CreditCardLoan(remainingDebt: 110, installmentsRemaining: 1, postponementsRemaining: 4)
         let player = Player(name: "Ana", balance: 500, creditCardLoans: [loan])
-        let built = Property(name: "Built", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10, constructionCost: 50, constructionLevel: 2, ownerID: player.id)
+        let built = Property(name: "Built", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10, constructionLevel: 2, ownerID: player.id)
         let mortgaged = Property(name: "Mortgaged", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 4, ownerID: player.id, isMortgaged: true)
         let state = GameState(players: [player], properties: [built, mortgaged])
 
-        XCTAssertEqual(try GameRules.netWorth(of: player.id, in: state), 500 + 100 + 2 * 50 - 110)
+        XCTAssertEqual(try GameRules.netWorth(of: player.id, in: state), 500 + 100 + 50 + 75 - 110)
     }
 
     func testBorrowOnCreditCardCreatesLoanWithInterestInstallmentsAndPostponements() throws {
@@ -1141,15 +1188,15 @@ final class GameRulesTests: XCTestCase {
         let ana = Player(name: "Ana", balance: 100)
         let luis = Player(name: "Luis", balance: 100)
         let shared = [PropertyShare(playerID: ana.id, shares: 6), PropertyShare(playerID: luis.id, shares: 4)]
-        let first = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 2, constructionCost: 50, ownership: shared)
-        let second = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 4, constructionCost: 50, ownership: shared)
+        let first = Property(name: "First", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 2, ownership: shared)
+        let second = Property(name: "Second", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 4, ownership: shared)
         let state = GameState(players: [ana, luis], properties: [first, second])
 
-        let result = try GameRules.buildHouse(in: state, propertyID: first.id, playerID: ana.id)
+        let result = try GameRules.levelUp(in: state, propertyID: first.id, playerID: ana.id)
 
         XCTAssertEqual(result.properties[0].constructionLevel, 1)
-        XCTAssertEqual(result.players.map(\.balance), [70, 80])
-        XCTAssertThrowsError(try GameRules.buildHouse(in: state, propertyID: first.id, playerID: luis.id)) { error in
+        XCTAssertEqual(result.players.map(\.balance), [82, 88])
+        XCTAssertThrowsError(try GameRules.levelUp(in: state, propertyID: first.id, playerID: luis.id)) { error in
             XCTAssertEqual(error as? GameRuleError, .propertyNotOwnedByPlayer(propertyID: first.id, playerID: luis.id))
         }
     }
@@ -1281,6 +1328,170 @@ final class GameRulesTests: XCTestCase {
         let state = GameState(players: [ana, luis], properties: [property])
 
         XCTAssertEqual(try GameRules.netWorth(of: ana.id, in: state), 160)
+    }
+
+    func testRentInvestmentSettlesPaymentAndCreatesInvestment() throws {
+        let ana = Player(name: "Ana", balance: 300)
+        let luis = Player(name: "Luis", balance: 0)
+        let property = Property(name: "Street", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10, ownerID: luis.id)
+        let investment = RentInvestment(
+            investorID: ana.id,
+            recipientID: luis.id,
+            propertyID: property.id,
+            percentage: 30
+        )
+        let deal = MarketDeal(
+            proposerID: ana.id,
+            transfers: [DealTransfer(from: .player(ana.id), to: .player(luis.id), asset: .money(100))],
+            proposedInvestment: investment
+        )
+        let state = GameState(players: [ana, luis], properties: [property])
+
+        var proposed = try GameRules.proposeDeal(in: state, deal: deal, proposerID: ana.id)
+        XCTAssertEqual(proposed.players.map(\.balance), [300, 0])
+
+        proposed = try GameRules.acceptDeal(in: proposed, dealID: deal.id, playerID: luis.id)
+
+        XCTAssertEqual(proposed.players.map(\.balance), [200, 100])
+        XCTAssertEqual(proposed.rentInvestments, [investment])
+        XCTAssertTrue(proposed.marketDeals.isEmpty)
+    }
+
+    func testRentInvestmentRedirectsOnlyTheRecipientsShare() throws {
+        let investor = Player(name: "Ana", balance: 0)
+        let recipient = Player(name: "Luis", balance: 0)
+        let otherShareholder = Player(name: "Eva", balance: 0)
+        let payer = Player(name: "Sofia", balance: 100)
+        let property = Property(
+            name: "Street",
+            colorGroup: .brown,
+            purchasePrice: 60,
+            mortgageValue: 30,
+            baseRent: 100,
+            ownership: [
+                PropertyShare(playerID: recipient.id, shares: 7),
+                PropertyShare(playerID: otherShareholder.id, shares: 3)
+            ]
+        )
+        let investment = RentInvestment(
+            investorID: investor.id,
+            recipientID: recipient.id,
+            propertyID: property.id,
+            percentage: 30
+        )
+        let state = GameState(
+            players: [investor, recipient, otherShareholder, payer],
+            properties: [property],
+            rentInvestments: [investment]
+        )
+
+        let result = try GameRules.collectRent(in: state, from: payer.id, propertyID: property.id)
+
+        XCTAssertEqual(result.amount, 100)
+        XCTAssertEqual(result.state.players.map(\.balance), [21, 49, 30, 0])
+    }
+
+    func testRentInvestmentsCannotExceedAllOfRecipientsShare() throws {
+        let ana = Player(name: "Ana", balance: 200)
+        let luis = Player(name: "Luis", balance: 0)
+        let eva = Player(name: "Eva", balance: 0)
+        let property = Property(name: "Street", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10, ownerID: luis.id)
+        let existing = RentInvestment(
+            investorID: eva.id,
+            recipientID: luis.id,
+            propertyID: property.id,
+            percentage: 80
+        )
+        let proposed = RentInvestment(
+            investorID: ana.id,
+            recipientID: luis.id,
+            propertyID: property.id,
+            percentage: 30
+        )
+        let state = GameState(
+            players: [ana, luis, eva],
+            properties: [property],
+            rentInvestments: [existing]
+        )
+        let deal = MarketDeal(
+            proposerID: ana.id,
+            transfers: [DealTransfer(from: .player(ana.id), to: .player(luis.id), asset: .money(10))],
+            proposedInvestment: proposed
+        )
+
+        XCTAssertThrowsError(try GameRules.proposeDeal(in: state, deal: deal, proposerID: ana.id)) { error in
+            XCTAssertEqual(
+                error as? GameRuleError,
+                .rentInvestmentPercentageExceeded(
+                    propertyID: property.id,
+                    recipientID: luis.id,
+                    requested: 30,
+                    available: 20
+                )
+            )
+        }
+    }
+
+    func testCancellingRentInvestmentRequiresBothParticipantsAndRestoresRent() throws {
+        let ana = Player(name: "Ana", balance: 0)
+        let luis = Player(name: "Luis", balance: 0)
+        let payer = Player(name: "Eva", balance: 20)
+        let property = Property(name: "Street", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 20, ownerID: luis.id)
+        let investment = RentInvestment(
+            investorID: ana.id,
+            recipientID: luis.id,
+            propertyID: property.id,
+            percentage: 50
+        )
+        let state = GameState(
+            players: [ana, luis, payer],
+            properties: [property],
+            rentInvestments: [investment]
+        )
+
+        var proposed = try GameRules.proposeDeal(
+            in: state,
+            deal: MarketDeal(proposerID: ana.id, cancelInvestment: investment),
+            proposerID: ana.id
+        )
+        XCTAssertEqual(proposed.rentInvestments, [investment])
+        XCTAssertEqual(proposed.marketDeals.first?.pendingPlayerIDs, [luis.id])
+
+        proposed = try GameRules.acceptDeal(in: proposed, dealID: proposed.marketDeals[0].id, playerID: luis.id)
+        XCTAssertTrue(proposed.rentInvestments.isEmpty)
+
+        let result = try GameRules.collectRent(in: proposed, from: payer.id, propertyID: property.id)
+        XCTAssertEqual(result.state.players.map(\.balance), [0, 20, 0])
+    }
+
+    func testBankruptcyCancelsInvestmentsAsInvestorOrRecipient() throws {
+        let ana = Player(name: "Ana", balance: 0)
+        let luis = Player(name: "Luis", balance: 0)
+        let eva = Player(name: "Eva", balance: 0)
+        let property = Property(name: "Street", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10, ownerID: luis.id)
+        let asInvestor = RentInvestment(
+            investorID: ana.id,
+            recipientID: luis.id,
+            propertyID: property.id,
+            percentage: 20
+        )
+        let asRecipient = RentInvestment(
+            investorID: eva.id,
+            recipientID: luis.id,
+            propertyID: property.id,
+            percentage: 30
+        )
+        var state = GameState(
+            players: [ana, luis, eva],
+            properties: [property],
+            rentInvestments: [asInvestor, asRecipient]
+        )
+
+        state = try GameRules.declareBankruptcy(in: state, playerID: ana.id, creditor: .bank)
+        XCTAssertEqual(state.rentInvestments, [asRecipient])
+
+        state = try GameRules.declareBankruptcy(in: state, playerID: luis.id, creditor: .bank)
+        XCTAssertTrue(state.rentInvestments.isEmpty)
     }
 }
 

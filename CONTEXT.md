@@ -20,9 +20,12 @@ El usuario (Brian) juega Monopoly Ultimate Banking con su grupo y el dispositivo
 
 ## Estado actual del repositorio
 
-- Repo git inicializado, rama `main`, un solo commit inicial.
-- Existe un proyecto Xcode base (`Monopoly.xcodeproj`) con una app SwiftUI mínima (`MonopolyApp.swift`, `ContentView.swift`) generada por la plantilla estándar de Xcode — todavía sin lógica de juego.
-- No hay aún: modelo de datos de propiedades, lógica de reglas, capa de red (MultipeerConnectivity), ni tests.
+- Repo git inicializado, rama `main`.
+- Capa de dominio (`Monopoly/Domain`): modelo de propiedades con acciones de 10%, reglas de compra/renta/construcción/hipoteca/impuestos/bancarrota, tarjetas de crédito y el Mercado (tratos multi-jugador, ofertas abiertas, compras compartidas).
+- Capa de red (`Monopoly/Networking`): host-autoritativo sobre MultipeerConnectivity, con `GameIntent`/`NetworkMessage`, sala de espera (`Lobby`), descubrimiento de salas cercanas como tarjetas (`DiscoveredRoom`) y reconexión de clientes.
+- Persistencia (`Monopoly/Persistence`): `GameStore` guarda la partida del host en Application Support tras cada cambio de estado; la app ofrece "Continuar partida" al reabrir.
+- UI (`Monopoly/UI`): pantallas de inicio, host/join, lobby, tablero, detalle de propiedad, Mercado (`MarketView`, `DealBuilderView`, `SharedPurchaseView`), tarjeta de crédito y pagos por proximidad.
+- Tests unitarios (XCTest) en `MonopolyTests/GameRulesTests.swift` cubriendo la capa de dominio.
 
 ## Documentos de referencia
 
