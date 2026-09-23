@@ -24,8 +24,13 @@ struct ContentView: View {
         }
         .environmentObject(appModel)
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
+            switch phase {
+            case .active:
                 appModel.sceneDidBecomeActive()
+            case .background:
+                appModel.sceneDidEnterBackground()
+            default:
+                break
             }
         }
     }
