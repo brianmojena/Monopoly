@@ -54,6 +54,9 @@ struct BoardEventsState: Codable, Equatable {
     /// The round at whose end the next event happens. Nil only in games saved before
     /// it existed, which keep the old "every `interval` rounds" timing.
     var nextEventRound: Int?
+    /// The round the next event was drawn from, so a random gap can be shown as a range
+    /// without revealing the drawn round.
+    var scheduledAfterRound: Int
     /// Seed of the event draws. Kept in the state so the rules stay deterministic and
     /// the host is the only one who draws.
     var randomState: UInt64
@@ -72,6 +75,7 @@ struct BoardEventsState: Codable, Equatable {
         self.randomState = randomState
         self.rentEffects = rentEffects
         self.history = history
+        scheduledAfterRound = 0
         scheduleNextEvent(afterRound: 0)
     }
 
@@ -79,6 +83,7 @@ struct BoardEventsState: Codable, Equatable {
         case interval
         case maxInterval
         case nextEventRound
+        case scheduledAfterRound
         case randomState
         case rentEffects
         case history
@@ -92,6 +97,8 @@ struct BoardEventsState: Codable, Equatable {
         randomState = try container.decode(UInt64.self, forKey: .randomState)
         rentEffects = try container.decodeIfPresent([ActiveRentEffect].self, forKey: .rentEffects) ?? []
         history = try container.decodeIfPresent([BoardEventOccurrence].self, forKey: .history) ?? []
+        scheduledAfterRound = try container.decodeIfPresent(Int.self, forKey: .scheduledAfterRound)
+            ?? history.last?.round ?? 0
     }
 
     var hasRandomInterval: Bool {
@@ -100,6 +107,7 @@ struct BoardEventsState: Codable, Equatable {
 
     /// Draws the gap to the next event (fixed or within the range) from `round`.
     mutating func scheduleNextEvent(afterRound round: Int) {
+        scheduledAfterRound = round
         guard hasRandomInterval else {
             nextEventRound = round + interval
             return
@@ -119,6 +127,17 @@ struct BoardEventsState: Codable, Equatable {
     /// The round at whose end the next event happens, seen from `round`.
     func upcomingEventRound(from round: Int) -> Int {
         nextEventRound ?? ((round + interval - 1) / interval) * interval
+    }
+
+    /// What players may know about the next event, seen from `round`: the exact round
+    /// for a fixed gap, only the rounds it could fall on for a random one.
+    func upcomingEventWindow(from round: Int) -> ClosedRange<Int> {
+        guard hasRandomInterval, nextEventRound != nil else {
+            let next = upcomingEventRound(from: round)
+            return next...next
+        }
+        let latest = scheduledAfterRound + maxInterval
+        return min(max(scheduledAfterRound + interval, round), latest)...latest
     }
 
     var lastOccurrence: BoardEventOccurrence? {

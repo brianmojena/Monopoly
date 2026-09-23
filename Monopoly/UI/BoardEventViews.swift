@@ -200,11 +200,29 @@ struct ActiveBoardEventsCard: View {
     }
 
     private var nextEventText: String {
-        let next = events.upcomingEventRound(from: state.round)
-        if let roundLimit = state.monopolife?.roundLimit, next >= roundLimit {
-            return "No habrá más"
+        let window = events.upcomingEventWindow(from: state.round)
+        var earliest = window.lowerBound
+        var latest = window.upperBound
+        var mayNotHappen = false
+        if let roundLimit = state.monopolife?.roundLimit {
+            if earliest >= roundLimit {
+                return "No habrá más"
+            }
+            if latest >= roundLimit {
+                latest = roundLimit - 1
+                mayNotHappen = true
+            }
         }
-        return next == state.round ? "Al terminar esta ronda" : "Al terminar la ronda \(next)"
+        earliest = min(earliest, latest)
+        let text: String
+        if earliest == latest && !mayNotHappen {
+            text = earliest == state.round ? "Al terminar esta ronda" : "Al terminar la ronda \(earliest)"
+        } else if earliest == latest {
+            text = earliest == state.round ? "Esta ronda" : "Ronda \(earliest)"
+        } else {
+            text = earliest == state.round ? "Desde esta ronda hasta la \(latest)" : "Entre la ronda \(earliest) y la \(latest)"
+        }
+        return mayNotHappen ? "\(text) o ninguno" : text
     }
 
     private func affectedText(_ effect: ActiveRentEffect) -> String {

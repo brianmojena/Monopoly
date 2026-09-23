@@ -184,7 +184,7 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 - Regla opcional, **desactivada por defecto**. Funciona igual en Classic y en Monopolife. En la sala de espera el host elige cuándo ocurren:
   - **Fijo**: cada N rondas, con N de 1 a 20 (ronda N, 2N, 3N…).
   - **Al azar**: un mínimo y un máximo de rondas (entre 1 y 20, el máximo mayor que el mínimo). Al empezar y después de cada evento, se sortea cuántas rondas faltan para el siguiente dentro de ese rango.
-- Al **terminar** la ronda que toca, el host sortea un evento y todos los jugadores lo ven a la vez; el tablero muestra en qué ronda será el próximo. En Monopolife no ocurre ningún evento al terminar la última ronda (la partida ya acabó).
+- Al **terminar** la ronda que toca, el host sortea un evento y todos los jugadores lo ven a la vez; el tablero muestra cuándo será el próximo. Con **Fijo** muestra la ronda exacta; con **Al azar** es secreto: solo muestra el rango de rondas en que puede caer (por ejemplo, «Entre la ronda 6 y la 10»), nunca la ronda sorteada. En Monopolife no ocurre ningún evento al terminar la última ronda (la partida ya acabó).
 - Cada evento afecta a uno de estos objetivos, elegido al azar al ocurrir:
   - un **lado del tablero**: lado 1 (marrón y celeste), lado 2 (rosa y naranja), lado 3 (rojo y amarillo) o lado 4 (verde y azul oscuro);
   - un **grupo de color**;

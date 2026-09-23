@@ -230,6 +230,32 @@ final class BoardEventsTests: XCTestCase {
         XCTAssertEqual(first.randomState, second.randomState)
     }
 
+    func testRandomTimingShowsOnlyTheRangeNotTheDrawnRound() throws {
+        var state = GameState(
+            players: [ana, luis],
+            properties: [street("Brown", .brown, owner: luis.id)],
+            currentPlayerID: ana.id,
+            boardEvents: BoardEventsState(interval: 2, maxInterval: 6, randomState: 9)
+        )
+        XCTAssertEqual(state.boardEvents?.upcomingEventWindow(from: 1), 2...6)
+        XCTAssertEqual(state.boardEvents?.upcomingEventWindow(from: 4), 4...6)
+
+        while state.boardEvents?.history.isEmpty == true {
+            state = try finishRound(state)
+            state.players = state.players.map { var player = $0; player.balance = 1000; return player }
+        }
+        let events = try XCTUnwrap(state.boardEvents)
+        let last = try XCTUnwrap(events.history.last?.round)
+        XCTAssertEqual(events.scheduledAfterRound, last)
+        XCTAssertEqual(events.upcomingEventWindow(from: last + 1), (last + 2)...(last + 6))
+        XCTAssertTrue(events.upcomingEventWindow(from: last + 1).contains(events.nextEventRound ?? 0))
+    }
+
+    func testFixedTimingShowsTheExactRound() {
+        let events = BoardEventsState(interval: 4, randomState: 3)
+        XCTAssertEqual(events.upcomingEventWindow(from: 1), 4...4)
+    }
+
     func testGamesSavedBeforeTheScheduleKeepEveryIntervalRounds() throws {
         let data = try JSONEncoder().encode(BoardEventsState(interval: 3, randomState: 1))
         var json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
