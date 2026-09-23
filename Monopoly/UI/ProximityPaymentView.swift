@@ -195,9 +195,9 @@ struct ProximityPaymentView: View {
 
     private func instructions(for details: PaymentDetails, in state: GameState) -> String {
         if details.candidateIDs.count == 1, let recipientID = details.candidateIDs.first {
-            return "Acerca tu iPhone al de \(playerName(recipientID, in: state)) a unos 20 cm, sin juntarlos. El pago se hace solo."
+            return "Ponte frente a \(playerName(recipientID, in: state)) con los iPhone en vertical y la parte de atrás de uno mirando al otro, y acércalos a unos 20 cm sin juntarlos. El pago se hace solo."
         }
-        return "Acerca tu iPhone al del jugador que cobra a unos 20 cm, sin juntarlos. El pago se hace solo."
+        return "Ponte frente al jugador que cobra con los iPhone en vertical y la parte de atrás de uno mirando al otro, y acércalos a unos 20 cm sin juntarlos. El pago se hace solo."
     }
 
     private func statusDescription(_ status: ProximityCandidateStatus?) -> String {
