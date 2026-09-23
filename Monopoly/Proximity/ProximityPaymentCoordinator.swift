@@ -11,10 +11,22 @@ enum ProximityCandidateStatus: Equatable {
     case unavailable
 }
 
+// Where a NISession is in its life cycle, shown while it has no distance yet so a
+// failed payment says whether ranging never started, was paused or lost the peer.
+enum ProximityRangingState: Equatable {
+    case starting
+    case running
+    case suspended
+    case timedOut(retries: Int)
+    case peerEnded
+    case failed(code: Int)
+}
+
 struct ProximityIncomingRequest: Equatable {
     let sessionID: UUID
     let payerID: UUID
     var distance: Float?
+    var rangingState: ProximityRangingState = .starting
 }
 
 #if os(iOS)
@@ -29,6 +41,7 @@ final class ProximityPaymentCoordinator: NSObject, ObservableObject {
     static let closeReadingsToDetect = 3
 
     @Published private(set) var candidates: [UUID: ProximityCandidateStatus] = [:]
+    @Published private(set) var rangingStates: [UUID: ProximityRangingState] = [:]
     @Published private(set) var detectedPlayerID: UUID?
     @Published private(set) var incomingRequest: ProximityIncomingRequest?
     @Published private(set) var errorMessage: String?
@@ -97,6 +110,7 @@ final class ProximityPaymentCoordinator: NSObject, ObservableObject {
         outgoingSessions.removeAll()
         outgoingSessionID = nil
         candidates.removeAll()
+        rangingStates.removeAll()
         closeReadings.removeAll()
         detectedPlayerID = nil
     }
@@ -188,6 +202,7 @@ final class ProximityPaymentCoordinator: NSObject, ObservableObject {
         }
 
         candidates[signal.senderPlayerID] = .ranging(distance: nil)
+        rangingStates[signal.senderPlayerID] = .starting
         session.run(NINearbyPeerConfiguration(peerToken: peerToken))
     }
 
@@ -206,6 +221,21 @@ final class ProximityPaymentCoordinator: NSObject, ObservableObject {
 
     private func candidateID(for session: NISession) -> UUID? {
         outgoingSessions.first(where: { $0.value === session })?.key
+    }
+
+    private func setRangingState(_ state: ProximityRangingState, for session: NISession) {
+        if session === incomingSession {
+            incomingRequest?.rangingState = state
+        } else if let candidateID = candidateID(for: session) {
+            rangingStates[candidateID] = state
+        }
+    }
+
+    private func rangingState(for session: NISession) -> ProximityRangingState? {
+        if session === incomingSession {
+            return incomingRequest?.rangingState
+        }
+        return candidateID(for: session).flatMap { rangingStates[$0] }
     }
 
     private func updateDistance(_ distance: Float?, for session: NISession) {
@@ -242,6 +272,7 @@ final class ProximityPaymentCoordinator: NSObject, ObservableObject {
 
     private func sessionDidInvalidate(_ session: NISession, error: Error) {
         let permissionDenied = (error as? NIError)?.code == .userDidNotAllow
+        setRangingState(.failed(code: (error as NSError).code), for: session)
 
         if session === incomingSession {
             if let request = incomingRequest, let localPlayerID {
@@ -280,6 +311,7 @@ extension ProximityPaymentCoordinator: NISessionDelegate {
     nonisolated func session(_ session: NISession, didUpdate nearbyObjects: [NINearbyObject]) {
         let distance = nearbyObjects.first?.distance
         MainActor.assumeIsolated {
+            setRangingState(.running, for: session)
             updateDistance(distance, for: session)
         }
     }
@@ -294,14 +326,36 @@ extension ProximityPaymentCoordinator: NISessionDelegate {
             // A timed-out session stops ranging for good unless it runs again, and
             // NI also times out a session that fails to start on its first attempt
             // (see "Restart the Session on Timeout" in NISessionDelegate's docs).
-            if reason == .timeout, let configuration = session.configuration {
+            guard reason == .timeout else {
+                setRangingState(.peerEnded, for: session)
+                return
+            }
+            var retries = 1
+            if case let .timedOut(previous)? = rangingState(for: session) {
+                retries = previous + 1
+            }
+            setRangingState(.timedOut(retries: retries), for: session)
+            if let configuration = session.configuration {
                 session.run(configuration)
             }
         }
     }
 
+    nonisolated func sessionDidStartRunning(_ session: NISession) {
+        MainActor.assumeIsolated {
+            setRangingState(.running, for: session)
+        }
+    }
+
+    nonisolated func sessionWasSuspended(_ session: NISession) {
+        MainActor.assumeIsolated {
+            setRangingState(.suspended, for: session)
+        }
+    }
+
     nonisolated func sessionSuspensionEnded(_ session: NISession) {
         MainActor.assumeIsolated {
+            setRangingState(.starting, for: session)
             if let configuration = session.configuration {
                 session.run(configuration)
             }
@@ -320,6 +374,7 @@ extension ProximityPaymentCoordinator: NISessionDelegate {
 @MainActor
 final class ProximityPaymentCoordinator: ObservableObject {
     @Published private(set) var candidates: [UUID: ProximityCandidateStatus] = [:]
+    @Published private(set) var rangingStates: [UUID: ProximityRangingState] = [:]
     @Published private(set) var detectedPlayerID: UUID?
     @Published private(set) var incomingRequest: ProximityIncomingRequest?
     @Published private(set) var errorMessage: String?

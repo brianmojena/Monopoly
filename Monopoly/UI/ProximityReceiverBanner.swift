@@ -49,13 +49,34 @@ private struct ProximityReceiverBanner: ViewModifier {
 
     private func detail(for request: ProximityIncomingRequest) -> String {
         guard let distance = request.distance else {
-            return "Si te paga a ti, acerca tu iPhone al suyo"
+            return "Si te paga a ti, acerca tu iPhone al suyo · \(request.rangingState.description)"
         }
         return "Si te paga a ti, acerca tu iPhone al suyo · \(Int((distance * 100).rounded())) cm"
     }
 
     private func payerName(_ playerID: UUID) -> String {
         model.gameState?.players.first(where: { $0.id == playerID })?.name ?? "Un jugador"
+    }
+}
+
+extension ProximityRangingState {
+    // Shown while there is no distance yet, so a payment that never happens tells
+    // which step of Nearby Interaction it is stuck on.
+    var description: String {
+        switch self {
+        case .starting:
+            return "Iniciando medición…"
+        case .running:
+            return "Midiendo, acércate"
+        case .suspended:
+            return "Medición en pausa"
+        case let .timedOut(retries):
+            return "Sin señal UWB, reintento \(retries)"
+        case .peerEnded:
+            return "El otro iPhone cortó la medición"
+        case let .failed(code):
+            return "Error de medición (\(code))"
+        }
     }
 }
 

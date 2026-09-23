@@ -97,7 +97,7 @@ struct ProximityPaymentView: View {
                 Section {
                     ForEach(details.candidateIDs, id: \.self) { candidateID in
                         LabeledContent(playerName(candidateID, in: state)) {
-                            Text(statusDescription(proximity.candidates[candidateID]))
+                            Text(statusDescription(proximity.candidates[candidateID], rangingState: proximity.rangingStates[candidateID]))
                                 .monospacedDigit()
                         }
                     }
@@ -200,12 +200,15 @@ struct ProximityPaymentView: View {
         return "Ponte frente al jugador que cobra con los iPhone en vertical y la parte de atrás de uno mirando al otro, y acércalos a unos 20 cm sin juntarlos. El pago se hace solo."
     }
 
-    private func statusDescription(_ status: ProximityCandidateStatus?) -> String {
+    private func statusDescription(_ status: ProximityCandidateStatus?, rangingState: ProximityRangingState?) -> String {
+        if case let .failed(code)? = rangingState {
+            return "Error de medición (\(code))"
+        }
         switch status {
         case nil, .waiting:
             return "Esperando su iPhone…"
         case .ranging(distance: nil):
-            return "Conectado, acércate"
+            return rangingState?.description ?? "Conectado, acércate"
         case let .ranging(distance?):
             return "\(Int((distance * 100).rounded())) cm"
         case .declined:
