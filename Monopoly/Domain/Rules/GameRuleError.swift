@@ -69,6 +69,8 @@ enum GameRuleError: Error, Equatable, Codable {
     case noPendingLifeCard
     case freeParkingDisabled
     case freeParkingPotEmpty
+    case creditCut
+    case creditCardLoanLimitReached(Int)
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -132,6 +134,8 @@ enum GameRuleError: Error, Equatable, Codable {
         case noPendingLifeCard
         case freeParkingDisabled
         case freeParkingPotEmpty
+        case creditCut
+        case creditCardLoanLimitReached
     }
 
     init(from decoder: Decoder) throws {
@@ -246,6 +250,10 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .freeParkingDisabled
         case .freeParkingPotEmpty:
             self = .freeParkingPotEmpty
+        case .creditCut:
+            self = .creditCut
+        case .creditCardLoanLimitReached:
+            self = .creditCardLoanLimitReached(try container.decode(Int.self, forKey: .amount))
         }
     }
 
@@ -378,6 +386,11 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(Code.freeParkingDisabled, forKey: .code)
         case .freeParkingPotEmpty:
             try container.encode(Code.freeParkingPotEmpty, forKey: .code)
+        case .creditCut:
+            try container.encode(Code.creditCut, forKey: .code)
+        case let .creditCardLoanLimitReached(maximum):
+            try container.encode(Code.creditCardLoanLimitReached, forKey: .code)
+            try container.encode(maximum, forKey: .amount)
         }
     }
 }

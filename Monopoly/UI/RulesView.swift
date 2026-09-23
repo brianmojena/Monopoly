@@ -249,7 +249,10 @@ extension RuleTopic {
         RuleTopic(
             id: "credit", icon: "creditcard.fill", color: .indigo, title: "Tarjeta de crédito",
             points: [
-                "Si el host la activó, puedes pedir prestado hasta el 50% de tu patrimonio, menos lo que ya debas.",
+                "Si el host la activó, puedes pedir prestado hasta el \(GameRules.baseCreditLimitPercentage)% de tu patrimonio, menos lo que ya debas.",
+                "Confianza de la banca: cada préstamo que terminas de pagar sube tu límite \(GameRules.creditTrustStepPercentage) puntos (hasta el \(GameRules.maximumCreditLimitPercentage)% de tu patrimonio). Cada vez que pasas por la Salida y no te alcanza para una cuota, lo baja \(GameRules.creditTrustStepPercentage) puntos. Aplazar una cuota no cuenta como fallo.",
+                "Con \(GameRules.missedPaymentsBeforeCreditIsCut) fallos la banca deja de darte crédito para el resto de la partida.",
+                "Solo puedes tener un préstamo a la vez. Cuando terminas de pagar uno, puedes tener hasta dos.",
                 "El interés es un 10% fijo al pedir el préstamo.",
                 "Eliges pagarlo en 1 a \(GameRules.maxCreditCardInstallments) cuotas, que se cobran cada vez que pasas por la Salida. Las cuotas que no uses se convierten en aplazamientos.",
                 "Puedes adelantar pagos cuando quieras."

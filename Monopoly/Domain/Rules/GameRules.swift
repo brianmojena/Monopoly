@@ -235,6 +235,7 @@ enum GameRules {
         var player = updatedState.players[playerIndex]
         let hadCardDebt = player.creditCardDebt > 0
         var interestPaid = 0
+        var missedAnInstallment = false
         player.balance += amount
 
         for index in player.creditCardLoans.indices {
@@ -243,7 +244,11 @@ enum GameRules {
                 continue
             }
 
-            let payment = min(creditCardInstallmentDue(for: player.creditCardLoans[index]), player.balance)
+            let due = creditCardInstallmentDue(for: player.creditCardLoans[index])
+            let payment = min(due, player.balance)
+            if payment < due {
+                missedAnInstallment = true
+            }
             let interest = interestPortion(of: payment, for: player.creditCardLoans[index])
             player.balance -= payment
             player.creditCardLoans[index].remainingDebt -= payment
@@ -255,6 +260,11 @@ enum GameRules {
                 player.creditCardLoans[index].installmentsRemaining -= 1
             }
         }
+        // Several short installments in the same GO count as one missed payment.
+        if missedAnInstallment {
+            player.creditHistory.missedPayments += 1
+        }
+        player.creditHistory.paidOffLoans += player.creditCardLoans.filter { $0.remainingDebt <= 0 }.count
         player.creditCardLoans.removeAll { $0.remainingDebt <= 0 }
 
         updatedState.players[playerIndex] = player
@@ -285,14 +295,39 @@ enum GameRules {
         return player.balance + propertiesValue - player.creditCardDebt
     }
 
+    // Bank trust (GAME_RULES section 8.1).
+    static let baseCreditLimitPercentage = 50
+    static let creditTrustStepPercentage = 20
+    static let maximumCreditLimitPercentage = 100
+    static let missedPaymentsBeforeCreditIsCut = 2
+
+    /// The share of net worth the bank lends: up for every loan paid off, down for
+    /// every missed payment, between 0% and 100%.
+    static func creditLimitPercentage(for history: CreditHistory) -> Int {
+        let trust = (history.paidOffLoans - history.missedPayments) * creditTrustStepPercentage
+        return min(maximumCreditLimitPercentage, max(0, baseCreditLimitPercentage + trust))
+    }
+
+    static func isCreditCut(for history: CreditHistory) -> Bool {
+        history.missedPayments >= missedPaymentsBeforeCreditIsCut
+    }
+
+    /// One loan at a time until the player has paid one off; then two.
+    static func maximumSimultaneousLoans(for history: CreditHistory) -> Int {
+        history.paidOffLoans > 0 ? 2 : 1
+    }
+
     // Net worth already subtracts the debt, and the debt is subtracted again from the
-    // 50% limit. Otherwise borrowed cash would count as net worth and repeated loans
+    // limit. Otherwise borrowed cash would count as net worth and repeated loans
     // could grow without bound.
     static func availableCredit(for playerID: UUID, in state: GameState) throws -> Int {
         guard let player = state.players.first(where: { $0.id == playerID }) else {
             throw GameRuleError.playerNotFound(playerID)
         }
-        let limit = try netWorth(of: playerID, in: state) / 2
+        guard !isCreditCut(for: player.creditHistory) else {
+            return 0
+        }
+        let limit = try netWorth(of: playerID, in: state) * creditLimitPercentage(for: player.creditHistory) / 100
         return max(0, limit - player.creditCardDebt)
     }
 
@@ -328,6 +363,14 @@ enum GameRules {
         }
         guard (1...maxCreditCardInstallments).contains(installments) else {
             throw GameRuleError.invalidInstallments(installments)
+        }
+        let history = state.players[playerIndex].creditHistory
+        guard !isCreditCut(for: history) else {
+            throw GameRuleError.creditCut
+        }
+        let maximumLoans = maximumSimultaneousLoans(for: history)
+        guard state.players[playerIndex].creditCardLoans.count < maximumLoans else {
+            throw GameRuleError.creditCardLoanLimitReached(maximumLoans)
         }
 
         let available = try availableCredit(for: playerID, in: state)
@@ -379,6 +422,9 @@ enum GameRules {
         updatedState.players[playerIndex].balance -= amount
         updatedState.players[playerIndex].creditCardLoans[loanIndex].remainingDebt -= amount
         updatedState.players[playerIndex].creditCardLoans[loanIndex].remainingInterest -= interest
+        if updatedState.players[playerIndex].creditCardLoans[loanIndex].remainingDebt <= 0 {
+            updatedState.players[playerIndex].creditHistory.paidOffLoans += 1
+        }
         updatedState.players[playerIndex].creditCardLoans.removeAll { $0.remainingDebt <= 0 }
         depositInFreeParking(interest, in: &updatedState)
         return updatedState

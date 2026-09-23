@@ -360,6 +360,12 @@ final class GameSessionModel: ObservableObject {
             return "Primero decide qué hacer con tu Tarjeta de Vida."
         case .noPendingLifeCard:
             return "No tienes ninguna Tarjeta de Vida pendiente."
+        case .creditCut:
+            return "La banca ya no te da crédito: fallaste \(GameRules.missedPaymentsBeforeCreditIsCut) pagos."
+        case let .creditCardLoanLimitReached(maximum):
+            return maximum == 1
+                ? "Solo puedes tener un préstamo a la vez hasta que termines de pagar uno."
+                : "Ya tienes \(maximum) préstamos, el máximo a la vez."
         case .freeParkingDisabled:
             return "El bote de Free Parking no está activado en esta partida."
         case .freeParkingPotEmpty:

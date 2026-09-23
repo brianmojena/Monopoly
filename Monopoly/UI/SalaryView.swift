@@ -29,7 +29,7 @@ struct SalaryView: View {
                     } header: {
                         Text("Cuotas de tarjeta")
                     } footer: {
-                        Text("Se descuentan al cobrar: \(currency(totalDue)). Si no te alcanza, se cobra lo que tengas y el resto queda pendiente para el siguiente GO. Aplazar una cuota la mueve al final, sin recargo.")
+                        Text("Se descuentan al cobrar: \(currency(totalDue)). Si no te alcanza, se cobra lo que tengas, el resto queda pendiente para el siguiente GO y cuenta como un fallo que baja la confianza de la banca. Aplazar una cuota la mueve al final, sin recargo y sin fallo.")
                     }
                 }
             }

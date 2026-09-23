@@ -25,7 +25,9 @@ struct CreditCardView: View {
                         }
                     }
 
-                    loanSection(availableCredit: availableCredit)
+                    trustSection(player.creditHistory)
+
+                    loanSection(player: player, availableCredit: availableCredit)
 
                     if !player.creditCardLoans.isEmpty {
                         loansSection(player.creditCardLoans)
@@ -43,8 +45,28 @@ struct CreditCardView: View {
         .proximityReceiverBanner(model: model)
     }
 
-    private func loanSection(availableCredit: Int) -> some View {
+    private func trustSection(_ history: CreditHistory) -> some View {
         Section {
+            LabeledContent("Límite", value: GameRules.isCreditCut(for: history)
+                ? "Sin crédito"
+                : "\(GameRules.creditLimitPercentage(for: history))% del patrimonio")
+            LabeledContent("Préstamos pagados", value: "\(history.paidOffLoans)")
+            LabeledContent("Fallos", value: "\(history.missedPayments) de \(GameRules.missedPaymentsBeforeCreditIsCut)")
+                .foregroundStyle(history.missedPayments > 0 ? .red : .primary)
+            LabeledContent("Préstamos a la vez", value: "\(GameRules.maximumSimultaneousLoans(for: history))")
+        } header: {
+            Text("Confianza de la banca")
+        } footer: {
+            Text("Cada préstamo que terminas de pagar sube tu límite \(GameRules.creditTrustStepPercentage) puntos (máx. \(GameRules.maximumCreditLimitPercentage)%) y te deja tener dos préstamos a la vez. Cada GO en que no cubres una cuota lo baja \(GameRules.creditTrustStepPercentage) puntos; con \(GameRules.missedPaymentsBeforeCreditIsCut) fallos ya no puedes pedir crédito.")
+        }
+    }
+
+    private func loanSection(player: Player, availableCredit: Int) -> some View {
+        let history = player.creditHistory
+        let isCut = GameRules.isCreditCut(for: history)
+        let maximumLoans = GameRules.maximumSimultaneousLoans(for: history)
+        let isAtLoanLimit = player.creditCardLoans.count >= maximumLoans
+        return Section {
             amountField(text: $loanText)
 
             Picker("Plazos", selection: $installments) {
@@ -62,19 +84,32 @@ struct CreditCardView: View {
                 loanText = ""
             }
             .buttonStyle(.borderedProminent)
-            .disabled(!model.isLocalPlayersTurn || (amount(from: loanText).map { $0 > availableCredit } ?? true))
+            .disabled(
+                !model.isLocalPlayersTurn
+                    || isCut
+                    || isAtLoanLimit
+                    || (amount(from: loanText).map { $0 > availableCredit } ?? true)
+            )
         } header: {
             Text("Pedir préstamo")
         } footer: {
-            Text(model.isLocalPlayersTurn ? loanFooter : "Los préstamos se piden en tu turno. " + loanFooter)
+            if isCut {
+                Text("La banca ya no te da crédito: fallaste \(GameRules.missedPaymentsBeforeCreditIsCut) pagos.")
+            } else if isAtLoanLimit {
+                Text(maximumLoans == 1
+                     ? "Solo puedes tener un préstamo a la vez hasta que termines de pagar uno."
+                     : "Ya tienes \(maximumLoans) préstamos, el máximo a la vez.")
+            } else {
+                Text(model.isLocalPlayersTurn ? loanFooter(history) : "Los préstamos se piden en tu turno. " + loanFooter(history))
+            }
         }
     }
 
-    private var loanFooter: String {
+    private func loanFooter(_ history: CreditHistory) -> String {
         let postponements = GameRules.maxCreditCardInstallments - installments
         let postponementsText = postponements == 1 ? "1 aplazamiento" : "\(postponements) aplazamientos"
         guard let amount = amount(from: loanText) else {
-            return "Hasta el 50% de tu patrimonio (efectivo + propiedades no hipotecadas + construcciones − deuda), menos lo que ya debes. 10% de interés. Con \(installments) plazo(s) tienes \(postponementsText)."
+            return "Hasta el \(GameRules.creditLimitPercentage(for: history))% de tu patrimonio (efectivo + propiedades no hipotecadas + construcciones − deuda), menos lo que ya debes. 10% de interés. Con \(installments) plazo(s) tienes \(postponementsText)."
         }
         let debt = GameRules.creditCardDebt(forLoan: amount)
         let firstInstallment = GameRules.creditCardInstallmentDue(for: CreditCardLoan(

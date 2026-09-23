@@ -151,12 +151,17 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 ### 8.1 Tarjetas de crédito
 
 - **Patrimonio** (para crédito): efectivo + precio de cada propiedad no hipotecada + suma de lo que costó subir cada nivel ya alcanzado (sección 4.3) − deuda de tarjeta. Las propiedades hipotecadas cuentan 0.
-- **Crédito disponible**: 50% del patrimonio menos la deuda de tarjeta actual. Restar la deuda evita encadenar préstamos, porque el efectivo prestado cuenta como patrimonio.
+- **Crédito disponible**: el **límite de confianza** (ver abajo, 50% del patrimonio al empezar) menos la deuda de tarjeta actual. Restar la deuda evita encadenar préstamos, porque el efectivo prestado cuenta como patrimonio.
+- **Confianza de la banca**: cada jugador tiene un historial de crédito que empieza vacío.
+  - Cada préstamo que **termina de pagar** (por cuotas en GO o pagos anticipados) sube el límite **20 puntos** del patrimonio (50% → 70% → 90% → 100%). El límite nunca pasa del **100%** del patrimonio.
+  - Cada **fallo** baja el límite 20 puntos (50% → 30%). Un fallo es pasar por GO y **no poder cubrir completa** la cuota de un préstamo que no se aplazó (se cobra lo que haya, como siempre, y el resto sigue como deuda). Aplazar una cuota **no** es un fallo, y la bancarrota tampoco suma fallos. Si en un mismo GO quedan cortas las cuotas de varios préstamos, cuenta como un solo fallo.
+  - Con **2 fallos** la banca deja de dar crédito: no se pueden pedir más préstamos en toda la partida. Los préstamos que ya tenga se siguen cobrando igual.
+  - El límite no baja de 0% del patrimonio.
 - **Interés**: 10% fijo en el momento de pedir el préstamo (pides $1000 → debes $1100). La deuda no crece con el tiempo.
 - **Plazos**: al pedir un préstamo se eligen de 1 a 5 plazos. La deuda (con el interés) se divide entre esos plazos y en cada GO se cobra una cuota: lo que queda por pagar ÷ cuotas restantes, redondeado hacia arriba.
 - **Aplazamientos**: cada préstamo tiene 5 − plazos elegidos aplazamientos (5 plazos → 0; 4 → 1; 1 → 4). Al cobrar el salario de GO el jugador puede aplazar la cuota de ese préstamo: ese GO no se cobra y la cuota pasa al final. No tiene recargo.
 - **Cobro en GO**: primero se suma el salario y luego se cobra la cuota de cada préstamo no aplazado. Si el efectivo no alcanza, se cobra todo lo que haya y el resto sigue como deuda; en la última cuota, lo que quede se cobra completo en el siguiente GO. El saldo nunca queda negativo.
-- **Varios préstamos**: se pueden tener varios a la vez, cada uno con sus propios plazos y aplazamientos. El límite de crédito cuenta la deuda de todos.
+- **Varios préstamos**: mientras el jugador no haya terminado de pagar ningún préstamo, solo puede tener **uno** a la vez. Después de terminar de pagar al menos uno, puede tener hasta **dos** a la vez. Cada préstamo tiene sus propios plazos y aplazamientos, y el límite de crédito cuenta la deuda de todos.
 - **Pagos anticipados**: se puede pagar cualquier monto de un préstamo, hasta lo que queda por pagar, en cualquier momento. Reduce las cuotas restantes de ese préstamo.
 - **Bancarrota**: la deuda de tarjeta se cancela; no pasa al acreedor.
 
