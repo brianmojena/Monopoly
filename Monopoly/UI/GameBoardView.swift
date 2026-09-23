@@ -78,6 +78,18 @@ struct GameBoardView: View {
                             }
 
                             NavigationLink {
+                                PayWithQRView(model: model)
+                            } label: {
+                                Label("Pagar con QR", systemImage: "qrcode.viewfinder")
+                            }
+
+                            NavigationLink {
+                                CollectWithQRView(model: model)
+                            } label: {
+                                Label("Cobrar con QR", systemImage: "qrcode")
+                            }
+
+                            NavigationLink {
                                 MarketView(model: model)
                             } label: {
                                 Label("Mercado", systemImage: "chart.line.uptrend.xyaxis")

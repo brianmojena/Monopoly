@@ -20,6 +20,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Monopoly usa la cámara para escanear el QR de otro jugador y pagarle.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_monopoly-game._tcp</string>
