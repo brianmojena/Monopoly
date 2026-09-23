@@ -123,6 +123,14 @@ struct HostSetupView: View {
             }
 
             Section {
+                Toggle(isOn: lobbyToggle(\.freeParkingEnabled)) {
+                    Label("Bote de Free Parking", systemImage: "parkingsign.circle")
+                }
+            } footer: {
+                Text("Impuestos, viajes, el interés de la tarjeta y el de deshipotecar se acumulan en un bote que se lleva quien caiga en Free Parking.")
+            }
+
+            Section {
                 Toggle(isOn: lobbyToggle(\.proximityPaymentsEnabled)) {
                     Label("Pagar acercando iPhones", systemImage: "wave.3.right")
                 }

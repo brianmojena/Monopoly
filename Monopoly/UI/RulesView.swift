@@ -173,6 +173,12 @@ extension RuleTopic {
             .joined(separator: ", ")
     }
 
+    private static var travelFares: String {
+        "Cuesta $\(TravelRoute.sameSide.fare) en tu mismo lado, $\(TravelRoute.nextSide.fare) al lado siguiente, "
+            + "$\(TravelRoute.twoSidesAhead.fare) dos lados más allá, $\(TravelRoute.threeSidesAhead.fare) tres lados más allá "
+            + "y $\(TravelRoute.fullLap.fare) para dar la vuelta completa"
+    }
+
     static let classic: [RuleTopic] = [
         RuleTopic(
             id: "setup", icon: "person.3.fill", color: .blue, title: "Preparar la partida",
@@ -189,7 +195,8 @@ extension RuleTopic {
             points: [
                 "Tiras los dados y mueves tu ficha en el tablero físico, como siempre. La app no mueve fichas: tú le dices qué pasó.",
                 "Según la casilla: compras la propiedad, pagas renta, pagas un impuesto o cobras tu salario al pasar por la Salida.",
-                "Solo en tu turno: comprar, pagar renta, pagar impuestos, cobrar salario, subastas y pedir préstamos.",
+                "Casillas de viaje: pagas para mover tu ficha a cualquier casilla, siempre hacia delante. \(travelFares).",
+                "Solo en tu turno: comprar, pagar renta, pagar impuestos, viajar, cobrar salario, cobrar el bote, subastas y pedir préstamos.",
                 "En cualquier momento: pagar a otro jugador, negociar en el Mercado, hipotecar, subir o bajar de nivel, pagar la tarjeta y declararte en bancarrota.",
                 "Cuando termines, pulsa \"Terminar turno\". El host puede pasar el turno de alguien que se olvidó."
             ]
@@ -246,6 +253,15 @@ extension RuleTopic {
                 "El interés es un 10% fijo al pedir el préstamo.",
                 "Eliges pagarlo en 1 a \(GameRules.maxCreditCardInstallments) cuotas, que se cobran cada vez que pasas por la Salida. Las cuotas que no uses se convierten en aplazamientos.",
                 "Puedes adelantar pagos cuando quieras."
+            ]
+        ),
+        RuleTopic(
+            id: "free-parking", icon: "parkingsign.circle.fill", color: .cyan, title: "Bote de Free Parking",
+            points: [
+                "Regla opcional que activa el host.",
+                "Los impuestos, los viajes, el 10% de interés de la tarjeta (a medida que se paga) y el 10% al deshipotecar van a un bote que todos ven en el tablero.",
+                "Quien cae en Free Parking pulsa \"Caí en Free Parking\" en su turno y se lleva todo el bote.",
+                "Las compras de propiedades y las subidas de nivel no van al bote."
             ]
         ),
         RuleTopic(

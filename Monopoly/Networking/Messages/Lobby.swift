@@ -17,6 +17,7 @@ struct Lobby: Codable, Equatable {
 
     var players: [LobbyPlayer]
     var creditCardsEnabled: Bool
+    var freeParkingEnabled: Bool
     var proximityPaymentsEnabled: Bool
     var gameMode: GameMode
     /// Only used in Monopolife games.
@@ -25,12 +26,14 @@ struct Lobby: Codable, Equatable {
     init(
         players: [LobbyPlayer] = [],
         creditCardsEnabled: Bool = true,
+        freeParkingEnabled: Bool = false,
         proximityPaymentsEnabled: Bool = false,
         gameMode: GameMode = .classic,
         roundLimit: Int = MonopolifeState.defaultRoundLimit
     ) {
         self.players = players
         self.creditCardsEnabled = creditCardsEnabled
+        self.freeParkingEnabled = freeParkingEnabled
         self.proximityPaymentsEnabled = proximityPaymentsEnabled
         self.gameMode = gameMode
         self.roundLimit = roundLimit
@@ -39,6 +42,7 @@ struct Lobby: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case players
         case creditCardsEnabled
+        case freeParkingEnabled
         case proximityPaymentsEnabled
         case gameMode
         case roundLimit
@@ -48,6 +52,7 @@ struct Lobby: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         players = try container.decode([LobbyPlayer].self, forKey: .players)
         creditCardsEnabled = try container.decode(Bool.self, forKey: .creditCardsEnabled)
+        freeParkingEnabled = try container.decodeIfPresent(Bool.self, forKey: .freeParkingEnabled) ?? false
         proximityPaymentsEnabled = try container.decode(Bool.self, forKey: .proximityPaymentsEnabled)
         gameMode = try container.decodeIfPresent(GameMode.self, forKey: .gameMode) ?? .classic
         roundLimit = try container.decodeIfPresent(Int.self, forKey: .roundLimit) ?? MonopolifeState.defaultRoundLimit
@@ -56,6 +61,17 @@ struct Lobby: Codable, Equatable {
     var canStart: Bool {
         Self.playerLimit.contains(players.count)
             && players.allSatisfy { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    var activeHouseRules: Set<HouseRule> {
+        var rules: Set<HouseRule> = []
+        if creditCardsEnabled {
+            rules.insert(.creditCards)
+        }
+        if freeParkingEnabled {
+            rules.insert(.freeParkingJackpot)
+        }
+        return rules
     }
 
     func makeGameState(initialBalance: Int, properties: [Property]) -> GameState {
@@ -79,7 +95,7 @@ struct Lobby: Codable, Equatable {
             players: gamePlayers,
             properties: properties,
             currentPlayerID: gamePlayers.first?.id,
-            activeHouseRules: creditCardsEnabled ? [.creditCards] : [],
+            activeHouseRules: activeHouseRules,
             proximityPaymentsEnabled: proximityPaymentsEnabled,
             mode: gameMode,
             monopolife: gameMode == .monopolife

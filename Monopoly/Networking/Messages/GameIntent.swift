@@ -5,6 +5,8 @@ enum GameIntent: Codable, Equatable {
     case resolveAuction(propertyID: UUID, bids: [AuctionBid])
     case collectRent(payerID: UUID, propertyID: UUID)
     case payTax(playerID: UUID, amount: Int)
+    case payTravel(playerID: UUID, route: TravelRoute)
+    case collectFreeParking(playerID: UUID)
     case collectSalary(playerID: UUID, amount: Int, postponedLoanIDs: Set<UUID> = [])
     case levelUp(propertyID: UUID, playerID: UUID)
     case levelDown(propertyID: UUID, playerID: UUID)
@@ -38,6 +40,7 @@ enum GameIntent: Codable, Equatable {
         case installments
         case loanID
         case accept
+        case route
     }
 
     private enum IntentType: String, Codable {
@@ -45,6 +48,8 @@ enum GameIntent: Codable, Equatable {
         case resolveAuction
         case collectRent
         case payTax
+        case payTravel
+        case collectFreeParking
         case collectSalary
         case levelUp
         case levelDown
@@ -89,6 +94,13 @@ enum GameIntent: Codable, Equatable {
                 playerID: try container.decode(UUID.self, forKey: .playerID),
                 amount: try container.decode(Int.self, forKey: .amount)
             )
+        case .payTravel:
+            self = .payTravel(
+                playerID: try container.decode(UUID.self, forKey: .playerID),
+                route: try container.decode(TravelRoute.self, forKey: .route)
+            )
+        case .collectFreeParking:
+            self = .collectFreeParking(playerID: try container.decode(UUID.self, forKey: .playerID))
         case .collectSalary:
             self = .collectSalary(
                 playerID: try container.decode(UUID.self, forKey: .playerID),
@@ -180,6 +192,13 @@ enum GameIntent: Codable, Equatable {
             try container.encode(IntentType.payTax, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(amount, forKey: .amount)
+        case let .payTravel(playerID, route):
+            try container.encode(IntentType.payTravel, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+            try container.encode(route, forKey: .route)
+        case let .collectFreeParking(playerID):
+            try container.encode(IntentType.collectFreeParking, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
         case let .collectSalary(playerID, amount, postponedLoanIDs):
             try container.encode(IntentType.collectSalary, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
@@ -254,8 +273,8 @@ extension GameIntent {
     // players and bankruptcy stay available at any time.
     var requiresTurn: Bool {
         switch self {
-        case .buyProperty, .resolveAuction, .collectRent, .payTax, .collectSalary, .borrowOnCreditCard,
-             .drawLifeCard, .resolveLifeCardDecision:
+        case .buyProperty, .resolveAuction, .collectRent, .payTax, .payTravel, .collectFreeParking,
+             .collectSalary, .borrowOnCreditCard, .drawLifeCard, .resolveLifeCardDecision:
             return true
         case .levelUp, .levelDown, .mortgageProperty, .unmortgageProperty,
              .declareBankruptcy, .proposeDeal, .acceptDeal, .rejectDeal, .transferMoney, .payCreditCard,

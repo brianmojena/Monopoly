@@ -10,6 +10,8 @@ struct GameState: Codable, Equatable {
     var marketDeals: [MarketDeal]
     var rentInvestments: [RentInvestment]
     var mode: GameMode
+    /// Money waiting on Free Parking; only grows while `HouseRule.freeParkingJackpot` is active.
+    var freeParkingPot: Int
     /// Present only in Monopolife games.
     var monopolife: MonopolifeState?
 
@@ -23,6 +25,7 @@ struct GameState: Codable, Equatable {
         marketDeals: [MarketDeal] = [],
         rentInvestments: [RentInvestment] = [],
         mode: GameMode = .classic,
+        freeParkingPot: Int = 0,
         monopolife: MonopolifeState? = nil
     ) {
         self.players = players
@@ -34,6 +37,7 @@ struct GameState: Codable, Equatable {
         self.marketDeals = marketDeals
         self.rentInvestments = rentInvestments
         self.mode = mode
+        self.freeParkingPot = freeParkingPot
         self.monopolife = monopolife
     }
 
@@ -47,6 +51,7 @@ struct GameState: Codable, Equatable {
         case marketDeals
         case rentInvestments
         case mode
+        case freeParkingPot
         case monopolife
     }
 
@@ -61,6 +66,7 @@ struct GameState: Codable, Equatable {
         marketDeals = try container.decode([MarketDeal].self, forKey: .marketDeals)
         rentInvestments = try container.decodeIfPresent([RentInvestment].self, forKey: .rentInvestments) ?? []
         mode = try container.decodeIfPresent(GameMode.self, forKey: .mode) ?? .classic
+        freeParkingPot = try container.decodeIfPresent(Int.self, forKey: .freeParkingPot) ?? 0
         monopolife = try container.decodeIfPresent(MonopolifeState.self, forKey: .monopolife)
     }
 
@@ -75,6 +81,7 @@ struct GameState: Codable, Equatable {
         try container.encode(marketDeals, forKey: .marketDeals)
         try container.encode(rentInvestments, forKey: .rentInvestments)
         try container.encode(mode, forKey: .mode)
+        try container.encode(freeParkingPot, forKey: .freeParkingPot)
         try container.encodeIfPresent(monopolife, forKey: .monopolife)
     }
 }

@@ -371,7 +371,8 @@ extension GameRules {
         case let .collect(amount):
             credit(amount, to: playerID, in: &state)
         case let .pay(amount):
-            payUpTo(amount, from: playerID, in: &state)
+            let paid = payUpTo(amount, from: playerID, in: &state)
+            depositInFreeParking(paid, in: &state)
         case let .collectPerOwnedProperty(each, maximum):
             let owned = state.properties.filter { $0.shares(of: playerID) > 0 }.count
             credit(min(owned * each, maximum), to: playerID, in: &state)

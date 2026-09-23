@@ -200,6 +200,7 @@ enum GameRules {
 
         var updatedState = state
         updatedState.players[playerIndex].balance -= amount
+        depositInFreeParking(amount, in: &updatedState)
         if amount > 0 {
             applyLifeTrigger(.taxPaid(playerID: playerID), in: &updatedState)
         }
@@ -233,6 +234,7 @@ enum GameRules {
         var updatedState = state
         var player = updatedState.players[playerIndex]
         let hadCardDebt = player.creditCardDebt > 0
+        var interestPaid = 0
         player.balance += amount
 
         for index in player.creditCardLoans.indices {
@@ -242,8 +244,11 @@ enum GameRules {
             }
 
             let payment = min(creditCardInstallmentDue(for: player.creditCardLoans[index]), player.balance)
+            let interest = interestPortion(of: payment, for: player.creditCardLoans[index])
             player.balance -= payment
             player.creditCardLoans[index].remainingDebt -= payment
+            player.creditCardLoans[index].remainingInterest -= interest
+            interestPaid += interest
             // The last installment stays open until paid, so an unpaid remainder is due
             // in full at the next GO instead of disappearing from the schedule.
             if player.creditCardLoans[index].installmentsRemaining > 1 {
@@ -253,6 +258,7 @@ enum GameRules {
         player.creditCardLoans.removeAll { $0.remainingDebt <= 0 }
 
         updatedState.players[playerIndex] = player
+        depositInFreeParking(interestPaid, in: &updatedState)
         applyLifeTrigger(.salaryCollected(playerID: playerID, hadCardDebt: hadCardDebt), in: &updatedState)
         return updatedState
     }
@@ -331,10 +337,12 @@ enum GameRules {
 
         var updatedState = state
         updatedState.players[playerIndex].balance += amount
+        let debt = creditCardDebt(forLoan: amount)
         updatedState.players[playerIndex].creditCardLoans.append(CreditCardLoan(
-            remainingDebt: creditCardDebt(forLoan: amount),
+            remainingDebt: debt,
             installmentsRemaining: installments,
-            postponementsRemaining: maxCreditCardInstallments - installments
+            postponementsRemaining: maxCreditCardInstallments - installments,
+            remainingInterest: debt - amount
         ))
         applyLifeTrigger(.loanTaken(playerID: playerID), in: &updatedState)
         return updatedState
@@ -366,10 +374,13 @@ enum GameRules {
             )
         }
 
+        let interest = interestPortion(of: amount, for: player.creditCardLoans[loanIndex])
         var updatedState = state
         updatedState.players[playerIndex].balance -= amount
         updatedState.players[playerIndex].creditCardLoans[loanIndex].remainingDebt -= amount
+        updatedState.players[playerIndex].creditCardLoans[loanIndex].remainingInterest -= interest
         updatedState.players[playerIndex].creditCardLoans.removeAll { $0.remainingDebt <= 0 }
+        depositInFreeParking(interest, in: &updatedState)
         return updatedState
     }
 
@@ -517,6 +528,7 @@ enum GameRules {
         var updatedState = state
         try chargeShareholders(repayment, of: property, in: &updatedState)
         updatedState.properties[propertyIndex].isMortgaged = false
+        depositInFreeParking(repayment - property.mortgageValue, in: &updatedState)
         return updatedState
     }
 

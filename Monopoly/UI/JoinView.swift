@@ -205,6 +205,7 @@ private struct JoinedGameView: View {
                     LabeledContent("Rondas", value: "\(lobby.roundLimit)")
                 }
                 LabeledContent("Tarjetas de crédito", value: lobby.creditCardsEnabled ? "Sí" : "No")
+                LabeledContent("Bote de Free Parking", value: lobby.freeParkingEnabled ? "Sí" : "No")
                 LabeledContent("Pagar acercando iPhones", value: lobby.proximityPaymentsEnabled ? "Sí" : "No")
             }
 

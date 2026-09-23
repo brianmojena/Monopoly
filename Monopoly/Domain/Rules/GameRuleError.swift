@@ -67,6 +67,8 @@ enum GameRuleError: Error, Equatable, Codable {
     case monopolifeOnly
     case lifeCardDecisionPending
     case noPendingLifeCard
+    case freeParkingDisabled
+    case freeParkingPotEmpty
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -128,6 +130,8 @@ enum GameRuleError: Error, Equatable, Codable {
         case monopolifeOnly
         case lifeCardDecisionPending
         case noPendingLifeCard
+        case freeParkingDisabled
+        case freeParkingPotEmpty
     }
 
     init(from decoder: Decoder) throws {
@@ -238,6 +242,10 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .lifeCardDecisionPending
         case .noPendingLifeCard:
             self = .noPendingLifeCard
+        case .freeParkingDisabled:
+            self = .freeParkingDisabled
+        case .freeParkingPotEmpty:
+            self = .freeParkingPotEmpty
         }
     }
 
@@ -366,6 +374,10 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(Code.lifeCardDecisionPending, forKey: .code)
         case .noPendingLifeCard:
             try container.encode(Code.noPendingLifeCard, forKey: .code)
+        case .freeParkingDisabled:
+            try container.encode(Code.freeParkingDisabled, forKey: .code)
+        case .freeParkingPotEmpty:
+            try container.encode(Code.freeParkingPotEmpty, forKey: .code)
         }
     }
 }

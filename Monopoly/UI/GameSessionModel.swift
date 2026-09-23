@@ -39,6 +39,10 @@ final class GameSessionModel: ObservableObject {
         gameState?.activeHouseRules.contains(.creditCards) == true
     }
 
+    var isFreeParkingEnabled: Bool {
+        gameState?.activeHouseRules.contains(.freeParkingJackpot) == true
+    }
+
     /// Players this device acts for: on the host, its own player plus the players
     /// added without a phone; on a client, just its own player.
     var controllablePlayers: [Player] {
@@ -356,6 +360,10 @@ final class GameSessionModel: ObservableObject {
             return "Primero decide qué hacer con tu Tarjeta de Vida."
         case .noPendingLifeCard:
             return "No tienes ninguna Tarjeta de Vida pendiente."
+        case .freeParkingDisabled:
+            return "El bote de Free Parking no está activado en esta partida."
+        case .freeParkingPotEmpty:
+            return "El bote de Free Parking está vacío."
         case let .insufficientFunds(_, required, available):
             return "No te alcanza: hacen falta $\(required) y tienes $\(available)."
         default:
@@ -424,6 +432,24 @@ final class GameSessionModel: ObservableObject {
         }
 
         send(.payTax(playerID: localPlayerID, amount: amount))
+    }
+
+    func payTravel(route: TravelRoute) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de pagar un viaje."
+            return
+        }
+
+        send(.payTravel(playerID: localPlayerID, route: route))
+    }
+
+    func collectFreeParking() {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de cobrar el bote."
+            return
+        }
+
+        send(.collectFreeParking(playerID: localPlayerID))
     }
 
     func collectSalary(amount: Int, postponedLoanIDs: Set<UUID> = []) {

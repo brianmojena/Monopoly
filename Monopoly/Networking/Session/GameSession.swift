@@ -499,6 +499,10 @@ final class GameSession {
             return try GameRules.collectRent(in: state, from: playerID, propertyID: propertyID).state
         case let .payTax(_, amount):
             return try GameRules.payTax(in: state, playerID: playerID, amount: amount)
+        case let .payTravel(_, route):
+            return try GameRules.payTravel(in: state, playerID: playerID, route: route)
+        case .collectFreeParking:
+            return try GameRules.collectFreeParking(in: state, playerID: playerID)
         case let .collectSalary(_, amount, postponedLoanIDs):
             return try GameRules.collectSalary(
                 in: state,

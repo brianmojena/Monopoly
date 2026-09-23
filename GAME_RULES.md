@@ -29,7 +29,7 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 
 - La partida lleva **rondas y turnos**: empieza en la ronda 1 con el primer jugador de la sala. El jugador en turno pulsa "Terminar turno" y el turno pasa al siguiente jugador activo (los que están en bancarrota se saltan). Al volver al primero empieza una nueva ronda.
 - El host puede pasar el turno de otro jugador (ej. si se olvida o se desconecta). Si el jugador en turno se declara en bancarrota, el turno pasa automáticamente.
-- **Solo en tu turno**: comprar, pagar renta, pagar impuestos, cobrar salario, subastas y pedir préstamos de tarjeta.
+- **Solo en tu turno**: comprar, pagar renta, pagar impuestos, pagar un viaje, cobrar salario, cobrar el bote de Free Parking, subastas y pedir préstamos de tarjeta.
 - **En cualquier momento**: hipotecar y deshipotecar, construir y vender construcciones, intercambios, pagar a otros jugadores (ej. cartas que obligan a todos a pagarte), pagar la tarjeta y declararse en bancarrota.
 
 - El movimiento de fichas y el lanzamiento de dados ocurren físicamente en la mesa; la app **no** gestiona el tablero.
@@ -106,6 +106,18 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 - **Ir a la Cárcel**: el jugador mueve su ficha físicamente a la cárcel; la app solo gestiona el pago de fianza si aplica.
 - **Salir de la Cárcel**: pagando una fianza fija, usando una carta "Salir de la cárcel gratis", o sacando dobles (gestión física de dados).
 - **Salida (Go)**: al pasar o caer en la casilla de Salida, el jugador cobra el monto de salario definido.
+- **Casillas de viaje**: al caer en una, el jugador (en su turno) puede pagar a la banca para mover su ficha a cualquier casilla del tablero. La tarifa depende de cuántos lados del tablero avanza, siempre hacia delante:
+
+  | Destino | Tarifa |
+  |---|---|
+  | Más adelante en el mismo lado | $100 |
+  | El lado siguiente | $100 |
+  | Dos lados más adelante | $200 |
+  | Tres lados más adelante | $300 |
+  | El mismo lado, pero detrás (vuelta completa) | $400 |
+
+  La app solo cobra la tarifa; el jugador mueve la ficha física. Si en el viaje pasa por la Salida, cobra el salario como siempre. La tarifa cuenta como pago a la banca (va al bote de Free Parking si esa regla está activa), pero no es un impuesto: no activa efectos de Monopolife ligados a pagar impuestos. Las tarifas son placeholder, igual que el resto de valores de la sección 9.
+- **Free Parking**: sin la regla opcional "Free Parking Jackpot" (sección 8) no pasa nada al caer. Con la regla activa, ver 8.2.
 - **Suerte / Caja de Comunidad**: las cartas se manejan físicamente; cuando una carta tiene efecto monetario, el jugador reporta a la app para aplicar el efecto (cobrar/pagar).
 - **Pagar con QR** (renta o pago libre): quien cobra muestra en su iPhone un QR (de una propiedad en la que tiene acciones, para renta; o de sí mismo, con monto fijo opcional, para pago libre) y quien paga lo escanea y confirma. Es solo otra forma de elegir a quién o qué se paga: se aplican exactamente las mismas reglas que al pagar desde la lista (la renta solo en tu turno; el pago libre en cualquier momento).
 - **Pago libre entre jugadores**: para efectos que obligan a pagar a otro jugador (ej. cartas "paga $50 a cada jugador"), un jugador puede transferir un monto positivo a otro jugador activo. Falla si el monto no es positivo, si no tiene saldo suficiente, si se paga a sí mismo o si alguno de los dos está en bancarrota.
@@ -129,7 +141,7 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 
 | Regla opcional | Descripción |
 |---|---|
-| Free Parking Jackpot | El dinero de impuestos y pagos a la banca se acumula y se entrega al jugador que caiga en Free Parking. |
+| Free Parking Jackpot | El dinero de impuestos y otros pagos a la banca se acumula en un bote que se lleva quien caiga en Free Parking. Ver sección 8.2. |
 | Doble renta antes de construir | Ya es regla oficial en el clásico; aquí se deja explícito como toggle por si la edición Ultimate Banking no la incluye por defecto. |
 | Sin subasta | Si un jugador no compra una propiedad, esta simplemente queda disponible para el siguiente jugador que caiga en ella, sin subasta. |
 | Bono en Casa aleatorio | Activa el evento aleatorio de bono monetario que el dispositivo físico Ultimate Banking entrega ocasionalmente. |
@@ -147,6 +159,19 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 - **Varios préstamos**: se pueden tener varios a la vez, cada uno con sus propios plazos y aplazamientos. El límite de crédito cuenta la deuda de todos.
 - **Pagos anticipados**: se puede pagar cualquier monto de un préstamo, hasta lo que queda por pagar, en cualquier momento. Reduce las cuotas restantes de ese préstamo.
 - **Bancarrota**: la deuda de tarjeta se cancela; no pasa al acreedor.
+
+### 8.2 Free Parking Jackpot
+
+- La partida lleva un **bote** que empieza en $0 y que todos los jugadores pueden ver en todo momento.
+- Van al bote, en el momento en que se pagan:
+  - Impuestos (sección 5), incluida la fianza de la cárcel, que se paga como impuesto.
+  - Tarifas de las casillas de viaje (sección 5).
+  - El **interés** de la tarjeta de crédito (sección 8.1), a medida que se paga: cada pago (cuota en GO o pago anticipado) lleva dentro una parte de interés proporcional a lo que queda por pagar de ese préstamo, y esa parte va al bote. Al terminar de pagar el préstamo, todo su 10% ha ido al bote. Si el jugador quiebra, el interés que no pagó no llega al bote.
+  - El **10% de interés al deshipotecar** (sección 4.4); el valor de hipoteca en sí sale del juego.
+  - En Monopolife, lo que una Tarjeta de Vida hace pagar a la banca (no lo que se paga a otros jugadores).
+- **No** van al bote: compras de propiedades (directas, subastas, compartidas), subir de nivel, ni el dinero de un jugador que quiebra con la banca.
+- Al caer en Free Parking, el jugador (en su turno) pulsa "Cobrar el bote" y recibe todo el bote, que vuelve a $0. Con el bote vacío no hay nada que cobrar.
+- Sin la regla activa, todo lo anterior sale del juego como siempre y no hay bote.
 
 La app debe permitir seleccionar estas reglas opcionales al crear una partida, y el estado resultante debe ser visible para todos los jugadores conectados antes de empezar.
 
