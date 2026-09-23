@@ -31,11 +31,20 @@ struct RulesView: View {
                         mode = .classic
                     } label: {
                         Label("Ver las reglas del Classic, que también aplican aquí", systemImage: "arrow.left.arrow.right")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.app(.subheadline, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 4)
                 }
+
+                NavigationLink {
+                    PhotoCreditsView()
+                } label: {
+                    Label("Créditos de las fotos", systemImage: "photo.on.rectangle")
+                        .font(.app(.footnote, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
             }
             .padding(20)
             .frame(maxWidth: 640)
@@ -53,7 +62,7 @@ struct RulesView: View {
     private var intro: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(mode == .classic ? "Monopoly Classic" : "Monopolife")
-                .font(.system(.title, design: .rounded, weight: .black))
+                .font(.app(.title, weight: .black))
             Text(mode == .classic
                  ? "El Monopoly de siempre con banca digital: el tablero, los dados, las fichas y las cartas siguen siendo los de la caja, y cada jugador lleva su dinero y sus propiedades en su iPhone."
                  : "Aquí no gana quien tiene más dinero, sino quien tiene más felicidad. Cada jugador recibe un rol secreto que decide qué lo hace feliz, así que cada partida se juega distinto.")
@@ -75,16 +84,16 @@ struct RulesView: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: topic.icon)
-                        .font(.title3.weight(.semibold))
+                        .font(.app(.title3, weight: .semibold))
                         .foregroundStyle(topic.color)
                         .frame(width: 40, height: 40)
                         .background(topic.color.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
                     Text(topic.title)
-                        .font(.headline)
+                        .font(.app(.headline))
                         .multilineTextAlignment(.leading)
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(.footnote.weight(.bold))
+                        .font(.app(.footnote, weight: .bold))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
@@ -102,7 +111,7 @@ struct RulesView: View {
                             Text(point)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
@@ -115,9 +124,9 @@ struct RulesView: View {
     private var rolesCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Los 6 roles", systemImage: "theatermasks")
-                .font(.headline)
+                .font(.app(.headline))
             Text("Te toca uno al azar en la ruleta. Nadie más sabe cuál es hasta el final.")
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(.secondary)
 
             ForEach(LifeRole.allCases, id: \.self) { role in
@@ -125,23 +134,23 @@ struct RulesView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         Text(definition.emoji)
-                            .font(.title2)
+                            .font(.app(.title2))
                         VStack(alignment: .leading, spacing: 0) {
                             Text(definition.name)
-                                .font(.headline)
+                                .font(.app(.headline))
                                 .foregroundStyle(role.color)
                             Text(definition.summary)
-                                .font(.caption)
+                                .font(.app(.caption))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     ForEach(definition.likes, id: \.self) { like in
                         Text("😊 \(like)")
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Text("😞 \(definition.dislike)")
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(12)
