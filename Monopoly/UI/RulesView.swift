@@ -1,0 +1,323 @@
+import SwiftUI
+
+/// How to play, for players. Numbers come from the same data the rules use, so this
+/// screen stays right when values are tuned.
+struct RulesView: View {
+    @State private var mode: GameMode
+    @State private var expandedTopicIDs: Set<String> = ["setup", "goal"]
+
+    init(mode: GameMode = .classic) {
+        _mode = State(initialValue: mode)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Picker("Modo de juego", selection: $mode) {
+                    Text("Monopoly Classic").tag(GameMode.classic)
+                    Text("Monopolife").tag(GameMode.monopolife)
+                }
+                .pickerStyle(.segmented)
+
+                intro
+
+                ForEach(topics) { topic in
+                    topicCard(topic)
+                }
+
+                if mode == .monopolife {
+                    rolesCard
+                    Button {
+                        mode = .classic
+                    } label: {
+                        Label("Ver las reglas del Classic, que también aplican aquí", systemImage: "arrow.left.arrow.right")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: 640)
+            .frame(maxWidth: .infinity)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Cómo se juega")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
+        .animation(.snappy, value: mode)
+        .animation(.snappy, value: expandedTopicIDs)
+    }
+
+    private var intro: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(mode == .classic ? "Monopoly Classic" : "Monopolife")
+                .font(.system(.title, design: .rounded, weight: .black))
+            Text(mode == .classic
+                 ? "El Monopoly de siempre con banca digital: el tablero, los dados, las fichas y las cartas siguen siendo los de la caja, y cada jugador lleva su dinero y sus propiedades en su iPhone."
+                 : "Aquí no gana quien tiene más dinero, sino quien tiene más felicidad. Cada jugador recibe un rol secreto que decide qué lo hace feliz, así que cada partida se juega distinto.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func topicCard(_ topic: RuleTopic) -> some View {
+        let isExpanded = expandedTopicIDs.contains(topic.id)
+        return VStack(alignment: .leading, spacing: 12) {
+            Button {
+                if isExpanded {
+                    expandedTopicIDs.remove(topic.id)
+                } else {
+                    expandedTopicIDs.insert(topic.id)
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: topic.icon)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(topic.color)
+                        .frame(width: 40, height: 40)
+                        .background(topic.color.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
+                    Text(topic.title)
+                        .font(.headline)
+                        .multilineTextAlignment(.leading)
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(isExpanded ? "Ocultar" : "Mostrar")
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(topic.points, id: \.self) { point in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("•")
+                                .foregroundStyle(topic.color)
+                            Text(point)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .font(.subheadline)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var rolesCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Los 6 roles", systemImage: "theatermasks")
+                .font(.headline)
+            Text("Te toca uno al azar en la ruleta. Nadie más sabe cuál es hasta el final.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            ForEach(LifeRole.allCases, id: \.self) { role in
+                let definition = role.definition
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text(definition.emoji)
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(definition.name)
+                                .font(.headline)
+                                .foregroundStyle(role.color)
+                            Text(definition.summary)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    ForEach(definition.likes, id: \.self) { like in
+                        Text("😊 \(like)")
+                            .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text("😞 \(definition.dislike)")
+                        .font(.subheadline)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(role.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var topics: [RuleTopic] {
+        mode == .classic ? RuleTopic.classic : RuleTopic.monopolife
+    }
+}
+
+struct RuleTopic: Identifiable {
+    let id: String
+    let icon: String
+    let color: Color
+    let title: String
+    let points: [String]
+}
+
+extension RuleTopic {
+    private static var levelCosts: String {
+        Property.levelUpCostPercentages.enumerated()
+            .map { "nivel \($0.offset + 1): \($0.element)%" }
+            .joined(separator: ", ")
+    }
+
+    static let classic: [RuleTopic] = [
+        RuleTopic(
+            id: "setup", icon: "person.3.fill", color: .blue, title: "Preparar la partida",
+            points: [
+                "Uno aloja la partida con \"Alojar partida\" y hace de banca: su iPhone guarda la partida y valida cada pago.",
+                "Los demás pulsan \"Unirse a partida\" en su iPhone y escriben su nombre. Hace falta estar en la misma Wi‑Fi o cerca con Bluetooth.",
+                "Si alguien no tiene teléfono, el host lo añade y juega desde el iPhone del host (se cambia con \"Jugando como\").",
+                "El host ordena los turnos (por ejemplo, según los dados) y elige el modo de juego y las reglas opcionales.",
+                "Cada jugador empieza con $\(GameSessionModel.placeholderInitialBalance)."
+            ]
+        ),
+        RuleTopic(
+            id: "turn", icon: "dice.fill", color: .green, title: "Tu turno",
+            points: [
+                "Tiras los dados y mueves tu ficha en el tablero físico, como siempre. La app no mueve fichas: tú le dices qué pasó.",
+                "Según la casilla: compras la propiedad, pagas renta, pagas un impuesto o cobras tu salario al pasar por la Salida.",
+                "Solo en tu turno: comprar, pagar renta, pagar impuestos, cobrar salario, subastas y pedir préstamos.",
+                "En cualquier momento: pagar a otro jugador, negociar en el Mercado, hipotecar, subir o bajar de nivel, pagar la tarjeta y declararte en bancarrota.",
+                "Cuando termines, pulsa \"Terminar turno\". El host puede pasar el turno de alguien que se olvidó."
+            ]
+        ),
+        RuleTopic(
+            id: "properties", icon: "house.fill", color: .orange, title: "Comprar propiedades",
+            points: [
+                "Al caer en una propiedad sin dueño puedes comprarla a su precio.",
+                "Si no la quieres, se subasta entre todos y se la lleva la puja más alta.",
+                "También puedes comprarla entre varios: cada uno paga según su %.",
+                "Cada propiedad tiene 10 acciones de 10%. La renta se reparte entre los accionistas según su %, y quien tiene más % la administra."
+            ]
+        ),
+        RuleTopic(
+            id: "rent", icon: "banknote.fill", color: .mint, title: "Rentas y niveles",
+            points: [
+                "Si caes en una propiedad de otro, pagas su renta actual. Si tienes acciones de ella, solo pagas la parte de los demás.",
+                "Tener todo un grupo de color duplica la renta de esas propiedades mientras estén en nivel 0.",
+                "Con el grupo completo puedes subir de nivel tus propiedades para cobrar más. Cuesta un % del precio: \(levelCosts).",
+                "Hay que subir parejo: ninguna propiedad del grupo puede quedar más de un nivel por encima de otra.",
+                "Bajar un nivel te devuelve la mitad de lo que costó."
+            ]
+        ),
+        RuleTopic(
+            id: "mortgage", icon: "building.columns.fill", color: .brown, title: "Hipotecas",
+            points: [
+                "Puedes hipotecar una propiedad en nivel 0 para recibir su valor de hipoteca al instante.",
+                "Mientras está hipotecada no cobra renta.",
+                "Deshipotecarla cuesta el valor de hipoteca más un 10%."
+            ]
+        ),
+        RuleTopic(
+            id: "market", icon: "chart.line.uptrend.xyaxis", color: .purple, title: "Mercado",
+            points: [
+                "Propón tratos con uno o varios jugadores: dinero, acciones de propiedades o ambas cosas.",
+                "El trato se hace cuando todos los participantes aceptan. Si alguien lo rechaza, se cancela para todos.",
+                "Ofertas abiertas: publicas lo que das y lo que pides, y el primero que acepta se queda con el trato.",
+                "Inversiones: pagas una vez a otro jugador y a cambio te llevas un % de lo que él cobre de renta en una propiedad, hasta que ambos acuerden cancelarla."
+            ]
+        ),
+        RuleTopic(
+            id: "payments", icon: "qrcode", color: .teal, title: "Formas de pagar",
+            points: [
+                "Desde la lista: eliges la propiedad o el jugador y pagas.",
+                "Con QR: quien cobra abre \"Cobrar con QR\" (de una propiedad o de sí mismo, con monto opcional) y quien paga lo escanea con \"Pagar con QR\".",
+                "Acercando iPhones (si el host lo activó): acercas tu iPhone al de quien cobra y lo reconoce solo.",
+                "Para cartas que te obligan a pagarle a alguien, usa \"Pagar a un jugador\"."
+            ]
+        ),
+        RuleTopic(
+            id: "credit", icon: "creditcard.fill", color: .indigo, title: "Tarjeta de crédito",
+            points: [
+                "Si el host la activó, puedes pedir prestado hasta el 50% de tu patrimonio, menos lo que ya debas.",
+                "El interés es un 10% fijo al pedir el préstamo.",
+                "Eliges pagarlo en 1 a \(GameRules.maxCreditCardInstallments) cuotas, que se cobran cada vez que pasas por la Salida. Las cuotas que no uses se convierten en aplazamientos.",
+                "Puedes adelantar pagos cuando quieras."
+            ]
+        ),
+        RuleTopic(
+            id: "bankruptcy", icon: "exclamationmark.triangle.fill", color: .red, title: "Bancarrota y fin de la partida",
+            points: [
+                "Si no puedes pagar una deuda ni vendiendo o hipotecando, te declaras en bancarrota.",
+                "Si le debías a otro jugador, él se queda con tu dinero y tus acciones. Si le debías a la banca, tus propiedades vuelven al banco o a sus otros accionistas.",
+                "Quedas eliminado de la partida.",
+                "Gana el último jugador que no quiebre."
+            ]
+        )
+    ]
+
+    static let monopolife: [RuleTopic] = [
+        RuleTopic(
+            id: "goal", icon: "trophy.fill", color: .yellow, title: "Cómo se gana",
+            points: [
+                "El host elige cuántas rondas se juegan (\(MonopolifeState.roundLimitOptions.map(String.init).joined(separator: ", "))).",
+                "Al terminar la última ronda la partida acaba sola y gana quien tenga más felicidad.",
+                "Si hay empate, gana quien tenga más patrimonio. Si también empatan, comparten la victoria.",
+                "El dinero sigue importando, pero solo como medio para ser feliz."
+            ]
+        ),
+        RuleTopic(
+            id: "roles", icon: "theatermasks.fill", color: .pink, title: "Roles secretos",
+            points: [
+                "Al empezar, una ruleta aparece a la vez en todos los iPhones y te asigna un rol.",
+                "Tu rol decide qué te da felicidad y qué te la quita. Ningún rol es mejor que otro: solo se juegan distinto.",
+                "Nadie más ve tu rol ni tu felicidad hasta el final. Puedes volver a ver tu rol con \"Mi rol\".",
+                "Los jugadores sin teléfono ven su ruleta en el iPhone del host, que les pide que se lo pasen."
+            ]
+        ),
+        RuleTopic(
+            id: "happiness", icon: "face.smiling.inverse", color: .green, title: "Felicidad",
+            points: [
+                "Empiezas con 0 y nunca baja de 0.",
+                "Sube o baja por lo que haces según tu rol (pagar renta, comprar, negociar, cobrar salario…), al terminar cada ronda y con las Tarjetas de Vida.",
+                "Cada vez que cambia ves un aviso, y en \"Mi felicidad\" tienes el historial completo."
+            ]
+        ),
+        RuleTopic(
+            id: "cards", icon: "rectangle.stack.fill", color: .orange, title: "Tarjetas de Vida",
+            points: [
+                "No se usan las cartas físicas de Suerte ni de Caja de Comunidad. Al caer en esas casillas, en tu turno, pulsa \"Caí en Suerte / Caja de Comunidad\".",
+                "El mazo tiene \(LifeCards.all.count) tarjetas. Cada una afecta distinto a cada rol: un carro nuevo encanta a unos y a otros les duele gastar.",
+                "Eventos: se aplican solos. Decisiones: aceptas pagando o pasas; no puedes terminar el turno sin decidir.",
+                "Posesiones: algunas compras te dan un carro, un televisor o un food truck. Después pueden salir tarjetas como \"Se te rompe el carro\" que solo afectan a quien lo tiene.",
+                "Movimiento: te dicen a dónde mover tu ficha física.",
+                "Una tarjeta nunca te lleva a la bancarrota: si no te alcanza, pagas lo que tengas."
+            ]
+        ),
+        RuleTopic(
+            id: "life-bankruptcy", icon: "arrow.uturn.backward.circle.fill", color: .red, title: "Bancarrota en Monopolife",
+            points: [
+                "No quedas eliminado.",
+                "Pierdes tus propiedades como en el Classic y la mitad de tu felicidad.",
+                "Recibes $\(LifeRoleValues.bankruptcyRescueBalance) de rescate y sigues jugando con tu mismo rol."
+            ]
+        ),
+        RuleTopic(
+            id: "end", icon: "flag.checkered", color: .blue, title: "Fin de la partida",
+            points: [
+                "Todos ven el ranking final con la felicidad y el rol de cada jugador.",
+                "Toca a un jugador para ver de dónde salió su felicidad y qué posesiones tenía.",
+                "Todo lo demás (turnos, compras, niveles, Mercado, pagos, tarjeta de crédito) funciona igual que en el Classic."
+            ]
+        )
+    ]
+}
+
+#Preview {
+    NavigationStack {
+        RulesView(mode: .monopolife)
+    }
+}

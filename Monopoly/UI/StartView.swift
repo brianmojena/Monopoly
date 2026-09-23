@@ -26,6 +26,8 @@ struct StartView: View {
                         }
 
                         joinLink
+
+                        rulesLink
                     }
                 }
                 .padding(.horizontal, 20)
@@ -190,6 +192,19 @@ struct StartView: View {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .stroke(brandGreen.opacity(0.24), lineWidth: 1)
             }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var rulesLink: some View {
+        NavigationLink {
+            RulesView()
+        } label: {
+            Label("Cómo se juega", systemImage: "book.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(brandGreen)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
     }

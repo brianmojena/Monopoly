@@ -4,6 +4,7 @@ struct GameBoardView: View {
     @ObservedObject var model: GameSessionModel
     @State private var amountAction: AmountAction?
     @State private var isShowingRole = false
+    @State private var isShowingRules = false
 
     var body: some View {
         Group {
@@ -164,6 +165,27 @@ struct GameBoardView: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isShowingRules = true
+                } label: {
+                    Label("Cómo se juega", systemImage: "questionmark.circle")
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingRules) {
+            NavigationStack {
+                RulesView(mode: model.gameState?.mode ?? .classic)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Cerrar") {
+                                isShowingRules = false
+                            }
+                        }
+                    }
+            }
+        }
         .alert(
             "Acción rechazada",
             isPresented: Binding(
