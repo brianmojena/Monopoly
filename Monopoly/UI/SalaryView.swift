@@ -3,7 +3,18 @@ import SwiftUI
 struct SalaryView: View {
     @ObservedObject var model: GameSessionModel
 
+    /// Passing GO pays the normal salary; landing right on it pays double.
+    private enum SalaryOption: Hashable {
+        case passed
+        case landed
+        case other
+    }
+
+    static let passingSalary = 200
+    static let landingSalary = 400
+
     @Environment(\.dismiss) private var dismiss
+    @State private var option = SalaryOption.passed
     @State private var amountText = ""
     @State private var postponedLoanIDs = Set<UUID>()
 
@@ -11,14 +22,23 @@ struct SalaryView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Monto", text: $amountText)
+                    Picker("Salario", selection: $option) {
+                        Text(currency(Self.passingSalary)).tag(SalaryOption.passed)
+                        Text(currency(Self.landingSalary)).tag(SalaryOption.landed)
+                        Text("Otro").tag(SalaryOption.other)
+                    }
+                    .pickerStyle(.segmented)
+
+                    if option == .other {
+                        TextField("Monto", text: $amountText)
 #if os(iOS)
-                        .keyboardType(.numberPad)
+                            .keyboardType(.numberPad)
 #endif
+                    }
                 } header: {
                     Text("Salario de GO")
                 } footer: {
-                    Text("El dominio validará el monto.")
+                    Text("\(currency(Self.passingSalary)) al pasar por GO, \(currency(Self.landingSalary)) si caes justo en GO. \"Otro\" es para cualquier otro monto.")
                 }
 
                 if !loans.isEmpty {
@@ -47,7 +67,7 @@ struct SalaryView: View {
                     Button("Confirmar") {
                         confirm()
                     }
-                    .disabled(Int(amountText) == nil)
+                    .disabled(amount == nil)
                 }
             }
         }
@@ -102,8 +122,22 @@ struct SalaryView: View {
         }
     }
 
+    private var amount: Int? {
+        switch option {
+        case .passed:
+            return Self.passingSalary
+        case .landed:
+            return Self.landingSalary
+        case .other:
+            guard let amount = Int(amountText), amount >= 0 else {
+                return nil
+            }
+            return amount
+        }
+    }
+
     private func confirm() {
-        guard let amount = Int(amountText) else {
+        guard let amount else {
             return
         }
         let validPostponements = postponedLoanIDs.intersection(loans.map(\.id))

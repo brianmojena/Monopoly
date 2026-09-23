@@ -105,7 +105,7 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 - **Impuesto sobre la Renta / Impuesto de Lujo**: montos fijos definidos en el tablero, se pagan a la banca (el dinero sale del juego, no va a Free Parking salvo house rule activada).
 - **Ir a la Cárcel**: el jugador mueve su ficha físicamente a la cárcel; la app solo gestiona el pago de fianza si aplica.
 - **Salir de la Cárcel**: pagando una fianza fija, usando una carta "Salir de la cárcel gratis", o sacando dobles (gestión física de dados).
-- **Salida (Go)**: al pasar o caer en la casilla de Salida, el jugador cobra el monto de salario definido.
+- **Salida (Go)**: al pasar por la casilla de Salida el jugador cobra $200; si cae justo en ella, $400. La app ofrece esos dos montos (el de $200 por defecto) y un monto libre para cualquier otro caso. En ese mismo cobro se descuentan las cuotas de la tarjeta de crédito (sección 8.1).
 - **Casillas de viaje**: al caer en una, el jugador (en su turno) puede pagar a la banca para mover su ficha a cualquier casilla del tablero. La tarifa depende de cuántos lados del tablero avanza, siempre hacia delante:
 
   | Destino | Tarifa |

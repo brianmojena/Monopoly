@@ -203,7 +203,7 @@ extension RuleTopic {
             id: "turn", icon: "dice.fill", color: .green, title: "Tu turno",
             points: [
                 "Tiras los dados y mueves tu ficha en el tablero físico, como siempre. La app no mueve fichas: tú le dices qué pasó.",
-                "Según la casilla: compras la propiedad, pagas renta, pagas un impuesto o cobras tu salario al pasar por la Salida.",
+                "Según la casilla: compras la propiedad, pagas renta, pagas un impuesto o cobras tu salario en la Salida: $200 al pasar, $400 si caes justo en ella.",
                 "Casillas de viaje: pagas para mover tu ficha a cualquier casilla, siempre hacia delante. \(travelFares).",
                 "Solo en tu turno: comprar, pagar renta, pagar impuestos, viajar, cobrar salario, cobrar el bote, subastas y pedir préstamos.",
                 "En cualquier momento: pagar a otro jugador, negociar en el Mercado, hipotecar, subir o bajar de nivel, pagar la tarjeta y declararte en bancarrota.",
