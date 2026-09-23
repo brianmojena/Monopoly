@@ -98,8 +98,11 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 - **Patrimonio** (para crédito): efectivo + precio de cada propiedad no hipotecada + nivel de construcción × costo de construcción − deuda de tarjeta. Las propiedades hipotecadas cuentan 0.
 - **Crédito disponible**: 50% del patrimonio menos la deuda de tarjeta actual. Restar la deuda evita encadenar préstamos, porque el efectivo prestado cuenta como patrimonio.
 - **Interés**: 10% fijo en el momento de pedir el préstamo (pides $1000 → debes $1100). La deuda no crece con el tiempo.
-- **Pago mínimo**: al cobrar el salario de GO se descuenta automáticamente el 25% de la deuda (redondeado hacia arriba). Si el efectivo (ya con el salario) no alcanza, se cobra todo lo que haya y el resto sigue como deuda; el saldo nunca queda negativo.
-- **Pagos anticipados**: se puede pagar cualquier monto hasta el total de la deuda en cualquier momento.
+- **Plazos**: al pedir un préstamo se eligen de 1 a 5 plazos. La deuda (con el interés) se divide entre esos plazos y en cada GO se cobra una cuota: lo que queda por pagar ÷ cuotas restantes, redondeado hacia arriba.
+- **Aplazamientos**: cada préstamo tiene 5 − plazos elegidos aplazamientos (5 plazos → 0; 4 → 1; 1 → 4). Al cobrar el salario de GO el jugador puede aplazar la cuota de ese préstamo: ese GO no se cobra y la cuota pasa al final. No tiene recargo.
+- **Cobro en GO**: primero se suma el salario y luego se cobra la cuota de cada préstamo no aplazado. Si el efectivo no alcanza, se cobra todo lo que haya y el resto sigue como deuda; en la última cuota, lo que quede se cobra completo en el siguiente GO. El saldo nunca queda negativo.
+- **Varios préstamos**: se pueden tener varios a la vez, cada uno con sus propios plazos y aplazamientos. El límite de crédito cuenta la deuda de todos.
+- **Pagos anticipados**: se puede pagar cualquier monto de un préstamo, hasta lo que queda por pagar, en cualquier momento. Reduce las cuotas restantes de ese préstamo.
 - **Bancarrota**: la deuda de tarjeta se cancela; no pasa al acreedor.
 
 La app debe permitir seleccionar estas reglas opcionales al crear una partida, y el estado resultante debe ser visible para todos los jugadores conectados antes de empezar.

@@ -6,7 +6,11 @@ struct Player: Identifiable, Codable, Equatable {
     var balance: Int
     var propertyIDs: [UUID]
     var status: PlayerStatus
-    var creditCardDebt: Int
+    var creditCardLoans: [CreditCardLoan]
+
+    var creditCardDebt: Int {
+        creditCardLoans.reduce(0) { $0 + $1.remainingDebt }
+    }
 
     init(
         id: UUID = UUID(),
@@ -14,14 +18,14 @@ struct Player: Identifiable, Codable, Equatable {
         balance: Int,
         propertyIDs: [UUID] = [],
         status: PlayerStatus = .active,
-        creditCardDebt: Int = 0
+        creditCardLoans: [CreditCardLoan] = []
     ) {
         self.id = id
         self.name = name
         self.balance = balance
         self.propertyIDs = propertyIDs
         self.status = status
-        self.creditCardDebt = creditCardDebt
+        self.creditCardLoans = creditCardLoans
     }
 }
 

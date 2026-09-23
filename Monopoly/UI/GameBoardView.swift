@@ -108,13 +108,13 @@ struct GameBoardView: View {
             Text(model.alertMessage ?? "Inténtalo de nuevo.")
         }
         .sheet(item: $amountAction) { action in
-            AmountInputView(title: action.title, note: note(for: action)) { amount in
-                switch action {
-                case .tax:
+            switch action {
+            case .tax:
+                AmountInputView(title: action.title) { amount in
                     model.payTax(amount: amount)
-                case .salary:
-                    model.collectSalary(amount: amount)
                 }
+            case .salary:
+                SalaryView(model: model)
             }
         }
         .proximityReceiverBanner(model: model)
@@ -150,17 +150,6 @@ struct GameBoardView: View {
             }
         }
         .padding(.vertical, 4)
-    }
-
-    private func note(for action: AmountAction) -> String? {
-        guard action == .salary,
-              let localPlayerID = model.localPlayerID,
-              let debt = model.gameState?.players.first(where: { $0.id == localPlayerID })?.creditCardDebt,
-              debt > 0 else {
-            return nil
-        }
-        let minimumPayment = GameRules.creditCardMinimumPayment(forDebt: debt)
-        return "Al cobrar se descontará el pago mínimo de tu tarjeta: \(currency(minimumPayment)) (25% de \(currency(debt)))."
     }
 
     private func ownerName(for property: Property, state: GameState) -> String {

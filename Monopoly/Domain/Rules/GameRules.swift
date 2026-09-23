@@ -166,7 +166,8 @@ enum GameRules {
     static func collectSalary(
         in state: GameState,
         playerID: UUID,
-        amount: Int
+        amount: Int,
+        postponedLoanIDs: Set<UUID> = []
     ) throws -> GameState {
         guard let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
             throw GameRuleError.playerNotFound(playerID)
@@ -176,15 +177,38 @@ enum GameRules {
             throw GameRuleError.invalidAmount(amount)
         }
 
-        var updatedState = state
-        updatedState.players[playerIndex].balance += amount
-
-        let debt = updatedState.players[playerIndex].creditCardDebt
-        if debt > 0 {
-            let payment = min(creditCardMinimumPayment(forDebt: debt), updatedState.players[playerIndex].balance)
-            updatedState.players[playerIndex].balance -= payment
-            updatedState.players[playerIndex].creditCardDebt -= payment
+        let loans = state.players[playerIndex].creditCardLoans
+        for loanID in postponedLoanIDs {
+            guard let loan = loans.first(where: { $0.id == loanID }) else {
+                throw GameRuleError.creditCardLoanNotFound(loanID)
+            }
+            guard loan.postponementsRemaining > 0 else {
+                throw GameRuleError.noPostponementsLeft(loanID)
+            }
         }
+
+        var updatedState = state
+        var player = updatedState.players[playerIndex]
+        player.balance += amount
+
+        for index in player.creditCardLoans.indices {
+            if postponedLoanIDs.contains(player.creditCardLoans[index].id) {
+                player.creditCardLoans[index].postponementsRemaining -= 1
+                continue
+            }
+
+            let payment = min(creditCardInstallmentDue(for: player.creditCardLoans[index]), player.balance)
+            player.balance -= payment
+            player.creditCardLoans[index].remainingDebt -= payment
+            // The last installment stays open until paid, so an unpaid remainder is due
+            // in full at the next GO instead of disappearing from the schedule.
+            if player.creditCardLoans[index].installmentsRemaining > 1 {
+                player.creditCardLoans[index].installmentsRemaining -= 1
+            }
+        }
+        player.creditCardLoans.removeAll { $0.remainingDebt <= 0 }
+
+        updatedState.players[playerIndex] = player
         return updatedState
     }
 
@@ -216,15 +240,21 @@ enum GameRules {
         amount * 11 / 10
     }
 
-    // Rounded up so a small remaining debt is always paid off eventually.
-    static func creditCardMinimumPayment(forDebt debt: Int) -> Int {
-        (debt + 3) / 4
+    static let maxCreditCardInstallments = 5
+
+    // Rounded up so the installments always cover the whole debt.
+    static func creditCardInstallmentDue(for loan: CreditCardLoan) -> Int {
+        guard loan.installmentsRemaining > 1 else {
+            return loan.remainingDebt
+        }
+        return (loan.remainingDebt + loan.installmentsRemaining - 1) / loan.installmentsRemaining
     }
 
     static func borrowOnCreditCard(
         in state: GameState,
         playerID: UUID,
-        amount: Int
+        amount: Int,
+        installments: Int
     ) throws -> GameState {
         guard state.activeHouseRules.contains(.creditCards) else {
             throw GameRuleError.creditCardsDisabled
@@ -236,6 +266,9 @@ enum GameRules {
         guard amount > 0 else {
             throw GameRuleError.invalidAmount(amount)
         }
+        guard (1...maxCreditCardInstallments).contains(installments) else {
+            throw GameRuleError.invalidInstallments(installments)
+        }
 
         let available = try availableCredit(for: playerID, in: state)
         guard amount <= available else {
@@ -244,13 +277,18 @@ enum GameRules {
 
         var updatedState = state
         updatedState.players[playerIndex].balance += amount
-        updatedState.players[playerIndex].creditCardDebt += creditCardDebt(forLoan: amount)
+        updatedState.players[playerIndex].creditCardLoans.append(CreditCardLoan(
+            remainingDebt: creditCardDebt(forLoan: amount),
+            installmentsRemaining: installments,
+            postponementsRemaining: maxCreditCardInstallments - installments
+        ))
         return updatedState
     }
 
     static func payCreditCard(
         in state: GameState,
         playerID: UUID,
+        loanID: UUID,
         amount: Int
     ) throws -> GameState {
         guard let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
@@ -259,7 +297,10 @@ enum GameRules {
         try requireActivePlayer(in: state, playerID: playerID)
 
         let player = state.players[playerIndex]
-        guard amount > 0, amount <= player.creditCardDebt else {
+        guard let loanIndex = player.creditCardLoans.firstIndex(where: { $0.id == loanID }) else {
+            throw GameRuleError.creditCardLoanNotFound(loanID)
+        }
+        guard amount > 0, amount <= player.creditCardLoans[loanIndex].remainingDebt else {
             throw GameRuleError.invalidAmount(amount)
         }
         guard player.balance >= amount else {
@@ -272,7 +313,8 @@ enum GameRules {
 
         var updatedState = state
         updatedState.players[playerIndex].balance -= amount
-        updatedState.players[playerIndex].creditCardDebt -= amount
+        updatedState.players[playerIndex].creditCardLoans[loanIndex].remainingDebt -= amount
+        updatedState.players[playerIndex].creditCardLoans.removeAll { $0.remainingDebt <= 0 }
         return updatedState
     }
 
@@ -554,7 +596,7 @@ enum GameRules {
         var updatedState = state
         updatedState.players[bankruptPlayerIndex].status = .bankrupt
         updatedState.players[bankruptPlayerIndex].balance = 0
-        updatedState.players[bankruptPlayerIndex].creditCardDebt = 0
+        updatedState.players[bankruptPlayerIndex].creditCardLoans.removeAll()
         updatedState.players[bankruptPlayerIndex].propertyIDs.removeAll()
 
         for propertyID in transferredPropertyIDs {

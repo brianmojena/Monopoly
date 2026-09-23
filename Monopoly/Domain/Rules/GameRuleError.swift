@@ -29,6 +29,9 @@ enum GameRuleError: Error, Equatable, Codable {
     case transferParticipantsMustDiffer
     case creditCardsDisabled
     case creditLimitExceeded(requested: Int, available: Int)
+    case invalidInstallments(Int)
+    case creditCardLoanNotFound(UUID)
+    case noPostponementsLeft(UUID)
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -41,6 +44,8 @@ enum GameRuleError: Error, Equatable, Codable {
         case amount
         case creditorID
         case requested
+        case installments
+        case loanID
     }
 
     private enum Code: String, Codable {
@@ -72,6 +77,9 @@ enum GameRuleError: Error, Equatable, Codable {
         case transferParticipantsMustDiffer
         case creditCardsDisabled
         case creditLimitExceeded
+        case invalidInstallments
+        case creditCardLoanNotFound
+        case noPostponementsLeft
     }
 
     init(from decoder: Decoder) throws {
@@ -148,6 +156,12 @@ enum GameRuleError: Error, Equatable, Codable {
                 requested: try container.decode(Int.self, forKey: .requested),
                 available: try container.decode(Int.self, forKey: .available)
             )
+        case .invalidInstallments:
+            self = .invalidInstallments(try container.decode(Int.self, forKey: .installments))
+        case .creditCardLoanNotFound:
+            self = .creditCardLoanNotFound(try container.decode(UUID.self, forKey: .loanID))
+        case .noPostponementsLeft:
+            self = .noPostponementsLeft(try container.decode(UUID.self, forKey: .loanID))
         }
     }
 
@@ -239,6 +253,15 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(Code.creditLimitExceeded, forKey: .code)
             try container.encode(requested, forKey: .requested)
             try container.encode(available, forKey: .available)
+        case let .invalidInstallments(installments):
+            try container.encode(Code.invalidInstallments, forKey: .code)
+            try container.encode(installments, forKey: .installments)
+        case let .creditCardLoanNotFound(loanID):
+            try container.encode(Code.creditCardLoanNotFound, forKey: .code)
+            try container.encode(loanID, forKey: .loanID)
+        case let .noPostponementsLeft(loanID):
+            try container.encode(Code.noPostponementsLeft, forKey: .code)
+            try container.encode(loanID, forKey: .loanID)
         }
     }
 }

@@ -271,8 +271,13 @@ final class GameSession {
             return try GameRules.collectRent(in: state, from: playerID, propertyID: propertyID).state
         case let .payTax(_, amount):
             return try GameRules.payTax(in: state, playerID: playerID, amount: amount)
-        case let .collectSalary(_, amount):
-            return try GameRules.collectSalary(in: state, playerID: playerID, amount: amount)
+        case let .collectSalary(_, amount, postponedLoanIDs):
+            return try GameRules.collectSalary(
+                in: state,
+                playerID: playerID,
+                amount: amount,
+                postponedLoanIDs: postponedLoanIDs
+            )
         case let .buildHouse(propertyID, _):
             return try GameRules.buildHouse(in: state, propertyID: propertyID, playerID: playerID)
         case let .buildHotel(propertyID, _):
@@ -297,10 +302,15 @@ final class GameSession {
             return try GameRules.executeTrade(in: state, offer: normalizedOffer)
         case let .transferMoney(_, recipientID, amount):
             return try GameRules.transferMoney(in: state, from: playerID, to: recipientID, amount: amount)
-        case let .borrowOnCreditCard(_, amount):
-            return try GameRules.borrowOnCreditCard(in: state, playerID: playerID, amount: amount)
-        case let .payCreditCard(_, amount):
-            return try GameRules.payCreditCard(in: state, playerID: playerID, amount: amount)
+        case let .borrowOnCreditCard(_, amount, installments):
+            return try GameRules.borrowOnCreditCard(
+                in: state,
+                playerID: playerID,
+                amount: amount,
+                installments: installments
+            )
+        case let .payCreditCard(_, loanID, amount):
+            return try GameRules.payCreditCard(in: state, playerID: playerID, loanID: loanID, amount: amount)
         }
     }
 }

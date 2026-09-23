@@ -5,7 +5,7 @@ enum GameIntent: Codable, Equatable {
     case resolveAuction(propertyID: UUID, bids: [AuctionBid])
     case collectRent(payerID: UUID, propertyID: UUID)
     case payTax(playerID: UUID, amount: Int)
-    case collectSalary(playerID: UUID, amount: Int)
+    case collectSalary(playerID: UUID, amount: Int, postponedLoanIDs: Set<UUID> = [])
     case buildHouse(propertyID: UUID, playerID: UUID)
     case buildHotel(propertyID: UUID, playerID: UUID)
     case sellHouse(propertyID: UUID, playerID: UUID)
@@ -14,8 +14,8 @@ enum GameIntent: Codable, Equatable {
     case declareBankruptcy(playerID: UUID, creditor: DebtCreditor)
     case executeTrade(offer: TradeOffer)
     case transferMoney(payerID: UUID, recipientID: UUID, amount: Int)
-    case borrowOnCreditCard(playerID: UUID, amount: Int)
-    case payCreditCard(playerID: UUID, amount: Int)
+    case borrowOnCreditCard(playerID: UUID, amount: Int, installments: Int)
+    case payCreditCard(playerID: UUID, loanID: UUID, amount: Int)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -27,6 +27,9 @@ enum GameIntent: Codable, Equatable {
         case creditor
         case offer
         case recipientID
+        case postponedLoanIDs
+        case installments
+        case loanID
     }
 
     private enum IntentType: String, Codable {
@@ -75,7 +78,8 @@ enum GameIntent: Codable, Equatable {
         case .collectSalary:
             self = .collectSalary(
                 playerID: try container.decode(UUID.self, forKey: .playerID),
-                amount: try container.decode(Int.self, forKey: .amount)
+                amount: try container.decode(Int.self, forKey: .amount),
+                postponedLoanIDs: try container.decode(Set<UUID>.self, forKey: .postponedLoanIDs)
             )
         case .buildHouse:
             self = .buildHouse(
@@ -118,11 +122,13 @@ enum GameIntent: Codable, Equatable {
         case .borrowOnCreditCard:
             self = .borrowOnCreditCard(
                 playerID: try container.decode(UUID.self, forKey: .playerID),
-                amount: try container.decode(Int.self, forKey: .amount)
+                amount: try container.decode(Int.self, forKey: .amount),
+                installments: try container.decode(Int.self, forKey: .installments)
             )
         case .payCreditCard:
             self = .payCreditCard(
                 playerID: try container.decode(UUID.self, forKey: .playerID),
+                loanID: try container.decode(UUID.self, forKey: .loanID),
                 amount: try container.decode(Int.self, forKey: .amount)
             )
         }
@@ -148,10 +154,11 @@ enum GameIntent: Codable, Equatable {
             try container.encode(IntentType.payTax, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(amount, forKey: .amount)
-        case let .collectSalary(playerID, amount):
+        case let .collectSalary(playerID, amount, postponedLoanIDs):
             try container.encode(IntentType.collectSalary, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(amount, forKey: .amount)
+            try container.encode(postponedLoanIDs, forKey: .postponedLoanIDs)
         case let .buildHouse(propertyID, playerID):
             try container.encode(IntentType.buildHouse, forKey: .type)
             try container.encode(propertyID, forKey: .propertyID)
@@ -184,13 +191,15 @@ enum GameIntent: Codable, Equatable {
             try container.encode(payerID, forKey: .payerID)
             try container.encode(recipientID, forKey: .recipientID)
             try container.encode(amount, forKey: .amount)
-        case let .borrowOnCreditCard(playerID, amount):
+        case let .borrowOnCreditCard(playerID, amount, installments):
             try container.encode(IntentType.borrowOnCreditCard, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(amount, forKey: .amount)
-        case let .payCreditCard(playerID, amount):
+            try container.encode(installments, forKey: .installments)
+        case let .payCreditCard(playerID, loanID, amount):
             try container.encode(IntentType.payCreditCard, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
+            try container.encode(loanID, forKey: .loanID)
             try container.encode(amount, forKey: .amount)
         }
     }

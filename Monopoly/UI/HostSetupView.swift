@@ -63,7 +63,7 @@ struct HostSetupView: View {
             } header: {
                 Text("Reglas")
             } footer: {
-                Text("Préstamos de hasta el 50% de tu patrimonio con un 10% de interés. Cada vez que pasas por GO se cobra un mínimo del 25% de la deuda.")
+                Text("Préstamos de hasta el 50% de tu patrimonio con un 10% de interés, pagados en 1 a 5 cuotas (una por cada GO). Los plazos que no uses hasta 5 quedan como aplazamientos.")
             }
 
             Section {

@@ -138,13 +138,13 @@ final class GameSessionModel: ObservableObject {
         send(.payTax(playerID: localPlayerID, amount: amount))
     }
 
-    func collectSalary(amount: Int) {
+    func collectSalary(amount: Int, postponedLoanIDs: Set<UUID> = []) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de cobrar salario."
             return
         }
 
-        send(.collectSalary(playerID: localPlayerID, amount: amount))
+        send(.collectSalary(playerID: localPlayerID, amount: amount, postponedLoanIDs: postponedLoanIDs))
     }
 
     func transfer(to recipientID: UUID, amount: Int) {
@@ -156,22 +156,22 @@ final class GameSessionModel: ObservableObject {
         send(.transferMoney(payerID: localPlayerID, recipientID: recipientID, amount: amount))
     }
 
-    func borrowOnCreditCard(amount: Int) {
+    func borrowOnCreditCard(amount: Int, installments: Int) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de pedir un préstamo."
             return
         }
 
-        send(.borrowOnCreditCard(playerID: localPlayerID, amount: amount))
+        send(.borrowOnCreditCard(playerID: localPlayerID, amount: amount, installments: installments))
     }
 
-    func payCreditCard(amount: Int) {
+    func payCreditCard(loanID: UUID, amount: Int) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de pagar la tarjeta."
             return
         }
 
-        send(.payCreditCard(playerID: localPlayerID, amount: amount))
+        send(.payCreditCard(playerID: localPlayerID, loanID: loanID, amount: amount))
     }
 
     func executeTrade(offer: TradeOffer) {
