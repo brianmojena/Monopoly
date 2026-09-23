@@ -177,10 +177,11 @@ struct ProximityPaymentView: View {
                   let ownerID = property.ownerID else {
                 return PaymentDetails(amount: 0, description: "Renta", candidateIDs: [])
             }
-            // Mirrors GameRules.collectRent: a mortgaged property charges nothing.
-            let rent = property.isMortgaged
-                ? 0
-                : (try? GameRules.rentAmount(for: property, in: state, ownerID: ownerID)) ?? property.baseRent
+            // Taken from GameRules.collectRent, which already leaves out a mortgaged
+            // property and the payer's own shareholding.
+            let rent = (try? GameRules.collectRent(in: state, from: localPlayerID, propertyID: propertyID).amount)
+                ?? (try? GameRules.rentAmount(for: property, in: state, ownerID: ownerID))
+                ?? property.baseRent
             return PaymentDetails(
                 amount: rent,
                 description: "Renta de \(property.name)",

@@ -516,16 +516,12 @@ final class GameSession {
             return try GameRules.unmortgageProperty(in: state, propertyID: propertyID, playerID: playerID)
         case let .declareBankruptcy(_, creditor):
             return try GameRules.declareBankruptcy(in: state, playerID: playerID, creditor: creditor)
-        case let .executeTrade(offer):
-            let normalizedOffer = TradeOffer(
-                fromPlayerID: playerID,
-                toPlayerID: offer.toPlayerID,
-                offeredPropertyIDs: offer.offeredPropertyIDs,
-                offeredMoney: offer.offeredMoney,
-                requestedPropertyIDs: offer.requestedPropertyIDs,
-                requestedMoney: offer.requestedMoney
-            )
-            return try GameRules.executeTrade(in: state, offer: normalizedOffer)
+        case let .proposeDeal(deal):
+            return try GameRules.proposeDeal(in: state, deal: deal, proposerID: playerID)
+        case let .acceptDeal(dealID):
+            return try GameRules.acceptDeal(in: state, dealID: dealID, playerID: playerID)
+        case let .rejectDeal(dealID):
+            return try GameRules.rejectDeal(in: state, dealID: dealID, playerID: playerID)
         case let .transferMoney(_, recipientID, amount):
             return try GameRules.transferMoney(in: state, from: playerID, to: recipientID, amount: amount)
         case let .borrowOnCreditCard(_, amount, installments):

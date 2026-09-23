@@ -7,6 +7,7 @@ struct GameState: Codable, Equatable {
     var round: Int
     var activeHouseRules: Set<HouseRule>
     var proximityPaymentsEnabled: Bool
+    var marketDeals: [MarketDeal]
 
     init(
         players: [Player],
@@ -14,7 +15,8 @@ struct GameState: Codable, Equatable {
         currentPlayerID: UUID? = nil,
         round: Int = 1,
         activeHouseRules: Set<HouseRule> = [],
-        proximityPaymentsEnabled: Bool = false
+        proximityPaymentsEnabled: Bool = false,
+        marketDeals: [MarketDeal] = []
     ) {
         self.players = players
         self.properties = properties
@@ -22,5 +24,6 @@ struct GameState: Codable, Equatable {
         self.round = round
         self.activeHouseRules = activeHouseRules
         self.proximityPaymentsEnabled = proximityPaymentsEnabled
+        self.marketDeals = marketDeals
     }
 }

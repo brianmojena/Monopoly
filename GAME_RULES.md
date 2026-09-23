@@ -39,6 +39,7 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 ### 4.1 Compra
 - Al caer en una propiedad sin dueño, el jugador puede comprarla al precio de listado actual de esa propiedad.
 - Si el jugador decide no comprarla, se resuelve **subasta** entre todos los jugadores (regla oficial clásica, mantenida en Ultimate Banking).
+- **Compra compartida**: en su turno, el jugador puede proponer comprarla entre varios, repartiendo el 100% en acciones de 10% (mínimo dos compradores, él incluido). Cada comprador paga la parte del precio de su %. Se compra cuando todos los compradores aceptan en el Mercado; si antes alguien la compra o se subasta, la propuesta desaparece.
 
 ### 4.2 Valor dinámico y renta
 - Cada propiedad tiene un **valor base** de compra.
@@ -61,9 +62,20 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 ### 4.5 Venta de construcciones
 - Las casas/hoteles pueden venderse de vuelta a la banca a mitad de su costo de construcción (regla clásica), sujeto también a la regla de construcción uniforme al vender.
 
-### 4.6 Intercambios (trades)
-- Los jugadores pueden intercambiar propiedades, dinero y/o "cartas para salir de la cárcel" libremente entre sí, sujeto a aceptación mutua.
-- La app debe registrar y ejecutar el intercambio de forma atómica (todo o nada) una vez ambas partes confirman.
+### 4.6 Mercado (negociación entre jugadores)
+- Reemplaza a los intercambios simples. Un **trato** es una lista de movimientos de dinero o acciones entre cualquier número de jugadores (ej. Ana da 30% de una calle a Luis, Luis paga $200 a Eva y Eva paga $150 a Ana).
+- Quien lo propone lo acepta al proponerlo; el trato se ejecuta **cuando todos los participantes aceptan**. Cualquier participante puede rechazarlo, y eso lo retira para todos.
+- **Ofertas abiertas**: un jugador publica lo que da y lo que pide (ej. "vendo 30% de X por $200") sin elegir contraparte; el primer jugador que la acepta se queda con el trato, que se ejecuta en ese momento.
+- La ejecución es atómica (todo o nada) y se valida con el resultado neto: un jugador puede pagar con dinero que recibe en el mismo trato. Si en ese momento alguien ya no tiene el dinero o las acciones, el trato no se ejecuta y queda pendiente.
+- Negociar se puede en cualquier momento, no solo en tu turno (salvo proponer una compra compartida).
+- Las propiedades cambian de manos con sus construcciones y su estado de hipoteca.
+
+### 4.7 Acciones de propiedades
+- Cada propiedad se divide en **10 acciones de 10%**. Al comprarla al banco o ganarla en subasta, el comprador recibe el 100%; luego puede vender o intercambiar acciones en el Mercado.
+- **Renta**: se reparte entre los accionistas según su %. Si quien cae tiene acciones de esa propiedad, solo paga la parte de los demás. Los redondeos se reparten por mayor resto y, en empate, al accionista más antiguo.
+- **Administración**: el accionista mayoritario (en empate, el más antiguo) administra la propiedad: construye, vende construcciones, hipoteca y deshipoteca. Los costos (construir, deshipotecar) se cobran a todos los accionistas según su %, y lo que se recibe (hipotecar, vender construcciones) también se reparte según su %. Si un accionista no puede pagar su parte, la acción no se hace.
+- **Monopolio de color**: cuenta para un jugador si es el administrador de todas las propiedades del grupo.
+- **Patrimonio**: cada jugador suma solo la parte de su %.
 
 ## 5. Impuestos y casillas especiales
 
@@ -77,8 +89,9 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 ## 6. Bancarrota
 
 - Un jugador que no puede cubrir una deuda (renta, impuesto, etc.) ni liquidando propiedades/hipotecas debe declararse en bancarrota.
-- Si la deuda es con otro jugador, todos sus activos (propiedades, dinero restante) pasan a ese jugador.
-- Si la deuda es con la banca, todos sus activos vuelven a la banca (propiedades quedan disponibles para compra nuevamente a valor base).
+- Si la deuda es con otro jugador, todos sus activos (acciones de propiedades, dinero restante) pasan a ese jugador.
+- Si la deuda es con la banca, el dinero sale del juego. Sus acciones de propiedades donde había otros accionistas se reparten entre ellos según su %; las propiedades que eran solo suyas vuelven a la banca (disponibles de nuevo a valor base, sin construcciones ni hipoteca).
+- Los tratos pendientes del Mercado en los que participaba se cancelan.
 - El jugador en bancarrota queda eliminado de la partida.
 
 ## 7. Fin de la partida

@@ -51,9 +51,10 @@ struct GameBoardView: View {
                             }
 
                             NavigationLink {
-                                TradeView(model: model)
+                                MarketView(model: model)
                             } label: {
-                                Label("Proponer intercambio", systemImage: "arrow.left.arrow.right")
+                                Label("Mercado", systemImage: "chart.line.uptrend.xyaxis")
+                                    .badge(model.dealsAwaitingLocalPlayer.count)
                             }
 
                             NavigationLink {
@@ -65,7 +66,7 @@ struct GameBoardView: View {
                             Text("Acciones del jugador")
                         } footer: {
                             if !model.isLocalPlayersTurn {
-                                Text("Impuestos, salario, compras, rentas, subastas y préstamos se hacen en tu turno. Pagar a otros jugadores, intercambiar, hipotecar y construir se puede en cualquier momento.")
+                                Text("Impuestos, salario, compras, rentas, subastas y préstamos se hacen en tu turno. Pagar a otros jugadores, negociar en el Mercado, hipotecar y construir se puede en cualquier momento.")
                             }
                         }
                     }
@@ -223,11 +224,12 @@ struct GameBoardView: View {
     }
 
     private func ownerName(for property: Property, state: GameState) -> String {
-        guard let ownerID = property.ownerID,
-              let owner = state.players.first(where: { $0.id == ownerID }) else {
+        guard property.isOwned else {
             return "Sin dueño"
         }
-        return "Dueño: \(owner.name)"
+        return property.ownership.count > 1
+            ? "Accionistas: \(state.ownershipSummary(of: property))"
+            : "Dueño: \(state.ownershipSummary(of: property))"
     }
 
     private func isLocalPlayerActive(in state: GameState) -> Bool {

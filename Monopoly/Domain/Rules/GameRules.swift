@@ -33,8 +33,9 @@ enum GameRules {
 
         var updatedState = state
         updatedState.players[playerIndex].balance -= property.purchasePrice
-        updatedState.players[playerIndex].propertyIDs.append(propertyID)
-        updatedState.properties[propertyIndex].ownerID = playerID
+        updatedState.properties[propertyIndex].ownership = [PropertyShare(playerID: playerID, shares: Property.totalShares)]
+        updatedState.marketDeals.removeAll { $0.sharedPurchase?.propertyID == propertyID }
+        reindexPropertyIDs(in: &updatedState)
         return updatedState
     }
 
@@ -88,8 +89,11 @@ enum GameRules {
 
         var updatedState = state
         updatedState.players[winnerIndex].balance -= winningBid.amount
-        updatedState.players[winnerIndex].propertyIDs.append(propertyID)
-        updatedState.properties[propertyIndex].ownerID = winningBid.playerID
+        updatedState.properties[propertyIndex].ownership = [
+            PropertyShare(playerID: winningBid.playerID, shares: Property.totalShares)
+        ]
+        updatedState.marketDeals.removeAll { $0.sharedPurchase?.propertyID == propertyID }
+        reindexPropertyIDs(in: &updatedState)
         return updatedState
     }
 
@@ -111,29 +115,37 @@ enum GameRules {
             throw GameRuleError.propertyHasNoOwner(propertyID)
         }
 
-        guard ownerID != payerID, !property.isMortgaged else {
+        guard !property.isMortgaged else {
+            return RentResult(state: state, amount: 0)
+        }
+        for holding in property.ownership where holding.playerID != payerID {
+            try requireActivePlayer(in: state, playerID: holding.playerID)
+        }
+
+        // Rent is split among all shareholders by their stake; a payer who holds
+        // shares only pays the other shareholders' portions.
+        let rent = try rentAmount(for: property, in: state, ownerID: ownerID)
+        let portions = split(rent, among: property.ownership).filter { $0.playerID != payerID }
+        let amountDue = portions.reduce(0) { $0 + $1.amount }
+        guard amountDue > 0 else {
             return RentResult(state: state, amount: 0)
         }
 
-        guard let ownerIndex = state.players.firstIndex(where: { $0.id == ownerID }) else {
-            throw GameRuleError.playerNotFound(ownerID)
-        }
-        try requireActivePlayer(in: state, playerID: ownerID)
-
-        let rent = try rentAmount(for: property, in: state, ownerID: ownerID)
         let payer = state.players[payerIndex]
-        guard payer.balance >= rent else {
+        guard payer.balance >= amountDue else {
             throw GameRuleError.insufficientFunds(
                 playerID: payerID,
-                required: rent,
+                required: amountDue,
                 available: payer.balance
             )
         }
 
         var updatedState = state
-        updatedState.players[payerIndex].balance -= rent
-        updatedState.players[ownerIndex].balance += rent
-        return RentResult(state: updatedState, amount: rent)
+        updatedState.players[payerIndex].balance -= amountDue
+        for portion in portions {
+            credit(portion.amount, to: portion.playerID, in: &updatedState)
+        }
+        return RentResult(state: updatedState, amount: amountDue)
     }
 
     static func payTax(
@@ -218,9 +230,10 @@ enum GameRules {
         }
 
         let propertiesValue = state.properties
-            .filter { $0.ownerID == playerID && !$0.isMortgaged }
+            .filter { !$0.isMortgaged }
             .reduce(0) { total, property in
-                total + property.purchasePrice + property.constructionLevel * property.constructionCost
+                let fullValue = property.purchasePrice + property.constructionLevel * property.constructionCost
+                return total + fullValue * property.shares(of: playerID) / Property.totalShares
             }
         return player.balance + propertiesValue - player.creditCardDebt
     }
@@ -359,7 +372,7 @@ enum GameRules {
         propertyID: UUID,
         playerID: UUID
     ) throws -> GameState {
-        let (playerIndex, propertyIndex, property) = try buildingContext(
+        let (propertyIndex, property) = try buildingContext(
             in: state,
             propertyID: propertyID,
             playerID: playerID
@@ -379,17 +392,8 @@ enum GameRules {
         let targetLevel = property.constructionLevel + 1
         try requireUniformConstruction(in: state, for: property, targetLevel: targetLevel)
 
-        let player = state.players[playerIndex]
-        guard player.balance >= property.constructionCost else {
-            throw GameRuleError.insufficientFunds(
-                playerID: playerID,
-                required: property.constructionCost,
-                available: player.balance
-            )
-        }
-
         var updatedState = state
-        updatedState.players[playerIndex].balance -= property.constructionCost
+        try chargeShareholders(property.constructionCost, of: property, in: &updatedState)
         updatedState.properties[propertyIndex].constructionLevel = targetLevel
         return updatedState
     }
@@ -399,7 +403,7 @@ enum GameRules {
         propertyID: UUID,
         playerID: UUID
     ) throws -> GameState {
-        let (playerIndex, propertyIndex, property) = try buildingContext(
+        let (propertyIndex, property) = try buildingContext(
             in: state,
             propertyID: propertyID,
             playerID: playerID
@@ -421,17 +425,8 @@ enum GameRules {
             throw GameRuleError.propertyMustHaveFourHouses(propertyID)
         }
 
-        let player = state.players[playerIndex]
-        guard player.balance >= property.constructionCost else {
-            throw GameRuleError.insufficientFunds(
-                playerID: playerID,
-                required: property.constructionCost,
-                available: player.balance
-            )
-        }
-
         var updatedState = state
-        updatedState.players[playerIndex].balance -= property.constructionCost
+        try chargeShareholders(property.constructionCost, of: property, in: &updatedState)
         updatedState.properties[propertyIndex].constructionLevel = 5
         return updatedState
     }
@@ -441,7 +436,7 @@ enum GameRules {
         propertyID: UUID,
         playerID: UUID
     ) throws -> GameState {
-        let (playerIndex, propertyIndex, property) = try buildingContext(
+        let (propertyIndex, property) = try buildingContext(
             in: state,
             propertyID: propertyID,
             playerID: playerID
@@ -459,10 +454,10 @@ enum GameRules {
         )
 
         // A hotel is treated as one construction level for resale: level 5 becomes level 4,
-        // and the player receives half of the hotel's construction cost.
+        // and the shareholders receive half of the hotel's construction cost.
         let resaleValue = property.constructionCost / 2
         var updatedState = state
-        updatedState.players[playerIndex].balance += resaleValue
+        payShareholders(resaleValue, of: property, in: &updatedState)
         updatedState.properties[propertyIndex].constructionLevel = targetLevel
         return updatedState
     }
@@ -493,9 +488,7 @@ enum GameRules {
 
         var updatedState = state
         updatedState.properties[propertyIndex].isMortgaged = true
-        if let ownerIndex = updatedState.players.firstIndex(where: { $0.id == playerID }) {
-            updatedState.players[ownerIndex].balance += property.mortgageValue
-        }
+        payShareholders(property.mortgageValue, of: property, in: &updatedState)
         return updatedState
     }
 
@@ -504,34 +497,14 @@ enum GameRules {
         propertyID: UUID,
         playerID: UUID
     ) throws -> GameState {
-        guard let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
-            throw GameRuleError.playerNotFound(playerID)
-        }
-        try requireActivePlayer(in: state, playerID: playerID)
-        guard let propertyIndex = state.properties.firstIndex(where: { $0.id == propertyID }) else {
-            throw GameRuleError.propertyNotFound(propertyID)
-        }
-
-        let property = state.properties[propertyIndex]
-        guard property.ownerID == playerID else {
-            throw GameRuleError.propertyNotOwnedByPlayer(propertyID: propertyID, playerID: playerID)
-        }
+        let (propertyIndex, property) = try buildingContext(in: state, propertyID: propertyID, playerID: playerID)
         guard property.isMortgaged else {
             throw GameRuleError.propertyIsNotMortgaged(propertyID)
         }
 
         let repayment = property.mortgageValue * 11 / 10
-        let player = state.players[playerIndex]
-        guard player.balance >= repayment else {
-            throw GameRuleError.insufficientFunds(
-                playerID: playerID,
-                required: repayment,
-                available: player.balance
-            )
-        }
-
         var updatedState = state
-        updatedState.players[playerIndex].balance -= repayment
+        try chargeShareholders(repayment, of: property, in: &updatedState)
         updatedState.properties[propertyIndex].isMortgaged = false
         return updatedState
     }
@@ -550,14 +523,15 @@ enum GameRules {
         }
 
         let liquidationValue = state.properties
-            .filter { $0.ownerID == playerID }
+            .filter { $0.shares(of: playerID) > 0 }
             .reduce(0) { total, property in
                 // This is a best-case estimate only: it assumes buildings are sold before
-                // mortgaging an un-mortgaged property. It does not execute either action,
-                // because choosing their order is a UI decision outside the domain function.
+                // mortgaging an un-mortgaged property, and counts only the player's share
+                // of what the shareholders would receive. It does not execute either
+                // action, because choosing their order is a UI decision outside the domain.
                 let buildingsValue = constructionResaleValue(for: property)
                 let mortgageValue = property.isMortgaged ? 0 : property.mortgageValue
-                return total + buildingsValue + mortgageValue
+                return total + (buildingsValue + mortgageValue) * property.shares(of: playerID) / Property.totalShares
             }
 
         return player.balance + liquidationValue >= debt.amount
@@ -588,105 +562,47 @@ enum GameRules {
             creditorIndex = index
         }
 
-        let transferredPropertyIDs = state.properties
-            .filter { $0.ownerID == playerID }
-            .map(\.id)
         let bankruptBalance = state.players[bankruptPlayerIndex].balance
 
         var updatedState = state
         updatedState.players[bankruptPlayerIndex].status = .bankrupt
         updatedState.players[bankruptPlayerIndex].balance = 0
         updatedState.players[bankruptPlayerIndex].creditCardLoans.removeAll()
-        updatedState.players[bankruptPlayerIndex].propertyIDs.removeAll()
 
-        for propertyID in transferredPropertyIDs {
-            guard let propertyIndex = updatedState.properties.firstIndex(where: { $0.id == propertyID }) else {
+        for propertyIndex in updatedState.properties.indices {
+            let shares = updatedState.properties[propertyIndex].shares(of: playerID)
+            guard shares > 0 else {
                 continue
             }
+            updatedState.properties[propertyIndex].removeShares(shares, from: playerID)
 
             switch creditor {
+            case let .player(creditorID):
+                updatedState.properties[propertyIndex].addShares(shares, to: creditorID)
             case .bank:
-                updatedState.properties[propertyIndex].ownerID = nil
-                updatedState.properties[propertyIndex].constructionLevel = 0
-                updatedState.properties[propertyIndex].isMortgaged = false
-            case .player:
-                updatedState.properties[propertyIndex].ownerID = creditorIndex.map { updatedState.players[$0].id }
+                let remainingShareholders = updatedState.properties[propertyIndex].ownership
+                if remainingShareholders.isEmpty {
+                    updatedState.properties[propertyIndex].constructionLevel = 0
+                    updatedState.properties[propertyIndex].isMortgaged = false
+                } else {
+                    // The bank never holds part of a property: the bankrupt player's
+                    // shares go to the remaining shareholders in proportion to their stakes.
+                    for portion in split(shares, among: remainingShareholders) {
+                        updatedState.properties[propertyIndex].addShares(portion.amount, to: portion.playerID)
+                    }
+                }
             }
-        }
-
-        for index in updatedState.players.indices {
-            updatedState.players[index].propertyIDs.removeAll { transferredPropertyIDs.contains($0) }
         }
 
         if let creditorIndex = creditorIndex {
             updatedState.players[creditorIndex].balance += bankruptBalance
-            updatedState.players[creditorIndex].propertyIDs.append(contentsOf: transferredPropertyIDs)
         }
+        updatedState.marketDeals.removeAll { $0.participantIDs.contains(playerID) }
+        reindexPropertyIDs(in: &updatedState)
 
         if updatedState.currentPlayerID == playerID {
             updatedState = advanceTurn(in: updatedState)
         }
-        return updatedState
-    }
-
-    static func executeTrade(
-        in state: GameState,
-        offer: TradeOffer
-    ) throws -> GameState {
-        guard offer.fromPlayerID != offer.toPlayerID else {
-            throw GameRuleError.tradeParticipantsMustDiffer
-        }
-        guard let fromPlayerIndex = state.players.firstIndex(where: { $0.id == offer.fromPlayerID }) else {
-            throw GameRuleError.playerNotFound(offer.fromPlayerID)
-        }
-        guard let toPlayerIndex = state.players.firstIndex(where: { $0.id == offer.toPlayerID }) else {
-            throw GameRuleError.playerNotFound(offer.toPlayerID)
-        }
-        try requireActivePlayer(in: state, playerID: offer.fromPlayerID)
-        try requireActivePlayer(in: state, playerID: offer.toPlayerID)
-        try requireNonNegativeTradeAmounts(in: offer)
-
-        let allPropertyIDs = offer.offeredPropertyIDs + offer.requestedPropertyIDs
-        try requireUniqueTradePropertyIDs(allPropertyIDs)
-        try requireTradeProperties(
-            in: state,
-            propertyIDs: offer.offeredPropertyIDs,
-            ownedBy: offer.fromPlayerID
-        )
-        try requireTradeProperties(
-            in: state,
-            propertyIDs: offer.requestedPropertyIDs,
-            ownedBy: offer.toPlayerID
-        )
-
-        let fromPlayer = state.players[fromPlayerIndex]
-        let toPlayer = state.players[toPlayerIndex]
-        guard fromPlayer.balance >= offer.offeredMoney else {
-            throw GameRuleError.insufficientFunds(
-                playerID: offer.fromPlayerID,
-                required: offer.offeredMoney,
-                available: fromPlayer.balance
-            )
-        }
-        guard toPlayer.balance >= offer.requestedMoney else {
-            throw GameRuleError.insufficientFunds(
-                playerID: offer.toPlayerID,
-                required: offer.requestedMoney,
-                available: toPlayer.balance
-            )
-        }
-
-        var updatedState = state
-        updatedState.players[fromPlayerIndex].balance += offer.requestedMoney - offer.offeredMoney
-        updatedState.players[toPlayerIndex].balance += offer.offeredMoney - offer.requestedMoney
-
-        for propertyID in offer.offeredPropertyIDs {
-            transferProperty(in: &updatedState, propertyID: propertyID, to: offer.toPlayerID)
-        }
-        for propertyID in offer.requestedPropertyIDs {
-            transferProperty(in: &updatedState, propertyID: propertyID, to: offer.fromPlayerID)
-        }
-
         return updatedState
     }
 
@@ -751,10 +667,7 @@ enum GameRules {
         in state: GameState,
         propertyID: UUID,
         playerID: UUID
-    ) throws -> (playerIndex: Int, propertyIndex: Int, property: Property) {
-        guard let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
-            throw GameRuleError.playerNotFound(playerID)
-        }
+    ) throws -> (propertyIndex: Int, property: Property) {
         try requireActivePlayer(in: state, playerID: playerID)
         guard let propertyIndex = state.properties.firstIndex(where: { $0.id == propertyID }) else {
             throw GameRuleError.propertyNotFound(propertyID)
@@ -764,7 +677,7 @@ enum GameRules {
         guard property.ownerID == playerID else {
             throw GameRuleError.propertyNotOwnedByPlayer(propertyID: propertyID, playerID: playerID)
         }
-        return (playerIndex, propertyIndex, property)
+        return (propertyIndex, property)
     }
 
     private static func requireMonopoly(
@@ -814,7 +727,7 @@ enum GameRules {
         return property.constructionLevel * property.constructionCost / 2
     }
 
-    private static func requireActivePlayer(in state: GameState, playerID: UUID) throws {
+    static func requireActivePlayer(in state: GameState, playerID: UUID) throws {
         guard let player = state.players.first(where: { $0.id == playerID }) else {
             throw GameRuleError.playerNotFound(playerID)
         }
@@ -823,56 +736,67 @@ enum GameRules {
         }
     }
 
-    private static func requireNonNegativeTradeAmounts(in offer: TradeOffer) throws {
-        guard offer.offeredMoney >= 0 else {
-            throw GameRuleError.invalidAmount(offer.offeredMoney)
+    /// Splits `amount` among shareholders in proportion to their shares, using the
+    /// largest-remainder method so the portions always add up to `amount`; ties in
+    /// the remainder go to the earlier shareholder.
+    static func split(_ amount: Int, among holdings: [PropertyShare]) -> [(playerID: UUID, amount: Int)] {
+        let totalShares = holdings.reduce(0) { $0 + $1.shares }
+        guard totalShares > 0 else {
+            return []
         }
-        guard offer.requestedMoney >= 0 else {
-            throw GameRuleError.invalidAmount(offer.requestedMoney)
+
+        var portions = holdings.map { (playerID: $0.playerID, amount: amount * $0.shares / totalShares) }
+        let remainders = holdings.enumerated()
+            .map { (index: $0.offset, remainder: amount * $0.element.shares % totalShares) }
+            .sorted { $0.remainder != $1.remainder ? $0.remainder > $1.remainder : $0.index < $1.index }
+        var leftover = amount - portions.reduce(0) { $0 + $1.amount }
+        for entry in remainders where leftover > 0 {
+            portions[entry.index].amount += 1
+            leftover -= 1
+        }
+        return portions
+    }
+
+    static func reindexPropertyIDs(in state: inout GameState) {
+        for index in state.players.indices {
+            let playerID = state.players[index].id
+            state.players[index].propertyIDs = state.properties
+                .filter { $0.shares(of: playerID) > 0 }
+                .map(\.id)
         }
     }
 
-    private static func requireUniqueTradePropertyIDs(_ propertyIDs: [UUID]) throws {
-        var seen = Set<UUID>()
-        for propertyID in propertyIDs {
-            guard seen.insert(propertyID).inserted else {
-                throw GameRuleError.duplicateTradeProperty(propertyID)
-            }
+    static func credit(_ amount: Int, to playerID: UUID, in state: inout GameState) {
+        guard let index = state.players.firstIndex(where: { $0.id == playerID }) else {
+            return
         }
+        state.players[index].balance += amount
     }
 
-    private static func requireTradeProperties(
-        in state: GameState,
-        propertyIDs: [UUID],
-        ownedBy playerID: UUID
-    ) throws {
-        for propertyID in propertyIDs {
-            guard let property = state.properties.first(where: { $0.id == propertyID }) else {
-                throw GameRuleError.propertyNotFound(propertyID)
+    /// Charges a cost to every shareholder by stake; fails without charging anyone if
+    /// any of them cannot cover their portion.
+    private static func chargeShareholders(_ amount: Int, of property: Property, in state: inout GameState) throws {
+        let portions = split(amount, among: property.ownership)
+        for portion in portions {
+            guard let player = state.players.first(where: { $0.id == portion.playerID }) else {
+                throw GameRuleError.playerNotFound(portion.playerID)
             }
-            guard property.ownerID == playerID else {
-                throw GameRuleError.propertyNotOwnedByPlayer(
-                    propertyID: propertyID,
-                    playerID: playerID
+            guard player.balance >= portion.amount else {
+                throw GameRuleError.insufficientFunds(
+                    playerID: portion.playerID,
+                    required: portion.amount,
+                    available: player.balance
                 )
             }
         }
+        for portion in portions {
+            credit(-portion.amount, to: portion.playerID, in: &state)
+        }
     }
 
-    private static func transferProperty(
-        in state: inout GameState,
-        propertyID: UUID,
-        to playerID: UUID
-    ) {
-        guard let propertyIndex = state.properties.firstIndex(where: { $0.id == propertyID }),
-              let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
-            return
+    private static func payShareholders(_ amount: Int, of property: Property, in state: inout GameState) {
+        for portion in split(amount, among: property.ownership) {
+            credit(portion.amount, to: portion.playerID, in: &state)
         }
-
-        for index in state.players.indices {
-            state.players[index].propertyIDs.removeAll { $0 == propertyID }
-        }
-        state.properties[propertyIndex].ownerID = playerID
-        state.players[playerIndex].propertyIDs.append(propertyID)
     }
 }

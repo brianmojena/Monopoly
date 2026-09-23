@@ -371,21 +371,36 @@ final class GameSessionModel: ObservableObject {
         send(.payCreditCard(playerID: localPlayerID, loanID: loanID, amount: amount))
     }
 
-    func executeTrade(offer: TradeOffer) {
+    func proposeDeal(_ deal: MarketDeal) {
         guard let localPlayerID else {
-            alertMessage = "Selecciona tu jugador antes de proponer un intercambio."
+            alertMessage = "Selecciona tu jugador antes de proponer un trato."
             return
         }
 
-        let localOffer = TradeOffer(
-            fromPlayerID: localPlayerID,
-            toPlayerID: offer.toPlayerID,
-            offeredPropertyIDs: offer.offeredPropertyIDs,
-            offeredMoney: offer.offeredMoney,
-            requestedPropertyIDs: offer.requestedPropertyIDs,
-            requestedMoney: offer.requestedMoney
-        )
-        send(.executeTrade(offer: localOffer))
+        send(.proposeDeal(MarketDeal(
+            id: deal.id,
+            proposerID: localPlayerID,
+            transfers: deal.transfers,
+            sharedPurchase: deal.sharedPurchase
+        )))
+    }
+
+    func acceptDeal(_ dealID: UUID) {
+        send(.acceptDeal(dealID: dealID))
+    }
+
+    func rejectDeal(_ dealID: UUID) {
+        send(.rejectDeal(dealID: dealID))
+    }
+
+    /// Deals this device's player still has to answer (not counting open offers).
+    var dealsAwaitingLocalPlayer: [MarketDeal] {
+        guard let localPlayerID, let gameState else {
+            return []
+        }
+        return gameState.marketDeals.filter {
+            !$0.isOpenOffer && $0.pendingPlayerIDs.contains(localPlayerID)
+        }
     }
 
     func resolveAuction(propertyID: UUID, bids: [AuctionBid]) {

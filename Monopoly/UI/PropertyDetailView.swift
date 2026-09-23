@@ -11,13 +11,25 @@ struct PropertyDetailView: View {
                let property = state.properties.first(where: { $0.id == propertyID }) {
                 List {
                     Section("Estado") {
-                        LabeledContent("Dueño", value: ownerName(for: property, state: state))
+                        LabeledContent(property.ownership.count > 1 ? "Administra" : "Dueño", value: ownerName(for: property, state: state))
                         LabeledContent("Precio", value: currency(property.purchasePrice))
                         LabeledContent("Renta actual", value: currency(currentRent(for: property, in: state)))
                         LabeledContent("Construcción", value: constructionDescription(for: property))
                         LabeledContent("Hipotecada", value: property.isMortgaged ? "Sí" : "No")
                         if property.isMortgaged {
                             LabeledContent("Valor de hipoteca", value: currency(property.mortgageValue))
+                        }
+                    }
+
+                    if property.ownership.count > 1 {
+                        Section {
+                            ForEach(property.ownership, id: \.playerID) { holding in
+                                LabeledContent(state.playerName(holding.playerID), value: percentage(holding.shares))
+                            }
+                        } header: {
+                            Text("Accionistas")
+                        } footer: {
+                            Text("La renta, los costos de construir o deshipotecar y lo que se cobra al hipotecar o vender casas se reparten según el %. Quien tiene más % administra.")
                         }
                     }
 
@@ -36,6 +48,12 @@ struct PropertyDetailView: View {
                                 .buttonStyle(.borderedProminent)
 
                                 NavigationLink {
+                                    SharedPurchaseView(propertyID: property.id, model: model)
+                                } label: {
+                                    Label("Comprar entre varios", systemImage: "person.2")
+                                }
+
+                                NavigationLink {
                                     AuctionView(propertyID: property.id, model: model)
                                 } label: {
                                     Label("Iniciar subasta", systemImage: "hammer")
@@ -48,7 +66,7 @@ struct PropertyDetailView: View {
                             .disabled(!model.isLocalPlayersTurn)
                         } else if property.ownerID != localPlayerID {
                             Section {
-                                Button("Pagar renta") {
+                                Button("Pagar renta (\(currency(rentDue(for: property, by: localPlayerID, in: state))))") {
                                     model.payRent(propertyID: property.id)
                                 }
                                 .buttonStyle(.borderedProminent)
@@ -63,6 +81,9 @@ struct PropertyDetailView: View {
                             } header: {
                                 Text("Acción")
                             } footer: {
+                                if property.shares(of: localPlayerID) > 0 {
+                                    Text("Tienes \(percentage(property.shares(of: localPlayerID))) de esta propiedad: solo pagas la parte de los demás accionistas.")
+                                }
                                 turnFooter
                             }
                             .disabled(!model.isLocalPlayersTurn)
@@ -153,6 +174,13 @@ struct PropertyDetailView: View {
             return "Sin dueño"
         }
         return owner.name
+    }
+
+    /// What the payer actually owes after leaving out their own shareholding, taken
+    /// from the domain's rent rule so the split isn't duplicated here.
+    private func rentDue(for property: Property, by payerID: UUID, in state: GameState) -> Int {
+        (try? GameRules.collectRent(in: state, from: payerID, propertyID: property.id).amount)
+            ?? currentRent(for: property, in: state)
     }
 
     private func currentRent(for property: Property, in state: GameState) -> Int {

@@ -24,8 +24,6 @@ enum GameRuleError: Error, Equatable, Codable {
     case invalidAmount(Int)
     case auctionsDisabled
     case invalidBid
-    case tradeParticipantsMustDiffer
-    case duplicateTradeProperty(UUID)
     case transferParticipantsMustDiffer
     case creditCardsDisabled
     case creditLimitExceeded(requested: Int, available: Int)
@@ -34,6 +32,11 @@ enum GameRuleError: Error, Equatable, Codable {
     case noPostponementsLeft(UUID)
     case notPlayersTurn(currentPlayerID: UUID)
     case onlyHostCanSkipTurn
+    case dealNotFound(UUID)
+    case notDealParticipant(UUID)
+    case invalidDeal
+    case notEnoughShares(propertyID: UUID, playerID: UUID)
+    case cannotAcceptOwnOffer
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -48,6 +51,7 @@ enum GameRuleError: Error, Equatable, Codable {
         case requested
         case installments
         case loanID
+        case dealID
     }
 
     private enum Code: String, Codable {
@@ -74,8 +78,6 @@ enum GameRuleError: Error, Equatable, Codable {
         case invalidAmount
         case auctionsDisabled
         case invalidBid
-        case tradeParticipantsMustDiffer
-        case duplicateTradeProperty
         case transferParticipantsMustDiffer
         case creditCardsDisabled
         case creditLimitExceeded
@@ -84,6 +86,11 @@ enum GameRuleError: Error, Equatable, Codable {
         case noPostponementsLeft
         case notPlayersTurn
         case onlyHostCanSkipTurn
+        case dealNotFound
+        case notDealParticipant
+        case invalidDeal
+        case notEnoughShares
+        case cannotAcceptOwnOffer
     }
 
     init(from decoder: Decoder) throws {
@@ -147,10 +154,6 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .auctionsDisabled
         case .invalidBid:
             self = .invalidBid
-        case .tradeParticipantsMustDiffer:
-            self = .tradeParticipantsMustDiffer
-        case .duplicateTradeProperty:
-            self = .duplicateTradeProperty(try container.decode(UUID.self, forKey: .propertyID))
         case .transferParticipantsMustDiffer:
             self = .transferParticipantsMustDiffer
         case .creditCardsDisabled:
@@ -170,6 +173,19 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .notPlayersTurn(currentPlayerID: try container.decode(UUID.self, forKey: .playerID))
         case .onlyHostCanSkipTurn:
             self = .onlyHostCanSkipTurn
+        case .dealNotFound:
+            self = .dealNotFound(try container.decode(UUID.self, forKey: .dealID))
+        case .notDealParticipant:
+            self = .notDealParticipant(try container.decode(UUID.self, forKey: .playerID))
+        case .invalidDeal:
+            self = .invalidDeal
+        case .notEnoughShares:
+            self = .notEnoughShares(
+                propertyID: try container.decode(UUID.self, forKey: .propertyID),
+                playerID: try container.decode(UUID.self, forKey: .playerID)
+            )
+        case .cannotAcceptOwnOffer:
+            self = .cannotAcceptOwnOffer
         }
     }
 
@@ -248,11 +264,6 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(Code.auctionsDisabled, forKey: .code)
         case .invalidBid:
             try container.encode(Code.invalidBid, forKey: .code)
-        case .tradeParticipantsMustDiffer:
-            try container.encode(Code.tradeParticipantsMustDiffer, forKey: .code)
-        case let .duplicateTradeProperty(propertyID):
-            try container.encode(Code.duplicateTradeProperty, forKey: .code)
-            try container.encode(propertyID, forKey: .propertyID)
         case .transferParticipantsMustDiffer:
             try container.encode(Code.transferParticipantsMustDiffer, forKey: .code)
         case .creditCardsDisabled:
@@ -275,6 +286,20 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(currentPlayerID, forKey: .playerID)
         case .onlyHostCanSkipTurn:
             try container.encode(Code.onlyHostCanSkipTurn, forKey: .code)
+        case let .dealNotFound(dealID):
+            try container.encode(Code.dealNotFound, forKey: .code)
+            try container.encode(dealID, forKey: .dealID)
+        case let .notDealParticipant(playerID):
+            try container.encode(Code.notDealParticipant, forKey: .code)
+            try container.encode(playerID, forKey: .playerID)
+        case .invalidDeal:
+            try container.encode(Code.invalidDeal, forKey: .code)
+        case let .notEnoughShares(propertyID, playerID):
+            try container.encode(Code.notEnoughShares, forKey: .code)
+            try container.encode(propertyID, forKey: .propertyID)
+            try container.encode(playerID, forKey: .playerID)
+        case .cannotAcceptOwnOffer:
+            try container.encode(Code.cannotAcceptOwnOffer, forKey: .code)
         }
     }
 }

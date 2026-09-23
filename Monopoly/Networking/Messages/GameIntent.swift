@@ -12,7 +12,9 @@ enum GameIntent: Codable, Equatable {
     case mortgageProperty(propertyID: UUID, playerID: UUID)
     case unmortgageProperty(propertyID: UUID, playerID: UUID)
     case declareBankruptcy(playerID: UUID, creditor: DebtCreditor)
-    case executeTrade(offer: TradeOffer)
+    case proposeDeal(MarketDeal)
+    case acceptDeal(dealID: UUID)
+    case rejectDeal(dealID: UUID)
     case transferMoney(payerID: UUID, recipientID: UUID, amount: Int)
     case borrowOnCreditCard(playerID: UUID, amount: Int, installments: Int)
     case payCreditCard(playerID: UUID, loanID: UUID, amount: Int)
@@ -27,7 +29,8 @@ enum GameIntent: Codable, Equatable {
         case amount
         case bids
         case creditor
-        case offer
+        case deal
+        case dealID
         case recipientID
         case postponedLoanIDs
         case installments
@@ -46,7 +49,9 @@ enum GameIntent: Codable, Equatable {
         case mortgageProperty
         case unmortgageProperty
         case declareBankruptcy
-        case executeTrade
+        case proposeDeal
+        case acceptDeal
+        case rejectDeal
         case transferMoney
         case borrowOnCreditCard
         case payCreditCard
@@ -115,8 +120,12 @@ enum GameIntent: Codable, Equatable {
                 playerID: try container.decode(UUID.self, forKey: .playerID),
                 creditor: try container.decode(DebtCreditor.self, forKey: .creditor)
             )
-        case .executeTrade:
-            self = .executeTrade(offer: try container.decode(TradeOffer.self, forKey: .offer))
+        case .proposeDeal:
+            self = .proposeDeal(try container.decode(MarketDeal.self, forKey: .deal))
+        case .acceptDeal:
+            self = .acceptDeal(dealID: try container.decode(UUID.self, forKey: .dealID))
+        case .rejectDeal:
+            self = .rejectDeal(dealID: try container.decode(UUID.self, forKey: .dealID))
         case .transferMoney:
             self = .transferMoney(
                 payerID: try container.decode(UUID.self, forKey: .payerID),
@@ -191,9 +200,15 @@ enum GameIntent: Codable, Equatable {
             try container.encode(IntentType.declareBankruptcy, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(creditor, forKey: .creditor)
-        case let .executeTrade(offer):
-            try container.encode(IntentType.executeTrade, forKey: .type)
-            try container.encode(offer, forKey: .offer)
+        case let .proposeDeal(deal):
+            try container.encode(IntentType.proposeDeal, forKey: .type)
+            try container.encode(deal, forKey: .deal)
+        case let .acceptDeal(dealID):
+            try container.encode(IntentType.acceptDeal, forKey: .type)
+            try container.encode(dealID, forKey: .dealID)
+        case let .rejectDeal(dealID):
+            try container.encode(IntentType.rejectDeal, forKey: .type)
+            try container.encode(dealID, forKey: .dealID)
         case let .transferMoney(payerID, recipientID, amount):
             try container.encode(IntentType.transferMoney, forKey: .type)
             try container.encode(payerID, forKey: .payerID)
@@ -227,7 +242,8 @@ extension GameIntent {
         case .buyProperty, .resolveAuction, .collectRent, .payTax, .collectSalary, .borrowOnCreditCard:
             return true
         case .buildHouse, .buildHotel, .sellHouse, .mortgageProperty, .unmortgageProperty,
-             .declareBankruptcy, .executeTrade, .transferMoney, .payCreditCard, .endTurn, .skipTurn:
+             .declareBankruptcy, .proposeDeal, .acceptDeal, .rejectDeal, .transferMoney, .payCreditCard,
+             .endTurn, .skipTurn:
             return false
         }
     }
