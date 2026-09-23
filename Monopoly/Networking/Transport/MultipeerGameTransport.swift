@@ -16,7 +16,6 @@ final class MultipeerGameTransport: NSObject, GameTransport {
     private var advertiser: MCNearbyServiceAdvertiser
     private let browser: MCNearbyServiceBrowser
     private var isAdvertising = false
-    private var isBrowsing = false
     private var discoveryInfo: [String: String]?
     private var advertisedInfo: [String: String]?
     private var pendingAdvertisementUpdate: DispatchWorkItem?
@@ -72,7 +71,6 @@ final class MultipeerGameTransport: NSObject, GameTransport {
     }
 
     func startBrowsing() {
-        isBrowsing = true
         browser.startBrowsingForPeers()
     }
 
@@ -108,33 +106,17 @@ final class MultipeerGameTransport: NSObject, GameTransport {
         guard let mcPeer else {
             return
         }
-        browser.invitePeer(mcPeer, to: session, withContext: nil, timeout: 30)
+        // Short enough that a failed attempt ends before `GameSession` retries.
+        browser.invitePeer(mcPeer, to: session, withContext: nil, timeout: 10)
     }
 
     func disconnect() {
         session.disconnect()
     }
 
-    func restartDiscovery() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in
-                self?.restartDiscovery()
-            }
-            return
-        }
-        if isAdvertising {
-            restartAdvertiser()
-        }
-        if isBrowsing {
-            browser.stopBrowsingForPeers()
-            browser.startBrowsingForPeers()
-        }
-    }
-
     func stop() {
         pendingAdvertisementUpdate?.cancel()
         isAdvertising = false
-        isBrowsing = false
         advertiser.stopAdvertisingPeer()
         browser.stopBrowsingForPeers()
         session.disconnect()

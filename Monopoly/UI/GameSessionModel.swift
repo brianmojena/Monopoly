@@ -286,6 +286,11 @@ final class GameSessionModel: ObservableObject {
         session.close()
     }
 
+    /// See `GameSession.pauseNetworking()`.
+    func pauseNetworking() {
+        session.pauseNetworking()
+    }
+
     /// See `GameSession.resumeNetworking()`.
     func resumeNetworking() {
         session.resumeNetworking()

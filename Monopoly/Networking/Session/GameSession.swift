@@ -34,7 +34,12 @@ final class GameSession {
     private let hostPlayerID: UUID?
     private var discoveredRooms: [PeerID: DiscoveredRoom] = [:]
     private var joinedRoomID: UUID?
-    private var isRediscoveryScheduled = false
+    private var isNetworkingActive = true
+    private var isRejoinScheduled = false
+    // Bumped to cancel a scheduled rejoin attempt.
+    private var rejoinGeneration = 0
+    private static let firstRejoinDelay: TimeInterval = 2
+    private static let rejoinInterval: TimeInterval = 12
     private var _lastIntentRejection: GameRuleError?
 
     var gameState: GameState? {
@@ -148,6 +153,7 @@ final class GameSession {
     /// Stops advertising or browsing and drops every connection. The session can't
     /// be used again afterwards.
     func close() {
+        pauseNetworking()
         stateQueue.sync {
             joinedRoomID = nil
             lobbyPlayer = nil
@@ -155,11 +161,22 @@ final class GameSession {
         transport.stop()
     }
 
-    /// Called when the app comes back to the foreground: iOS stops advertising and
-    /// browsing in the background and drops the connections, so the host shows its
-    /// room again and a client finds it again (and rejoins it, see `peerFound`).
+    /// The app went to the background (e.g. the screen was locked). iOS stops
+    /// advertising and browsing and drops every connection on its own; this only
+    /// stops the client's rejoin attempts until the app is back.
+    func pauseNetworking() {
+        stateQueue.sync {
+            isNetworkingActive = false
+            isRejoinScheduled = false
+            rejoinGeneration += 1
+        }
+    }
+
+    /// The app is back in the foreground. iOS resumes advertising and browsing on
+    /// its own but not the connections, so a client that lost the host rejoins it.
     func resumeNetworking() {
-        transport.restartDiscovery()
+        stateQueue.sync { isNetworkingActive = true }
+        scheduleRejoin(after: 0.5)
     }
 
     deinit {
@@ -321,7 +338,7 @@ final class GameSession {
         if lostHost {
             onHostConnectionChanged?(false)
         }
-        scheduleRediscoveryIfDisconnected()
+        scheduleRejoin(after: Self.firstRejoinDelay)
         guard let updatedLobby else {
             return
         }
@@ -482,36 +499,55 @@ final class GameSession {
     }
 
     // A client that lost the host, or whose invitation to it failed, only rejoins
-    // when the browser reports the room again, which doesn't happen if the host's
-    // advertisement never went away (a Wi-Fi hiccup, a timed-out invitation).
-    // Browsing again after a pause reports it and retries until it connects.
-    private func scheduleRediscoveryIfDisconnected() {
-        let shouldSchedule: Bool = stateQueue.sync {
+    // on its own when the browser reports the room again, which doesn't happen if
+    // the host's advertisement never went away (a Wi-Fi hiccup, a timed-out
+    // invitation). Until it connects, it invites the host again every so often.
+    // Browsing itself is never stopped or restarted: iOS manages it around the
+    // background, and restarting it while iOS stops it crashes inside CFNetwork.
+    private func scheduleRejoin(after delay: TimeInterval) {
+        let generation: Int? = stateQueue.sync {
             guard case .client = role,
+                  isNetworkingActive,
                   joinedRoomID != nil,
                   (configuredHostPeerID ?? discoveredHostPeerID) == nil,
-                  !isRediscoveryScheduled else {
-                return false
+                  !isRejoinScheduled else {
+                return nil
             }
-            isRediscoveryScheduled = true
-            return true
+            isRejoinScheduled = true
+            return rejoinGeneration
         }
-        guard shouldSchedule else {
+        guard let generation else {
             return
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            guard let self else {
-                return
-            }
-            let isStillDisconnected: Bool = self.stateQueue.sync {
-                self.isRediscoveryScheduled = false
-                return self.joinedRoomID != nil && self.discoveredHostPeerID == nil
-            }
-            if isStillDisconnected {
-                self.transport.restartDiscovery()
-            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.retryRejoin(generation: generation)
         }
+    }
+
+    private func retryRejoin(generation: Int) {
+        let (shouldRetry, hostPeerID): (Bool, PeerID?) = stateQueue.sync {
+            guard generation == rejoinGeneration else {
+                return (false, nil)
+            }
+            isRejoinScheduled = false
+            guard isNetworkingActive,
+                  let joinedRoomID,
+                  (configuredHostPeerID ?? discoveredHostPeerID) == nil else {
+                return (false, nil)
+            }
+            return (true, discoveredRooms.values.first(where: { $0.id == joinedRoomID })?.peerID)
+        }
+        guard shouldRetry else {
+            return
+        }
+
+        // Without the room in sight there is no one to invite yet; `peerFound`
+        // invites the host as soon as it shows up.
+        if let hostPeerID {
+            transport.invite(hostPeerID)
+        }
+        scheduleRejoin(after: Self.rejoinInterval)
     }
 
     private func peerLost(_ peerID: PeerID) {

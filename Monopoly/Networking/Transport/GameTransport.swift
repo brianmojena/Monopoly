@@ -32,7 +32,4 @@ protocol GameTransport: AnyObject {
     func invite(_ peer: PeerID)
     func disconnect()
     func stop()
-    /// Advertises or browses again from scratch. iOS stops both while the app is in
-    /// the background, and a restarted browser reports every nearby room again.
-    func restartDiscovery()
 }

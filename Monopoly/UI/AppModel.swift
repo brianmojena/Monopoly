@@ -66,6 +66,11 @@ final class AppModel: ObservableObject {
         updateIdleTimer()
     }
 
+    /// The app went to the background, e.g. the screen was locked.
+    func sceneDidEnterBackground() {
+        activeGame?.pauseNetworking()
+    }
+
     private func activate(_ model: GameSessionModel) {
         activeGame?.close()
         activeGame = model

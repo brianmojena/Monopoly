@@ -2216,9 +2216,6 @@ private final class InMemoryGameTransport: GameTransport {
     func stop() {
     }
 
-    func restartDiscovery() {
-    }
-
     func inject(_ data: Data, from peerID: PeerID) {
         onDataReceived?(data, peerID)
     }
