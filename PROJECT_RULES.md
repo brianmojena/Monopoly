@@ -6,6 +6,7 @@ Este documento define **cómo se construye** este proyecto: alcance técnico, ar
 
 - La app **no** reemplaza el tablero físico, los dados, las fichas ni las cartas de Monopoly. Reemplaza únicamente el **dispositivo lector bancario** de la edición Ultimate Banking: dinero, propiedades, hipotecas, construcciones y patrimonio de cada jugador.
 - Los jugadores siguen jugando en una mesa física, con el tablero real delante, y usan la app en sus propios teléfonos como si fuera su "tarjeta bancaria".
+- **Excepción en Monopolife**: en ese modo las cartas físicas de Suerte y Caja de Comunidad se reemplazan por **Tarjetas de Vida** que sortea la app (el host). Sigue sin digitalizarse el tablero, los dados ni las fichas: las tarjetas de movimiento solo indican a dónde mover la ficha física (ver `MONOPOLIFE_RULES.md` sección 5).
 - Toda acción que en el juego físico ocurre sobre el tablero (mover fichas, sacar dados, robar cartas de Suerte/Comunidad) se reporta manualmente a la app por el jugador correspondiente; la app no intenta inferir ni validar el movimiento físico.
 
 ## 2. Jugadores y dispositivos
@@ -63,7 +64,7 @@ La lógica de reglas del juego (ver `GAME_RULES.md`) debe vivir en una capa de d
 
 Explícitamente **no** se construye en esta fase, salvo decisión posterior de Brian:
 - Digitalización del tablero, dados o fichas (movimiento automático).
-- Reconocimiento de cartas de Suerte/Caja de Comunidad.
+- Reconocimiento de cartas físicas de Suerte/Caja de Comunidad (en Monopolife se reemplazan por Tarjetas de Vida sorteadas en la app, no se reconocen las físicas).
 - Multi-dispositivo por internet (fuera de red local).
 - Migración de host si el host se desconecta a mitad de partida.
 - Multi-partida simultánea / historial de partidas en la nube.

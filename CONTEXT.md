@@ -30,6 +30,7 @@ El usuario (Brian) juega Monopoly Ultimate Banking con su grupo y el dispositivo
 ## Documentos de referencia
 
 - [`GAME_RULES.md`](./GAME_RULES.md): reglas del Monopoly Ultimate Banking que la app debe implementar (qué hace la banca digital).
+- [`MONOPOLIFE_RULES.md`](./MONOPOLIFE_RULES.md): reglas del modo Monopolife (felicidad, roles secretos, ruleta, Tarjetas de Vida).
 - [`PROJECT_RULES.md`](./PROJECT_RULES.md): cómo se construye el proyecto (arquitectura, stack, convenciones, flujo Brian/Claude/Codex).
 
 Cualquier prompt que se le dé a Codex debe asumir que quien lo lee no tiene memoria de conversaciones anteriores: debe poder entender la tarea leyendo estos tres documentos más el prompt específico.
@@ -42,10 +43,12 @@ Cualquier prompt que se le dé a Codex debe asumir que quien lo lee no tiene mem
 - Conectividad por red local (MultipeerConnectivity), sin backend en la nube.
 - Un dispositivo host actúa como banca/fuente de verdad; los demás son clientes.
 - Pagos "acercando iPhones" como opción desactivada por defecto, implementados con NearbyInteraction (UWB) porque iOS no permite NFC entre iPhones (ver `PROJECT_RULES.md` sección 3).
+- Dos modos de juego elegidos por el host en la sala: **Monopoly Classic** (por defecto) y **Monopolife**. En Monopolife gana quien tiene más felicidad tras un número de rondas elegido por el host; los roles son secretos y se revelan al final; la bancarrota no elimina (castigo de felicidad + saldo de rescate); las Tarjetas de Vida reemplazan a Suerte/Caja de Comunidad.
 - Se soportan reglas oficiales de Ultimate Banking por defecto, más un set de house rules opcionales configurables por partida (ver sección 8 de `GAME_RULES.md`).
 
 ## Pendientes conocidos
 
 - Validar contra la caja/manual físico de Brian los valores exactos de: precios de propiedades, tabla de incremento de renta por uso, costos de construcción, monto del evento "Bono en Casa".
 - Definir el límite exacto de jugadores soportado por la edición física que tiene Brian (2–8 es un rango provisional).
+- Ajustar los valores de felicidad de roles y Tarjetas de Vida de Monopolife tras las primeras partidas (todos son placeholder).
 - No hay todavía backlog de features / roadmap detallado — se irá construyendo por iteraciones a medida que Brian priorice.

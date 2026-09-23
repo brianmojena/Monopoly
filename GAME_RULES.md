@@ -2,6 +2,8 @@
 
 Este documento describe las reglas de Monopoly en su edición **Ultimate Banking** que la app debe implementar. Es la referencia de negocio para cualquier lógica de banca, propiedades, turnos y dinero. Ante cualquier duda de comportamiento del sistema, este documento manda sobre la intuición general de "cómo se juega Monopoly clásico" — Ultimate Banking tiene diferencias deliberadas frente al Monopoly de tablero con billetes de papel.
 
+> Modos de juego: este documento describe el modo **Monopoly Classic**. El modo **Monopolife** (gana quien tiene más felicidad, con roles secretos y Tarjetas de Vida) usa todas estas reglas más los cambios de [`MONOPOLIFE_RULES.md`](./MONOPOLIFE_RULES.md), que mandan sobre este documento cuando la partida es Monopolife.
+
 > Nota de alcance: la app reemplaza **solo la banca digital** (el lector/tarjetas del dispositivo físico Ultimate Banking). El tablero, los dados, las fichas y las cartas de Suerte/Caja de Comunidad se siguen usando físicamente en la mesa. La app es responsable de dinero, propiedades, hipotecas, rentas, construcciones y del estado financiero de cada jugador.
 
 ## 1. Diferencias clave frente al Monopoly clásico
