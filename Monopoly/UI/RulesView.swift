@@ -249,10 +249,10 @@ extension RuleTopic {
         RuleTopic(
             id: "payments", icon: "qrcode", color: .teal, title: "Formas de pagar",
             points: [
-                "Desde la lista: eliges la propiedad o el jugador y pagas.",
-                "Con QR: quien cobra abre \"Cobrar con QR\" (de una propiedad o de sí mismo, con monto opcional) y quien paga lo escanea con \"Pagar con QR\": el pago se hace en cuanto se lee. Si el QR no trae monto, escríbelo antes de escanear.",
-                "Acercando iPhones (si el host lo activó): acercas tu iPhone al de quien cobra a unos 20 cm, sin juntarlos, y el pago se hace solo. No juntes las partes de arriba: eso abre NameDrop (compartir contacto) de iOS.",
-                "Para cartas que te obligan a pagarle a alguien, usa \"Pagar a un jugador\"."
+                "Con QR: quien cobra pulsa \"Cobrar\" y muestra su QR (de una propiedad o de sí mismo, con monto opcional); quien paga pulsa \"Pagar\" y lo escanea: el pago se hace en cuanto se lee. Si el QR no trae monto, escríbelo antes de escanear.",
+                "A mano: en la pantalla de escanear, pulsa \"Manual\" para elegir el jugador y el monto. Sirve para cartas que te obligan a pagarle a alguien.",
+                "La renta también se paga desde la propiedad, en la lista.",
+                "Acercando iPhones (si el host lo activó): acercas tu iPhone al de quien cobra a unos 20 cm, sin juntarlos, y el pago se hace solo. No juntes las partes de arriba: eso abre NameDrop (compartir contacto) de iOS."
             ]
         ),
         RuleTopic(

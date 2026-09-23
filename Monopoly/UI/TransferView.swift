@@ -2,6 +2,8 @@ import SwiftUI
 
 struct TransferView: View {
     @ObservedObject var model: GameSessionModel
+    /// Called instead of dismissing this screen once the payment is sent.
+    var onPaid: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
 
     @State private var recipientID: UUID?
@@ -65,7 +67,7 @@ struct TransferView: View {
 #endif
         .sheet(item: $proximityPayment, onDismiss: {
             if didPayByProximity {
-                dismiss()
+                finish()
             }
         }) { payment in
             ProximityPaymentView(payment: payment, model: model) {
@@ -87,7 +89,15 @@ struct TransferView: View {
             return
         }
         model.transfer(to: recipientID, amount: amount)
-        dismiss()
+        finish()
+    }
+
+    private func finish() {
+        if let onPaid {
+            onPaid()
+        } else {
+            dismiss()
+        }
     }
 
     private func activePlayers(in state: GameState, excluding playerID: UUID) -> [Player] {

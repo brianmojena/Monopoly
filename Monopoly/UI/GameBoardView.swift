@@ -57,8 +57,6 @@ struct GameBoardView: View {
         .navigationTitle("Partida")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Lux.background, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
 #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -309,9 +307,9 @@ struct GameBoardView: View {
 
             LazyVGrid(columns: columns, spacing: 12) {
                 NavigationLink {
-                    TransferView(model: model)
+                    PayWithQRView(model: model)
                 } label: {
-                    ActionTile(title: "Pagar", detail: "A un jugador", icon: "arrow.up.right", tint: Lux.down)
+                    ActionTile(title: "Pagar", detail: "Escanear QR", icon: "arrow.up.right", tint: Lux.down)
                 }
 
                 NavigationLink {
@@ -359,12 +357,6 @@ struct GameBoardView: View {
                     amountAction = .tax
                 } label: {
                     ActionTile(title: "Impuesto", detail: "Pagar al banco", icon: "building.columns", tint: .purple, isLocked: !isMyTurn)
-                }
-
-                NavigationLink {
-                    PayWithQRView(model: model)
-                } label: {
-                    ActionTile(title: "Escanear", detail: "Pagar con QR", icon: "qrcode.viewfinder", tint: .teal)
                 }
 
                 NavigationLink {

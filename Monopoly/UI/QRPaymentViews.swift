@@ -200,6 +200,7 @@ struct PayWithQRView: View {
     @State private var scanError: String?
     @State private var amountText = ""
     @State private var paidMessage: String?
+    @State private var isShowingManualPayment = false
 
     var body: some View {
         Group {
@@ -222,6 +223,17 @@ struct PayWithQRView: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Manual") {
+                    isShowingManualPayment = true
+                }
+            }
+        }
+        .navigationDestination(isPresented: $isShowingManualPayment) {
+            // Paying by hand also closes the scanner, back to the board.
+            TransferView(model: model, onPaid: { dismiss() })
+        }
         .sensoryFeedback(.selection, trigger: scanned)
         .sensoryFeedback(.success, trigger: paidMessage) { _, message in
             message != nil
