@@ -126,15 +126,15 @@ struct CreditCardView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Préstamo \(index + 1)")
-                            .font(.headline)
+                            .font(.app(.headline))
                         Spacer()
                         Text(currency(loan.remainingDebt))
-                            .fontWeight(.semibold)
+                            .font(.app(.body, weight: .semibold))
                     }
                     Text("\(loan.installmentsRemaining) cuota(s) restante(s) de \(currency(GameRules.creditCardInstallmentDue(for: loan)))")
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                     Text("Aplazamientos disponibles: \(loan.postponementsRemaining)")
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(.secondary)
                 }
             }

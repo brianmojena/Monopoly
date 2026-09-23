@@ -84,11 +84,11 @@ struct MarketView: View {
                 ForEach(investments) { investment in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(state.describe(investment))
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
 
                         HStack {
                             Text(investment.investorID == localPlayerID ? "Inversor" : "Receptor")
-                                .font(.caption)
+                                .font(.app(.caption))
                                 .foregroundStyle(.secondary)
                             Spacer()
                             Button("Proponer cancelación") {
@@ -122,17 +122,17 @@ struct MarketView: View {
                                 Text(property.name)
                                 if property.ownership.count > 1 {
                                     Text(state.ownershipSummary(of: property))
-                                        .font(.caption)
+                                        .font(.app(.caption))
                                         .foregroundStyle(.secondary)
                                 }
                             }
                             Spacer()
                             VStack(alignment: .trailing) {
                                 Text(percentage(property.shares(of: localPlayerID)))
-                                    .fontWeight(.semibold)
+                                    .font(.app(.body, weight: .semibold))
                                 if property.ownerID == localPlayerID {
                                     Text("Administras")
-                                        .font(.caption)
+                                        .font(.app(.caption))
                                         .foregroundStyle(.secondary)
                                 }
                             }
@@ -170,14 +170,14 @@ private struct DealCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label(title, systemImage: icon)
-                    .font(.headline)
+                    .font(.app(.headline))
                 Spacer()
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 if let purchase = deal.sharedPurchase {
                     Text("Compra al banco de \(state.propertyName(purchase.propertyID))")
-                        .font(.subheadline.weight(.medium))
+                        .font(.app(.subheadline, weight: .medium))
                     ForEach(state.describe(purchase), id: \.self) { line in
                         Text("• \(line)")
                     }
@@ -192,11 +192,11 @@ private struct DealCard: View {
                     Text("• \(state.describe(transfer))")
                 }
             }
-            .font(.subheadline)
+            .font(.app(.subheadline))
 
             if !deal.isOpenOffer {
                 Text(statusText)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(.secondary)
             }
 

@@ -10,6 +10,17 @@ struct PropertyDetailView: View {
             if let state = model.gameState,
                let property = state.properties.first(where: { $0.id == propertyID }) {
                 List {
+                    Section {
+                        PropertyPhotoView(property: property)
+                            .frame(height: 210)
+                            .listRowInsets(EdgeInsets())
+                    } footer: {
+                        if let credit = PropertyPhotos.credit(for: property.name) {
+                            Text("\(credit.caption) · \(credit.author) · \(credit.license)")
+                                .font(.app(.caption2))
+                        }
+                    }
+
                     Section("Estado") {
                         LabeledContent(property.ownership.count > 1 ? "Administra" : "Dueño", value: ownerName(for: property, state: state))
                         LabeledContent("Precio", value: currency(property.purchasePrice))

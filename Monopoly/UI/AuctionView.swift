@@ -33,7 +33,7 @@ struct AuctionView: View {
 #endif
 
                         Text("La puja debe ser mayor que \(currency(minimumNextBid)).")
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(.secondary)
 
                         Button("Añadir puja") {
@@ -53,7 +53,7 @@ struct AuctionView: View {
                                     Text("\(index + 1). \(playerName(for: bid.playerID, in: state))")
                                     Spacer()
                                     Text(currency(bid.amount))
-                                        .fontWeight(.semibold)
+                                        .font(.app(.body, weight: .semibold))
                                 }
                             }
                         }

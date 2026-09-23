@@ -43,9 +43,9 @@ struct LifeCardView: View {
             .overlay {
                 VStack(spacing: 8) {
                     Text("😊")
-                        .font(.system(size: 56))
+                        .font(.app(size: 56))
                     Text("TARJETA DE VIDA")
-                        .font(.caption.weight(.heavy))
+                        .font(.app(.caption, weight: .heavy))
                         .tracking(1.6)
                         .foregroundStyle(.white.opacity(0.85))
                 }
@@ -57,33 +57,33 @@ struct LifeCardView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Label(kindTitle, systemImage: kindIcon)
-                    .font(.caption.weight(.bold))
+                    .font(.app(.caption, weight: .bold))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text("TARJETA DE VIDA")
-                    .font(.caption2.weight(.heavy))
+                    .font(.app(.caption2, weight: .heavy))
                     .tracking(1.2)
                     .foregroundStyle(.secondary)
             }
 
             Text(card.title)
-                .font(.system(.title, design: .rounded, weight: .black))
+                .font(.app(.title, weight: .black))
                 .fixedSize(horizontal: false, vertical: true)
             if card.kind == .movement {
                 Label(card.text, systemImage: "figure.walk")
-                    .font(.headline)
+                    .font(.app(.headline))
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
             } else {
                 Text(card.text)
-                    .font(.body)
+                    .font(.app(.body))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             if let possession = card.grantedPossession {
                 Text("Obtienes: \(possession.emoji) \(possession.name)")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline, weight: .semibold))
             }
 
             Spacer(minLength: 0)
@@ -92,7 +92,7 @@ struct LifeCardView: View {
                 effectRow
             } else if let possession = card.requiredPossession {
                 Text("No tienes \(possession.name.lowercased()) \(possession.emoji): te salvaste 😅")
-                    .font(.headline)
+                    .font(.app(.headline))
                     .foregroundStyle(.secondary)
             }
 
@@ -114,12 +114,12 @@ struct LifeCardView: View {
         HStack(alignment: .firstTextBaseline) {
             if let moneyText {
                 Text(moneyText)
-                    .font(.headline)
+                    .font(.app(.headline))
             }
             Spacer()
             if let role {
                 Text("\(happinessText(delta)) \(delta >= 0 ? "😊" : "😞")")
-                    .font(.system(.title2, design: .rounded, weight: .heavy))
+                    .font(.app(.title2, weight: .heavy))
                     .foregroundStyle(happinessColor(delta))
                     .accessibilityLabel("\(happinessText(delta)) de felicidad para \(role.definition.name)")
             }
@@ -132,7 +132,7 @@ struct LifeCardView: View {
                 onDecision(true)
             } label: {
                 Text("Aceptar ($\(card.cost), \(happinessText(delta)) \(delta >= 0 ? "😊" : "😞"))")
-                    .font(.headline)
+                    .font(.app(.headline))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
             }
@@ -150,7 +150,7 @@ struct LifeCardView: View {
 
             if balance < card.cost {
                 Text("No te alcanza el dinero: solo puedes pasar.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(.secondary)
             }
         }

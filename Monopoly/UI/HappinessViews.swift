@@ -11,17 +11,17 @@ struct HappinessSection: View {
         BankCard {
             HStack(spacing: 16) {
                 Text(profile.role.definition.emoji)
-                    .font(.system(size: 40))
+                    .font(.app(size: 40))
                     .frame(width: 60, height: 60)
                     .background(profile.role.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 16))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("TU FELICIDAD")
-                        .font(.caption2.weight(.semibold))
+                        .font(.app(.caption2, weight: .semibold))
                         .tracking(1.2)
                         .foregroundStyle(Lux.textSecondary)
                     Text("\(profile.happiness) 😊")
-                        .font(.system(.largeTitle, design: .rounded, weight: .black))
+                        .font(.app(.largeTitle, weight: .black))
                         .contentTransition(.numericText(value: Double(profile.happiness)))
                         .animation(.spring, value: profile.happiness)
                 }
@@ -30,7 +30,7 @@ struct HappinessSection: View {
 
                 if !profile.possessions.isEmpty {
                     Text(profile.possessions.sorted(by: { $0.rawValue < $1.rawValue }).map(\.emoji).joined(separator: " "))
-                        .font(.title2)
+                        .font(.app(.title2))
                         .accessibilityLabel("Posesiones: \(profile.possessions.map(\.name).joined(separator: ", "))")
                 }
             }
@@ -55,7 +55,7 @@ struct HappinessSection: View {
             .tint(Lux.gold)
 
             Text("Tu rol y tu felicidad son secretos. Gana quien tenga más felicidad al terminar la última ronda.")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Lux.textSecondary)
         }
     }
@@ -80,7 +80,7 @@ struct HappinessHistoryView: View {
                             Text(event.reason.title)
                             Spacer()
                             Text(happinessText(event.delta))
-                                .fontWeight(.bold)
+                                .font(.app(.body, weight: .bold))
                                 .foregroundStyle(happinessColor(event.delta))
                         }
                     }
@@ -145,7 +145,7 @@ struct MonopolifeBanners: ViewModifier {
 
     private func banner(text: String, color: Color) -> some View {
         Text(text)
-            .font(.subheadline.weight(.semibold))
+            .font(.app(.subheadline, weight: .semibold))
             .multilineTextAlignment(.center)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)

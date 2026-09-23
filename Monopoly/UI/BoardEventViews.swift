@@ -97,13 +97,13 @@ struct BoardEventSheet: View {
         if let event = BoardEventCatalog.event(withID: occurrence.eventID) {
             VStack(spacing: 18) {
                 Text("EVENTO EN EL TABLERO")
-                    .font(.caption.weight(.heavy))
+                    .font(.app(.caption, weight: .heavy))
                     .tracking(1.6)
                     .foregroundStyle(Lux.textSecondary)
                 Text(event.emoji)
-                    .font(.system(size: 72))
+                    .font(.app(size: 72))
                 Text(event.title)
-                    .font(.system(.title, design: .rounded, weight: .black))
+                    .font(.app(.title, weight: .black))
                     .multilineTextAlignment(.center)
                 Text(event.text)
                     .foregroundStyle(Lux.textSecondary)
@@ -114,11 +114,11 @@ struct BoardEventSheet: View {
                     Label(BoardEventText.effect(event.effect), systemImage: "sparkles")
                     if !affectedNames.isEmpty {
                         Label(affectedNames, systemImage: "house")
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Lux.textSecondary)
                     }
                 }
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline, weight: .semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
                 .background(Lux.elevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -127,7 +127,7 @@ struct BoardEventSheet: View {
                     dismiss()
                 } label: {
                     Text("Entendido")
-                        .font(.headline)
+                        .font(.app(.headline))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -167,9 +167,9 @@ struct ActiveBoardEventsCard: View {
                     .foregroundStyle(Lux.textSecondary)
                 Spacer()
                 Text(nextEventText)
-                    .fontWeight(.semibold)
+                    .font(.app(.subheadline, weight: .semibold))
             }
-            .font(.subheadline)
+            .font(.app(.subheadline))
 
             if let last = events.lastOccurrence, let event = BoardEventCatalog.event(withID: last.eventID) {
                 HStack(alignment: .firstTextBaseline) {
@@ -178,7 +178,7 @@ struct ActiveBoardEventsCard: View {
                     Text("Ronda \(last.round)")
                         .foregroundStyle(Lux.textSecondary)
                 }
-                .font(.subheadline)
+                .font(.app(.subheadline))
             }
 
             ForEach(events.rentEffects) { effect in
@@ -187,15 +187,15 @@ struct ActiveBoardEventsCard: View {
                         Text(event.emoji)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(event.title) · Renta \(BoardEventText.rentChange(effect))")
-                                .font(.subheadline.weight(.semibold))
+                                .font(.app(.subheadline, weight: .semibold))
                             Text(affectedText(effect))
-                                .font(.caption)
+                                .font(.app(.caption))
                                 .foregroundStyle(Lux.textSecondary)
                                 .lineLimit(2)
                         }
                         Spacer()
                         Text(BoardEventText.remaining(effect, round: state.round))
-                            .font(.caption.weight(.semibold))
+                            .font(.app(.caption, weight: .semibold))
                             .foregroundStyle(effect.flat + effect.percent >= 0 ? Lux.up : Lux.down)
                     }
                 }

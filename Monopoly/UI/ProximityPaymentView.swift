@@ -103,11 +103,11 @@ struct ProximityPaymentView: View {
     private func searchingHeader(details: PaymentDetails, state: GameState) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "wave.3.right")
-                .font(.system(size: 64))
+                .font(.app(size: 64))
                 .foregroundStyle(.tint)
                 .symbolEffect(.variableColor.iterative)
             Text(currency(details.amount))
-                .font(.largeTitle.bold())
+                .font(.app(.largeTitle, weight: .bold))
             Text(details.description)
                 .foregroundStyle(.secondary)
             Text(instructions(for: details, in: state))
@@ -119,10 +119,10 @@ struct ProximityPaymentView: View {
     private func detectedHeader(details: PaymentDetails, recipientName: String, recipientID: UUID) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
+                .font(.app(size: 64))
                 .foregroundStyle(.green)
             Text("iPhone de \(recipientName) detectado")
-                .font(.headline)
+                .font(.app(.headline))
             Text(details.description)
                 .foregroundStyle(.secondary)
 

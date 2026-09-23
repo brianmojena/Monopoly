@@ -46,7 +46,7 @@ struct CollectWithQRView: View {
 
                         if let receivedAmount {
                             Label("Recibiste $\(receivedAmount)", systemImage: "checkmark.circle.fill")
-                                .font(.headline)
+                                .font(.app(.headline))
                                 .foregroundStyle(.green)
                                 .transition(.scale.combined(with: .opacity))
                         }
@@ -80,7 +80,7 @@ struct CollectWithQRView: View {
 #endif
                 .textFieldStyle(.roundedBorder)
             Text("Si pones un monto, quien escanee pagará exactamente eso. Si lo dejas vacío, lo elige quien paga.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(.secondary)
         }
     }
@@ -123,13 +123,13 @@ struct CollectWithQRView: View {
 
             VStack(spacing: 4) {
                 Text(title)
-                    .font(.title2.weight(.bold))
+                    .font(.app(.title2, weight: .bold))
                 Text(subtitle)
-                    .font(.headline)
+                    .font(.app(.headline))
                     .foregroundStyle(.secondary)
             }
             Text("Pide a quien paga que abra \"Pagar con QR\" y escanee este código.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -244,7 +244,7 @@ struct PayWithQRView: View {
                 .allowsHitTesting(false)
 
             Text(scanError ?? "Apunta al QR de quien cobra")
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline, weight: .semibold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(.regularMaterial, in: Capsule())

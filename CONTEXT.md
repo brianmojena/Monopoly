@@ -27,9 +27,11 @@ El usuario (Brian) juega Monopoly Ultimate Banking con su grupo y el dispositivo
 - UI (`Monopoly/UI`): pantallas de inicio, host/join, lobby, tablero, detalle de propiedad, Mercado (`MarketView`, `DealBuilderView`, `SharedPurchaseView`), tarjeta de crédito, pagos por proximidad, pagos por QR (`QRPaymentViews`, formato en `Networking/Messages/QRPaymentRequest.swift`).
 - Modo **Monopolife** (`MONOPOLIFE_RULES.md`, prompts 014–017, implementado directamente por Claude a pedido de Brian): `GameMode` en sala y estado, roles secretos con ruleta (`RoleRevealView`), felicidad y su historial (`GameRules+Monopolife.swift`), Tarjetas de Vida (`Domain/Data/LifeCards.swift`), valores de roles en `Domain/Data/LifeRoles.swift` y pantalla final (`FinalRankingView`).
 - **Casillas de viaje** (tarifa por lados del tablero, `TravelRoute`) y **bote de Free Parking** opcional (`GameRules+FreeParking.swift`, `GAME_RULES.md` 8.2): impuestos, viajes e intereses van al bote.
-- Tablero (`GameBoardView`) con tarjeta de saldo y grid de acciones; colores compartidos en `UI/BankPalette.swift`.
+- Tablero (`GameBoardView`) oscuro con acento dorado: saldo compacto y grid de acciones; colores en `UI/BankPalette.swift`.
+- Tipografía: Inter (OFL) en `Monopoly/Fonts`, subset latino (~400 KB), registrada en `Monopoly-Info.plist` y aplicada con `Font.app(...)` (`UI/AppFont.swift`); no usar `.font(.headline)` y similares del sistema.
+- Fotos de propiedades: postales antiguas de Atlantic City (Wikimedia Commons, dominio público / CC BY 2.0) en `Assets.xcassets/Properties` a 750×500 (~80 KB c/u); créditos en `UI/PropertyPhotos.swift`, visibles en el detalle y en "Cómo se juega".
 - Eventos del tablero opcionales (`GAME_RULES.md` 8.3): catálogo en `Domain/Data/BoardEventCatalog.swift`, reglas en `GameRules+BoardEvents.swift` (sorteo con semilla guardada en el estado), vistas en `BoardEventViews.swift`.
-- Tests unitarios (XCTest) en `MonopolyTests/` (`GameRulesTests`, `MonopolifeRulesTests`, `QRPaymentTests`, `FreeParkingTests`) cubriendo la capa de dominio.
+- Tests unitarios (XCTest) en `MonopolyTests/` (`GameRulesTests`, `MonopolifeRulesTests`, `QRPaymentTests`, `FreeParkingTests`, `CreditTrustTests`, `BoardEventsTests`) cubriendo la capa de dominio.
 
 ## Documentos de referencia
 

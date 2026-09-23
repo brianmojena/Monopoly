@@ -30,10 +30,10 @@ struct RoleRevealView: View {
         VStack(spacing: 24) {
             Spacer()
             Image(systemName: "iphone.and.arrow.forward")
-                .font(.system(size: 64))
+                .font(.app(size: 64))
                 .foregroundStyle(.tint)
             Text("Pasa el teléfono a \(player.name)")
-                .font(.system(.title, design: .rounded, weight: .bold))
+                .font(.app(.title, weight: .bold))
                 .multilineTextAlignment(.center)
             Text("Su rol es secreto. Que nadie más mire la pantalla.")
                 .foregroundStyle(.secondary)
@@ -43,7 +43,7 @@ struct RoleRevealView: View {
                 readyPlayerID = player.id
             } label: {
                 Text("Soy \(player.name)")
-                    .font(.headline)
+                    .font(.app(.headline))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
             }
@@ -69,7 +69,7 @@ struct RoleRouletteView: View {
             VStack(spacing: 24) {
                 if isRevealed {
                     Text("\(playerName), tu rol es…")
-                        .font(.headline)
+                        .font(.app(.headline))
                         .foregroundStyle(.secondary)
                     RoleCardView(role: role)
                         .transition(.scale(scale: 0.85).combined(with: .opacity))
@@ -77,7 +77,7 @@ struct RoleRouletteView: View {
                         onAcknowledge()
                     } label: {
                         Text("¡Entendido!")
-                            .font(.headline)
+                            .font(.app(.headline))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)
                     }
@@ -85,9 +85,9 @@ struct RoleRouletteView: View {
                     .tint(role.color)
                 } else {
                     Text("Monopolife")
-                        .font(.system(.largeTitle, design: .rounded, weight: .black))
+                        .font(.app(.largeTitle, weight: .black))
                     Text("Girando la ruleta de \(playerName)…")
-                        .font(.headline)
+                        .font(.app(.headline))
                         .foregroundStyle(.secondary)
                     wheel
                         .padding(.top, 8)
@@ -110,7 +110,7 @@ struct RoleRouletteView: View {
                 .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
 
             Image(systemName: "arrowtriangle.down.fill")
-                .font(.system(size: 34))
+                .font(.app(size: 34))
                 .foregroundStyle(.primary)
                 .shadow(radius: 2)
                 .offset(y: -18)
@@ -159,9 +159,9 @@ private struct RouletteWheel: View {
 
                     VStack(spacing: 2) {
                         Text(role.definition.emoji)
-                            .font(.system(size: size * 0.11))
+                            .font(.app(size: size * 0.11))
                         Text(role.definition.name)
-                            .font(.system(size: size * 0.045, weight: .bold, design: .rounded))
+                            .font(.app(size: size * 0.045, weight: .bold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
@@ -178,7 +178,7 @@ private struct RouletteWheel: View {
                     .frame(width: size * 0.16)
                     .overlay {
                         Text("😊")
-                            .font(.system(size: size * 0.08))
+                            .font(.app(size: size * 0.08))
                     }
             }
             .frame(width: size, height: size)
