@@ -286,6 +286,15 @@ extension RuleTopic {
             ]
         ),
         RuleTopic(
+            id: "secret-levels", icon: "eye.slash.fill", color: .gray, title: "Niveles secretos",
+            points: [
+                "Regla opcional que activa el host.",
+                "Todos siguen viendo el dinero de los demás, pero no el nivel ni la renta de sus propiedades.",
+                "Sí ves el nivel de las propiedades en las que tienes acciones, aunque las administre otro.",
+                "La renta de una propiedad ajena se descubre al ir a pagarla."
+            ]
+        ),
+        RuleTopic(
             id: "bankruptcy", icon: "exclamationmark.triangle.fill", color: .red, title: "Bancarrota y fin de la partida",
             points: [
                 "Si no puedes pagar una deuda ni vendiendo o hipotecando, te declaras en bancarrota.",

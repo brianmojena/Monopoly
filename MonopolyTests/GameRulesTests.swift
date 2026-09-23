@@ -940,6 +940,23 @@ final class GameRulesTests: XCTestCase {
         XCTAssertTrue(state.proximityPaymentsEnabled)
     }
 
+    func testSecretLevelsOnlyApplyToClassicGames() {
+        let players = [LobbyPlayer(name: "Ana", isHostControlled: true), LobbyPlayer(name: "Luis", isHostControlled: false)]
+        let classic = Lobby(players: players, creditCardsEnabled: false, hiddenLevelsEnabled: true)
+        let monopolife = Lobby(players: players, creditCardsEnabled: false, hiddenLevelsEnabled: true, gameMode: .monopolife)
+
+        XCTAssertEqual(classic.makeGameState(initialBalance: 1500, properties: []).activeHouseRules, [.hiddenPropertyLevels])
+        XCTAssertEqual(monopolife.makeGameState(initialBalance: 1500, properties: []).activeHouseRules, [])
+    }
+
+    func testLobbyWithoutSecretLevelsKeyDecodesWithTheRuleOff() throws {
+        let data = Data(#"{"players":[],"creditCardsEnabled":true,"proximityPaymentsEnabled":false}"#.utf8)
+
+        let lobby = try JSONDecoder().decode(Lobby.self, from: data)
+
+        XCTAssertFalse(lobby.hiddenLevelsEnabled)
+    }
+
     func testLobbyRequiresTwoToEightNamedPlayers() {
         XCTAssertFalse(Lobby(players: [LobbyPlayer(name: "Ana", isHostControlled: true)]).canStart)
         XCTAssertFalse(Lobby(players: [

@@ -19,6 +19,8 @@ struct Lobby: Codable, Equatable {
     var creditCardsEnabled: Bool
     var freeParkingEnabled: Bool
     var proximityPaymentsEnabled: Bool
+    /// Only used in Classic games.
+    var hiddenLevelsEnabled: Bool
     var gameMode: GameMode
     /// Only used in Monopolife games.
     var roundLimit: Int
@@ -30,6 +32,7 @@ struct Lobby: Codable, Equatable {
         creditCardsEnabled: Bool = true,
         freeParkingEnabled: Bool = false,
         proximityPaymentsEnabled: Bool = false,
+        hiddenLevelsEnabled: Bool = false,
         gameMode: GameMode = .classic,
         roundLimit: Int = MonopolifeState.defaultRoundLimit,
         boardEventInterval: Int? = nil
@@ -38,6 +41,7 @@ struct Lobby: Codable, Equatable {
         self.creditCardsEnabled = creditCardsEnabled
         self.freeParkingEnabled = freeParkingEnabled
         self.proximityPaymentsEnabled = proximityPaymentsEnabled
+        self.hiddenLevelsEnabled = hiddenLevelsEnabled
         self.gameMode = gameMode
         self.roundLimit = roundLimit
         self.boardEventInterval = boardEventInterval
@@ -48,6 +52,7 @@ struct Lobby: Codable, Equatable {
         case creditCardsEnabled
         case freeParkingEnabled
         case proximityPaymentsEnabled
+        case hiddenLevelsEnabled
         case gameMode
         case roundLimit
         case boardEventInterval
@@ -59,6 +64,7 @@ struct Lobby: Codable, Equatable {
         creditCardsEnabled = try container.decode(Bool.self, forKey: .creditCardsEnabled)
         freeParkingEnabled = try container.decodeIfPresent(Bool.self, forKey: .freeParkingEnabled) ?? false
         proximityPaymentsEnabled = try container.decode(Bool.self, forKey: .proximityPaymentsEnabled)
+        hiddenLevelsEnabled = try container.decodeIfPresent(Bool.self, forKey: .hiddenLevelsEnabled) ?? false
         gameMode = try container.decodeIfPresent(GameMode.self, forKey: .gameMode) ?? .classic
         roundLimit = try container.decodeIfPresent(Int.self, forKey: .roundLimit) ?? MonopolifeState.defaultRoundLimit
         boardEventInterval = try container.decodeIfPresent(Int.self, forKey: .boardEventInterval)
@@ -76,6 +82,9 @@ struct Lobby: Codable, Equatable {
         }
         if freeParkingEnabled {
             rules.insert(.freeParkingJackpot)
+        }
+        if hiddenLevelsEnabled, gameMode == .classic {
+            rules.insert(.hiddenPropertyLevels)
         }
         return rules
     }

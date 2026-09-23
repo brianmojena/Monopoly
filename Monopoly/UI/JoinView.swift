@@ -207,6 +207,9 @@ private struct JoinedGameView: View {
                 LabeledContent("Tarjetas de crédito", value: lobby.creditCardsEnabled ? "Sí" : "No")
                 LabeledContent("Bote de Free Parking", value: lobby.freeParkingEnabled ? "Sí" : "No")
                 LabeledContent("Eventos del tablero", value: lobby.boardEventInterval.map { "Cada \($0) rondas" } ?? "No")
+                if lobby.gameMode == .classic {
+                    LabeledContent("Niveles secretos", value: lobby.hiddenLevelsEnabled ? "Sí" : "No")
+                }
                 LabeledContent("Pagar acercando iPhones", value: lobby.proximityPaymentsEnabled ? "Sí" : "No")
             }
 

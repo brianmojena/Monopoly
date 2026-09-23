@@ -147,6 +147,7 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 | Bono en Casa aleatorio | Activa el evento aleatorio de bono monetario que el dispositivo físico Ultimate Banking entrega ocasionalmente. |
 | Saldo inicial personalizado | Permite definir un monto de dinero inicial distinto al valor por defecto. |
 | Tarjetas de crédito | **Activada por defecto** en la configuración del host (decisión de Brian). Ver sección 8.1. |
+| Niveles secretos | Solo en Monopoly Classic. Ver sección 8.4. |
 
 ### 8.1 Tarjetas de crédito
 
@@ -208,6 +209,15 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 | 🎓 Abre una universidad | Un grupo de color | Renta +50% permanente |
 | 💡 Apagón | Un lado | Renta −50% durante 1 ronda |
 | 🏆 Barrio del año | Una propiedad con dueño | Renta +$150 permanente |
+
+### 8.4 Niveles secretos
+
+- Solo disponible en **Monopoly Classic**; en Monopolife el host no ve la opción y no se aplica.
+- Todos los jugadores siguen viendo el **saldo** de los demás.
+- El **nivel** de una propiedad (y por tanto su renta actual) solo lo ven sus **accionistas**, tengan el % que tengan. Los demás la ven como "Secreto".
+- El dueño, los accionistas y si está hipotecada siguen siendo públicos.
+- Quien va a pagar la renta de una propiedad ajena ve el monto al confirmar el pago, no antes.
+- Es una regla de interfaz: la banca (host) conoce todos los niveles y cobra la renta como siempre.
 
 La app debe permitir seleccionar estas reglas opcionales al crear una partida, y el estado resultante debe ser visible para todos los jugadores conectados antes de empezar.
 

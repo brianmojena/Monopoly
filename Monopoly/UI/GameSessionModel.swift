@@ -45,6 +45,18 @@ final class GameSessionModel: ObservableObject {
         gameState?.activeHouseRules.contains(.freeParkingJackpot) == true
     }
 
+    /// Whether the player this device is playing as may see the property's level
+    /// (and so its rent). With secret levels, only its shareholders can.
+    func canSeeLevel(of property: Property) -> Bool {
+        guard gameState?.activeHouseRules.contains(.hiddenPropertyLevels) == true, property.isOwned else {
+            return true
+        }
+        guard let localPlayerID else {
+            return false
+        }
+        return property.shares(of: localPlayerID) > 0
+    }
+
     /// Players this device acts for: on the host, its own player plus the players
     /// added without a phone; on a client, just its own player.
     var controllablePlayers: [Player] {

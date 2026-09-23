@@ -130,6 +130,16 @@ struct HostSetupView: View {
                 Text("Impuestos, viajes, el interés de la tarjeta y el de deshipotecar se acumulan en un bote que se lleva quien caiga en Free Parking.")
             }
 
+            if lobby.gameMode == .classic {
+                Section {
+                    Toggle(isOn: lobbyToggle(\.hiddenLevelsEnabled)) {
+                        Label("Niveles secretos", systemImage: "eye.slash")
+                    }
+                } footer: {
+                    Text("Todos ven el dinero de los demás, pero solo ves el nivel de las propiedades en las que tienes acciones. La renta de las demás se descubre al pagarla.")
+                }
+            }
+
             Section {
                 Picker(selection: Binding(
                     get: { lobby.boardEventInterval ?? 0 },

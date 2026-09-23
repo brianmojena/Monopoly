@@ -4,6 +4,7 @@ struct PropertyDetailView: View {
     let propertyID: UUID
     @ObservedObject var model: GameSessionModel
     @State private var proximityPayment: ProximityPayment?
+    @State private var isConfirmingSecretRent = false
 
     var body: some View {
         Group {
@@ -24,8 +25,13 @@ struct PropertyDetailView: View {
                     Section("Estado") {
                         LabeledContent(property.ownership.count > 1 ? "Administra" : "Dueño", value: ownerName(for: property, state: state))
                         LabeledContent("Precio", value: currency(property.purchasePrice))
-                        LabeledContent("Renta actual", value: currency(currentRent(for: property, in: state)))
-                        LabeledContent("Nivel", value: "\(property.constructionLevel) de \(Property.maximumLevel)")
+                        if model.canSeeLevel(of: property) {
+                            LabeledContent("Renta actual", value: currency(currentRent(for: property, in: state)))
+                            LabeledContent("Nivel", value: "\(property.constructionLevel) de \(Property.maximumLevel)")
+                        } else {
+                            LabeledContent("Renta actual", value: "Secreta")
+                            LabeledContent("Nivel", value: "Secreto")
+                        }
                         LabeledContent("Hipotecada", value: property.isMortgaged ? "Sí" : "No")
                         if property.isMortgaged {
                             LabeledContent("Valor de hipoteca", value: currency(property.mortgageValue))
@@ -95,10 +101,29 @@ struct PropertyDetailView: View {
                             .disabled(!model.isLocalPlayersTurn)
                         } else if property.ownerID != localPlayerID {
                             Section {
-                                Button("Pagar renta (\(currency(rentDue(for: property, by: localPlayerID, in: state))))") {
-                                    model.payRent(propertyID: property.id)
+                                if model.canSeeLevel(of: property) {
+                                    Button("Pagar renta (\(currency(rentDue(for: property, by: localPlayerID, in: state))))") {
+                                        model.payRent(propertyID: property.id)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                } else {
+                                    // The amount gives the level away, so it only shows
+                                    // once the player actually goes to pay.
+                                    Button("Pagar renta") {
+                                        isConfirmingSecretRent = true
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .confirmationDialog(
+                                        "Renta de \(property.name)",
+                                        isPresented: $isConfirmingSecretRent,
+                                        titleVisibility: .visible
+                                    ) {
+                                        Button("Pagar \(currency(rentDue(for: property, by: localPlayerID, in: state)))") {
+                                            model.payRent(propertyID: property.id)
+                                        }
+                                        Button("Cancelar", role: .cancel) {}
+                                    }
                                 }
-                                .buttonStyle(.borderedProminent)
 
                                 if model.isProximityPaymentEnabled {
                                     Button {

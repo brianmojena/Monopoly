@@ -580,7 +580,7 @@ struct GameBoardView: View {
                             Text("Hipotecada")
                                 .font(.app(.caption2))
                                 .foregroundStyle(Lux.down)
-                        } else if property.constructionLevel > 0 {
+                        } else if property.constructionLevel > 0, model.canSeeLevel(of: property) {
                             Text("Nivel \(property.constructionLevel)")
                                 .font(.app(.caption2))
                                 .foregroundStyle(Lux.up)
