@@ -1,57 +1,146 @@
 import SwiftUI
 
 struct JoinView: View {
-    @State private var name = ""
-    @State private var model: GameSessionModel?
+    @StateObject private var model: GameSessionModel
+
+    // Built inside the StateObject autoclosure so browsing only starts when this
+    // screen is actually shown, not when the start screen renders.
+    init() {
+        _model = StateObject(wrappedValue: Self.makeModel())
+    }
+
+    private static func makeModel() -> GameSessionModel {
+        let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
+        let session = GameSession(transport: transport, role: .client)
+        return GameSessionModel(session: session, role: .client)
+    }
 
     var body: some View {
         Group {
-            if let model {
-                JoinedGameView(model: model)
+            if model.joinedRoomID == nil {
+                RoomBrowserView(model: model)
             } else {
-                nameForm
+                JoinedGameView(model: model)
             }
         }
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
     }
+}
 
-    private var nameForm: some View {
-        Form {
-            Section {
-                TextField("Tu nombre", text: $name)
-                    .submitLabel(.join)
-                    .onSubmit(join)
-            } header: {
-                Text("¿Cómo te llamas?")
-            } footer: {
-                Text("Así aparecerás en la sala de espera y en la partida.")
-            }
+private struct RoomBrowserView: View {
+    @ObservedObject var model: GameSessionModel
+    @State private var name = ""
 
-            Section {
-                Button("Buscar partida") {
-                    join()
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Tu nombre")
+                        .font(.headline)
+                    TextField("¿Cómo te llamas?", text: $name)
+                        .textFieldStyle(.roundedBorder)
+                        .submitLabel(.done)
+                    Text("Para volver a una partida en curso, usa el mismo nombre que tenías.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                .disabled(trimmedName.isEmpty)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Salas cercanas")
+                            .font(.headline)
+                        Spacer()
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    if model.rooms.isEmpty {
+                        emptyState
+                    } else {
+                        ForEach(model.rooms) { room in
+                            RoomCard(room: room, canJoin: !trimmedName.isEmpty) {
+                                model.join(room, name: trimmedName)
+                            }
+                        }
+                    }
+                }
             }
+            .padding()
         }
         .navigationTitle("Unirse a partida")
+        .animation(.default, value: model.rooms)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text("Buscando salas…")
+                .font(.subheadline.weight(.semibold))
+            Text("Pide al host que pulse \"Alojar partida\" y que estéis en la misma red Wi‑Fi o cerca con Bluetooth activado.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+}
 
-    private func join() {
-        guard !trimmedName.isEmpty else {
-            return
+private struct RoomCard: View {
+    let room: DiscoveredRoom
+    let canJoin: Bool
+    let onJoin: () -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: room.phase == .lobby ? "person.3.fill" : "dice.fill")
+                .font(.title2)
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+                .background(room.phase == .lobby ? Color.accentColor : Color.green, in: RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(playersText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Label(statusText, systemImage: room.phase == .lobby ? "hourglass" : "play.fill")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(room.phase == .lobby ? Color.accentColor : Color.green)
+            }
+
+            Spacer(minLength: 8)
+
+            Button("Unirse", action: onJoin)
+                .buttonStyle(.borderedProminent)
+                .disabled(!canJoin)
         }
+        .padding(14)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
+    }
 
-        let player = LobbyPlayer(name: trimmedName, isHostControlled: false)
-        let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
-        let session = GameSession(transport: transport, role: .client, lobbyPlayer: player)
-        model = GameSessionModel(session: session, role: .client, localPlayerID: player.id, joinName: trimmedName)
+    private var title: String {
+        room.name.isEmpty ? "Partida sin nombre" : "Partida de \(room.name)"
+    }
+
+    private var playersText: String {
+        room.playerCount == 1 ? "1 jugador" : "\(room.playerCount) jugadores"
+    }
+
+    private var statusText: String {
+        room.phase == .lobby ? "En sala de espera" : "En curso · Ronda \(room.round)"
     }
 }
 
@@ -71,7 +160,7 @@ private struct JoinedGameView: View {
             } else if let lobby = model.lobby {
                 waitingRoom(lobby)
             } else {
-                searchingView
+                connectingView
             }
         }
     }
@@ -103,18 +192,25 @@ private struct JoinedGameView: View {
                 LabeledContent("Tarjetas de crédito", value: lobby.creditCardsEnabled ? "Sí" : "No")
                 LabeledContent("Pagar acercando iPhones", value: lobby.proximityPaymentsEnabled ? "Sí" : "No")
             }
+
+            Section {
+                Button("Salir de la sala", role: .destructive) {
+                    model.leaveRoom()
+                }
+            }
         }
         .navigationTitle("Sala de espera")
     }
 
-    private var searchingView: some View {
+    private var connectingView: some View {
         VStack(spacing: 16) {
             ProgressView()
-            Text("Buscando partida…")
+            Text("Conectando a la sala…")
                 .font(.headline)
-            Text("Asegúrate de que el host ya abrió la sala de espera y que ambos dispositivos están en la misma red local.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+            Button("Cancelar") {
+                model.leaveRoom()
+            }
+            .buttonStyle(.bordered)
         }
         .padding(24)
         .navigationTitle("Unirse a partida")

@@ -18,6 +18,8 @@ final class GameSessionModel: ObservableObject {
     @Published private(set) var localPlayerID: UUID?
     @Published private(set) var lobby: Lobby?
     @Published private(set) var isHostConnected = true
+    @Published private(set) var rooms: [DiscoveredRoom] = []
+    @Published private(set) var joinedRoomID: UUID?
 
     let proximity = ProximityPaymentCoordinator()
 
@@ -58,7 +60,7 @@ final class GameSessionModel: ObservableObject {
 
     private var hostControlledPlayerIDs: Set<UUID>
     private let store: GameStore?
-    private let joinName: String?
+    private var joinName: String?
 
     /// - Parameters:
     ///   - hostControlledPlayerIDs: when resuming a saved game, the players that
@@ -97,6 +99,11 @@ final class GameSessionModel: ObservableObject {
                 self?.lobby = lobby
             }
         }
+        session.onRoomsChanged = { [weak self] rooms in
+            DispatchQueue.main.async {
+                self?.rooms = rooms
+            }
+        }
         session.onHostConnectionChanged = { [weak self] isConnected in
             DispatchQueue.main.async {
                 self?.isHostConnected = isConnected
@@ -127,6 +134,24 @@ final class GameSessionModel: ObservableObject {
 
     func selectPlayer(_ playerID: UUID) {
         localPlayerID = playerID
+    }
+
+    func join(_ room: DiscoveredRoom, name: String) {
+        let player = LobbyPlayer(name: name, isHostControlled: false)
+        localPlayerID = player.id
+        joinName = name
+        joinedRoomID = room.id
+        isHostConnected = true
+        session.join(roomID: room.id, as: player)
+    }
+
+    func leaveRoom() {
+        session.leaveRoom()
+        joinedRoomID = nil
+        localPlayerID = nil
+        joinName = nil
+        gameState = nil
+        lobby = nil
     }
 
     func updateLobby(_ change: (inout Lobby) -> Void) {
@@ -198,6 +223,7 @@ final class GameSessionModel: ObservableObject {
 
         do {
             try store.save(SavedGame(
+                roomID: session.roomID,
                 state: state,
                 ownPlayerID: ownPlayerID,
                 hostControlledPlayerIDs: hostControlledPlayerIDs,

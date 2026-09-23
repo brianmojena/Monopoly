@@ -14,7 +14,12 @@ struct HostSetupView: View {
     private static func makeModel() -> GameSessionModel {
         let hostPlayer = LobbyPlayer(name: "", isHostControlled: true)
         let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
-        let session = GameSession(transport: transport, role: .host, lobby: Lobby(players: [hostPlayer]))
+        let session = GameSession(
+            transport: transport,
+            role: .host,
+            lobby: Lobby(players: [hostPlayer]),
+            hostPlayerID: hostPlayer.id
+        )
         return GameSessionModel(session: session, role: .host, localPlayerID: hostPlayer.id, store: GameStore.shared)
     }
 

@@ -15,7 +15,13 @@ struct ResumeHostView: View {
 
     private static func makeModel(savedGame: SavedGame) -> GameSessionModel {
         let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
-        let session = GameSession(transport: transport, role: .host, initialState: savedGame.state)
+        let session = GameSession(
+            transport: transport,
+            role: .host,
+            initialState: savedGame.state,
+            roomID: savedGame.roomID,
+            hostPlayerID: savedGame.ownPlayerID
+        )
         let model = GameSessionModel(
             session: session,
             role: .host,

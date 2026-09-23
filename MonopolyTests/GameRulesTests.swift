@@ -1429,6 +1429,81 @@ extension NetworkingTests {
         withExtendedLifetime((host, restartedHost)) {}
     }
 
+    func testHostAdvertisesRoomNamePlayersAndPhase() throws {
+        let hostPlayer = LobbyPlayer(name: "Brian", isHostControlled: true)
+        let roomID = UUID()
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let host = GameSession(
+            transport: hostTransport,
+            role: .host,
+            lobby: Lobby(players: [hostPlayer]),
+            roomID: roomID,
+            hostPlayerID: hostPlayer.id
+        )
+
+        var room = try XCTUnwrap(DiscoveredRoom(peerID: hostTransport.localPeerID, discoveryInfo: hostTransport.discoveryInfo ?? [:]))
+        XCTAssertEqual(room.id, roomID)
+        XCTAssertEqual(room.name, "Brian")
+        XCTAssertEqual(room.playerCount, 1)
+        XCTAssertEqual(room.phase, .lobby)
+
+        var lobby = try XCTUnwrap(host.lobby)
+        lobby.players.append(LobbyPlayer(name: "Luis", isHostControlled: true))
+        try host.updateLobby(lobby)
+        var state = lobby.makeGameState(initialBalance: 1500, properties: [])
+        state.round = 3
+        try host.startGame(with: state)
+
+        room = try XCTUnwrap(DiscoveredRoom(peerID: hostTransport.localPeerID, discoveryInfo: hostTransport.discoveryInfo ?? [:]))
+        XCTAssertEqual(room.playerCount, 2)
+        XCTAssertEqual(room.phase, .playing)
+        XCTAssertEqual(room.round, 3)
+    }
+
+    func testClientListsRoomsAndOnlyJoinsWhenAsked() throws {
+        let hostPlayer = LobbyPlayer(name: "Brian", isHostControlled: true)
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, lobby: Lobby(players: [hostPlayer]), hostPlayerID: hostPlayer.id)
+        let client = GameSession(transport: clientTransport, role: .client)
+        var listedRooms: [DiscoveredRoom] = []
+        client.onRoomsChanged = { listedRooms = $0 }
+
+        clientTransport.discover(hostTransport)
+
+        XCTAssertEqual(listedRooms.map(\.name), ["Brian"])
+        XCTAssertTrue(clientTransport.invitedPeers.isEmpty)
+
+        client.join(roomID: host.roomID, as: LobbyPlayer(name: "Luis", isHostControlled: false))
+        XCTAssertEqual(clientTransport.invitedPeers, [hostTransport.localPeerID])
+
+        clientTransport.lose(hostTransport)
+        XCTAssertTrue(listedRooms.isEmpty)
+    }
+
+    func testClientRejoinsSameRoomWhenHostComesBack() throws {
+        let state = GameState(players: [Player(name: "Ana", balance: 100)], properties: [])
+        let roomID = UUID()
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: state, roomID: roomID)
+        let client = GameSession(transport: clientTransport, role: .client)
+        clientTransport.discover(hostTransport)
+        client.join(roomID: roomID, as: LobbyPlayer(name: "Ana", isHostControlled: false))
+        hostTransport.connect(to: clientTransport)
+        hostTransport.disconnect(from: clientTransport)
+
+        let restartedTransport = InMemoryGameTransport(peerID: PeerID("host-restarted"))
+        let restartedHost = GameSession(transport: restartedTransport, role: .host, initialState: state, roomID: roomID)
+        let otherTransport = InMemoryGameTransport(peerID: PeerID("other-host"))
+        let otherHost = GameSession(transport: otherTransport, role: .host, initialState: state)
+        clientTransport.discover(otherTransport)
+        clientTransport.discover(restartedTransport)
+
+        XCTAssertEqual(clientTransport.invitedPeers, [hostTransport.localPeerID, restartedTransport.localPeerID])
+        withExtendedLifetime((host, restartedHost, otherHost)) {}
+    }
+
     func testGameStateDisablesProximityPaymentsByDefault() {
         XCTAssertFalse(GameState(players: [], properties: []).proximityPaymentsEnabled)
     }
@@ -1466,6 +1541,7 @@ final class GameStoreTests: XCTestCase {
             proximityPaymentsEnabled: true
         )
         let savedGame = SavedGame(
+            roomID: UUID(),
             state: state,
             ownPlayerID: ana.id,
             hostControlledPlayerIDs: [ana.id, luis.id],
@@ -1491,6 +1567,7 @@ final class GameStoreTests: XCTestCase {
         let store = GameStore(fileURL: fileURL)
         let player = Player(name: "Ana", balance: 100)
         try store.save(SavedGame(
+            roomID: UUID(),
             state: GameState(players: [player], properties: []),
             ownPlayerID: player.id,
             hostControlledPlayerIDs: [player.id],
@@ -1509,8 +1586,12 @@ private final class InMemoryGameTransport: GameTransport {
     var onDataReceived: ((Data, PeerID) -> Void)?
     var onPeerConnected: ((PeerID) -> Void)?
     var onPeerDisconnected: ((PeerID) -> Void)?
+    var onPeerFound: ((PeerID, [String: String]) -> Void)?
+    var onPeerLost: ((PeerID) -> Void)?
 
     private var peers: [PeerID: InMemoryGameTransport] = [:]
+    private(set) var discoveryInfo: [String: String]?
+    private(set) var invitedPeers: [PeerID] = []
     private(set) var sentMessages: [(data: Data, peerID: PeerID)] = []
     private(set) var broadcastMessages: [Data] = []
 
@@ -1549,6 +1630,28 @@ private final class InMemoryGameTransport: GameTransport {
     }
 
     func startHosting() {
+    }
+
+    func updateDiscoveryInfo(_ info: [String: String]) {
+        discoveryInfo = info
+    }
+
+    func invite(_ peer: PeerID) {
+        invitedPeers.append(peer)
+    }
+
+    func disconnect() {
+        for other in Array(peers.values) {
+            disconnect(from: other)
+        }
+    }
+
+    func discover(_ host: InMemoryGameTransport) {
+        onPeerFound?(host.localPeerID, host.discoveryInfo ?? [:])
+    }
+
+    func lose(_ host: InMemoryGameTransport) {
+        onPeerLost?(host.localPeerID)
     }
 
     func startBrowsing() {

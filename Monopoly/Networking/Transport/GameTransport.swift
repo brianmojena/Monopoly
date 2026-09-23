@@ -21,10 +21,15 @@ protocol GameTransport: AnyObject {
     var onDataReceived: ((Data, PeerID) -> Void)? { get set }
     var onPeerConnected: ((PeerID) -> Void)? { get set }
     var onPeerDisconnected: ((PeerID) -> Void)? { get set }
+    var onPeerFound: ((PeerID, [String: String]) -> Void)? { get set }
+    var onPeerLost: ((PeerID) -> Void)? { get set }
 
     func send(data: Data, to peer: PeerID) throws
     func broadcast(data: Data) throws
     func startHosting()
     func startBrowsing()
+    func updateDiscoveryInfo(_ info: [String: String])
+    func invite(_ peer: PeerID)
+    func disconnect()
     func stop()
 }

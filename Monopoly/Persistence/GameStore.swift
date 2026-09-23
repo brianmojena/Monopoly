@@ -1,6 +1,7 @@
 import Foundation
 
 struct SavedGame: Codable, Equatable {
+    let roomID: UUID
     let state: GameState
     let ownPlayerID: UUID
     let hostControlledPlayerIDs: Set<UUID>

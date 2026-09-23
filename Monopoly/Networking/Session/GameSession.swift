@@ -29,7 +29,11 @@ final class GameSession {
     private var _gameState: GameState?
     private var _lobby: Lobby?
     private var lobbyPlayerIDsByPeer: [PeerID: Set<UUID>] = [:]
-    private let lobbyPlayer: LobbyPlayer?
+    private var lobbyPlayer: LobbyPlayer?
+    let roomID: UUID
+    private let hostPlayerID: UUID?
+    private var discoveredRooms: [PeerID: DiscoveredRoom] = [:]
+    private var joinedRoomID: UUID?
     private var _lastIntentRejection: GameRuleError?
 
     var gameState: GameState? {
@@ -48,22 +52,31 @@ final class GameSession {
         stateQueue.sync { return _lobby }
     }
 
+    var rooms: [DiscoveredRoom] {
+        stateQueue.sync { sortedRooms() }
+    }
+
     var onStateChanged: ((GameState) -> Void)?
     var onIntentRejected: ((GameRuleError) -> Void)?
     var onTransportError: ((Error) -> Void)?
     var onProximitySignal: ((ProximitySignal) -> Void)?
     var onLobbyChanged: ((Lobby) -> Void)?
     var onHostConnectionChanged: ((Bool) -> Void)?
+    var onRoomsChanged: (([DiscoveredRoom]) -> Void)?
 
     /// A host starts either with a running game (`initialState`) or with a `lobby`
-    /// that players join before `startGame`. A client passes `lobbyPlayer` to join
-    /// the host's lobby as soon as it connects.
+    /// that players join before `startGame`, and advertises it as room `roomID`,
+    /// named after `hostPlayerID`. A client browses rooms and joins one with
+    /// `join(roomID:as:)`; passing `lobbyPlayer` joins the lobby of whichever host it
+    /// is connected to (used by tests that connect transports directly).
     init(
         transport: GameTransport,
         role: Role,
         initialState: GameState? = nil,
         lobby: Lobby? = nil,
         lobbyPlayer: LobbyPlayer? = nil,
+        roomID: UUID = UUID(),
+        hostPlayerID: UUID? = nil,
         hostPeerID: PeerID? = nil,
         encoder: JSONEncoder = JSONEncoder(),
         decoder: JSONDecoder = JSONDecoder()
@@ -80,6 +93,8 @@ final class GameSession {
         self._gameState = initialState
         self._lobby = initialState == nil ? lobby : nil
         self.lobbyPlayer = lobbyPlayer
+        self.roomID = roomID
+        self.hostPlayerID = hostPlayerID
         self.discoveredHostPeerID = hostPeerID
 
         transport.onDataReceived = { [weak self] data, peerID in
@@ -91,13 +106,42 @@ final class GameSession {
         transport.onPeerDisconnected = { [weak self] peerID in
             self?.peerDisconnected(peerID)
         }
+        transport.onPeerFound = { [weak self] peerID, info in
+            self?.peerFound(peerID, info: info)
+        }
+        transport.onPeerLost = { [weak self] peerID in
+            self?.peerLost(peerID)
+        }
 
         switch role {
         case .host:
+            publishRoomInfo()
             transport.startHosting()
         case .client:
             transport.startBrowsing()
         }
+    }
+
+    func join(roomID: UUID, as player: LobbyPlayer) {
+        let hostPeerID: PeerID? = stateQueue.sync {
+            joinedRoomID = roomID
+            lobbyPlayer = player
+            return discoveredRooms.values.first(where: { $0.id == roomID })?.peerID
+        }
+        if let hostPeerID {
+            transport.invite(hostPeerID)
+        }
+    }
+
+    func leaveRoom() {
+        stateQueue.sync {
+            joinedRoomID = nil
+            lobbyPlayer = nil
+            _lobby = nil
+            _gameState = nil
+            discoveredHostPeerID = configuredHostPeerID
+        }
+        transport.disconnect()
     }
 
     deinit {
@@ -147,6 +191,7 @@ final class GameSession {
         case let .success(updatedState):
             let snapshot = try encoder.encode(NetworkMessage.stateSnapshot(updatedState))
             onStateChanged?(updatedState)
+            publishRoomInfo()
             try transport.broadcast(data: snapshot)
         case let .failure(error):
             onIntentRejected?(error)
@@ -165,6 +210,7 @@ final class GameSession {
         }
 
         onLobbyChanged?(lobby)
+        publishRoomInfo()
         try transport.broadcast(data: try encoder.encode(NetworkMessage.lobbySnapshot(lobby)))
     }
 
@@ -181,6 +227,7 @@ final class GameSession {
         }
 
         onStateChanged?(state)
+        publishRoomInfo()
         try transport.broadcast(data: try encoder.encode(NetworkMessage.stateSnapshot(state)))
     }
 
@@ -203,12 +250,12 @@ final class GameSession {
     }
 
     private func peerConnected(_ peerID: PeerID) {
-        let (state, lobby, hostPeerID) = stateQueue.sync {
+        let (state, lobby, hostPeerID, lobbyPlayer) = stateQueue.sync {
             connectedPeerIDs.insert(peerID)
             if case .client = role, discoveredHostPeerID == nil {
                 discoveredHostPeerID = peerID
             }
-            return (_gameState, _lobby, configuredHostPeerID ?? discoveredHostPeerID)
+            return (_gameState, _lobby, configuredHostPeerID ?? discoveredHostPeerID, self.lobbyPlayer)
         }
 
         do {
@@ -260,6 +307,7 @@ final class GameSession {
             return
         }
         onLobbyChanged?(updatedLobby)
+        publishRoomInfo()
         do {
             try transport.broadcast(data: try encoder.encode(NetworkMessage.lobbySnapshot(updatedLobby)))
         } catch {
@@ -317,6 +365,7 @@ final class GameSession {
         case let .success(updatedState):
             let snapshot = try encoder.encode(NetworkMessage.stateSnapshot(updatedState))
             onStateChanged?(updatedState)
+            publishRoomInfo()
             try transport.broadcast(data: snapshot)
         case let .failure(error):
             do {
@@ -371,7 +420,62 @@ final class GameSession {
             return
         }
         onLobbyChanged?(updatedLobby)
+        publishRoomInfo()
         try transport.broadcast(data: try encoder.encode(NetworkMessage.lobbySnapshot(updatedLobby)))
+    }
+
+    private func publishRoomInfo() {
+        guard case .host = role else {
+            return
+        }
+
+        let (state, lobby) = stateQueue.sync { (_gameState, _lobby) }
+        let players = state?.players.map(\.name) ?? lobby?.players.map(\.name) ?? []
+        let hostName = state?.players.first(where: { $0.id == hostPlayerID })?.name
+            ?? lobby?.players.first(where: { $0.id == hostPlayerID })?.name
+            ?? ""
+        transport.updateDiscoveryInfo(DiscoveredRoom.discoveryInfo(
+            roomID: roomID,
+            name: hostName.trimmingCharacters(in: .whitespacesAndNewlines),
+            playerCount: players.count,
+            phase: state == nil ? .lobby : .playing,
+            round: state?.round ?? 1
+        ))
+    }
+
+    private func peerFound(_ peerID: PeerID, info: [String: String]) {
+        guard case .client = role, let room = DiscoveredRoom(peerID: peerID, discoveryInfo: info) else {
+            return
+        }
+
+        let (rooms, shouldRejoin) = stateQueue.sync {
+            discoveredRooms[peerID] = room
+            // A host that restarts (e.g. after the app was closed) comes back as a new
+            // peer with the same room ID; reconnect to it without asking again.
+            let shouldRejoin = room.id == joinedRoomID && discoveredHostPeerID == nil
+            return (sortedRooms(), shouldRejoin)
+        }
+        onRoomsChanged?(rooms)
+        if shouldRejoin {
+            transport.invite(peerID)
+        }
+    }
+
+    private func peerLost(_ peerID: PeerID) {
+        guard case .client = role else {
+            return
+        }
+        let rooms = stateQueue.sync {
+            discoveredRooms[peerID] = nil
+            return sortedRooms()
+        }
+        onRoomsChanged?(rooms)
+    }
+
+    private func sortedRooms() -> [DiscoveredRoom] {
+        discoveredRooms.values.sorted {
+            ($0.name.localizedLowercase, $0.id.uuidString) < ($1.name.localizedLowercase, $1.id.uuidString)
+        }
     }
 
     private func apply(
