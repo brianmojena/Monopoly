@@ -8,7 +8,7 @@ struct HappinessSection: View {
     @Binding var isShowingRole: Bool
 
     var body: some View {
-        Section {
+        BankCard {
             HStack(spacing: 16) {
                 Text(profile.role.definition.emoji)
                     .font(.system(size: 40))
@@ -26,35 +26,36 @@ struct HappinessSection: View {
                 }
 
                 Spacer()
-            }
-            .padding(.vertical, 4)
-            .accessibilityElement(children: .combine)
 
-            if !profile.possessions.isEmpty {
-                HStack {
-                    Text("Posesiones")
-                        .foregroundStyle(.secondary)
-                    Spacer()
+                if !profile.possessions.isEmpty {
                     Text(profile.possessions.sorted(by: { $0.rawValue < $1.rawValue }).map(\.emoji).joined(separator: " "))
-                        .accessibilityLabel(profile.possessions.map(\.name).joined(separator: ", "))
+                        .font(.title2)
+                        .accessibilityLabel("Posesiones: \(profile.possessions.map(\.name).joined(separator: ", "))")
                 }
             }
+            .accessibilityElement(children: .combine)
 
-            Button {
-                isShowingRole = true
-            } label: {
-                Label("Mi rol", systemImage: "theatermasks")
-            }
+            HStack(spacing: 10) {
+                Button {
+                    isShowingRole = true
+                } label: {
+                    Label("Mi rol", systemImage: "theatermasks")
+                        .frame(maxWidth: .infinity)
+                }
 
-            NavigationLink {
-                HappinessHistoryView(model: model)
-            } label: {
-                Label("Mi felicidad", systemImage: "list.bullet.rectangle")
+                NavigationLink {
+                    HappinessHistoryView(model: model)
+                } label: {
+                    Label("Historial", systemImage: "list.bullet.rectangle")
+                        .frame(maxWidth: .infinity)
+                }
             }
-        } header: {
-            Text("Monopolife")
-        } footer: {
+            .buttonStyle(.bordered)
+            .tint(profile.role.color)
+
             Text("Tu rol y tu felicidad son secretos. Gana quien tenga más felicidad al terminar la última ronda.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }

@@ -26,7 +26,9 @@ El usuario (Brian) juega Monopoly Ultimate Banking con su grupo y el dispositivo
 - Persistencia (`Monopoly/Persistence`): `GameStore` guarda la partida del host en Application Support tras cada cambio de estado; la app ofrece "Continuar partida" al reabrir.
 - UI (`Monopoly/UI`): pantallas de inicio, host/join, lobby, tablero, detalle de propiedad, Mercado (`MarketView`, `DealBuilderView`, `SharedPurchaseView`), tarjeta de crédito, pagos por proximidad y pagos por QR (`QRPaymentViews`, formato en `Networking/Messages/QRPaymentRequest.swift`).
 - Modo **Monopolife** (`MONOPOLIFE_RULES.md`, prompts 014–017, implementado directamente por Claude a pedido de Brian): `GameMode` en sala y estado, roles secretos con ruleta (`RoleRevealView`), felicidad y su historial (`GameRules+Monopolife.swift`), Tarjetas de Vida (`Domain/Data/LifeCards.swift`), valores de roles en `Domain/Data/LifeRoles.swift` y pantalla final (`FinalRankingView`).
-- Tests unitarios (XCTest) en `MonopolyTests/GameRulesTests.swift` y `MonopolyTests/MonopolifeRulesTests.swift` cubriendo la capa de dominio.
+- **Casillas de viaje** (tarifa por lados del tablero, `TravelRoute`) y **bote de Free Parking** opcional (`GameRules+FreeParking.swift`, `GAME_RULES.md` 8.2): impuestos, viajes e intereses van al bote.
+- Tablero (`GameBoardView`) con tarjeta de saldo y grid de acciones; colores compartidos en `UI/BankPalette.swift`.
+- Tests unitarios (XCTest) en `MonopolyTests/` (`GameRulesTests`, `MonopolifeRulesTests`, `QRPaymentTests`, `FreeParkingTests`) cubriendo la capa de dominio.
 
 ## Documentos de referencia
 

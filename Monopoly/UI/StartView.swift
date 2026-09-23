@@ -92,7 +92,7 @@ struct StartView: View {
         .padding(24)
         .background(
             LinearGradient(
-                colors: [brandGreen, brandGreen.opacity(0.78)],
+                colors: [Color.bankGreen, Color.bankGreen.opacity(0.78)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
@@ -102,16 +102,16 @@ struct StartView: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         }
-        .shadow(color: brandGreen.opacity(0.22), radius: 18, y: 10)
+        .shadow(color: Color.bankGreen.opacity(0.22), radius: 18, y: 10)
     }
 
     private var boardStripe: some View {
         HStack(spacing: 4) {
-            stripeTile(boardRed)
-            stripeTile(boardGold)
+            stripeTile(Color.boardRed)
+            stripeTile(Color.boardGold)
             stripeTile(.white.opacity(0.88))
-            stripeTile(boardGold)
-            stripeTile(boardRed)
+            stripeTile(Color.boardGold)
+            stripeTile(Color.boardRed)
         }
         .frame(height: 9)
         .clipShape(Capsule())
@@ -151,13 +151,13 @@ struct StartView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 LinearGradient(
-                    colors: [boardRed, boardRed.opacity(0.82)],
+                    colors: [Color.boardRed, Color.boardRed.opacity(0.82)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ),
                 in: RoundedRectangle(cornerRadius: 22, style: .continuous)
             )
-            .shadow(color: boardRed.opacity(0.2), radius: 12, y: 7)
+            .shadow(color: Color.boardRed.opacity(0.2), radius: 12, y: 7)
         }
         .buttonStyle(.plain)
     }
@@ -167,7 +167,7 @@ struct StartView: View {
             JoinView()
         } label: {
             HStack(spacing: 15) {
-                actionIcon(systemName: "person.2.fill", color: brandGreen)
+                actionIcon(systemName: "person.2.fill", color: Color.bankGreen)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Unirse a partida")
@@ -190,7 +190,7 @@ struct StartView: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(brandGreen.opacity(0.24), lineWidth: 1)
+                    .stroke(Color.bankGreen.opacity(0.24), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -202,7 +202,7 @@ struct StartView: View {
         } label: {
             Label("Cómo se juega", systemImage: "book.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(brandGreen)
+                .foregroundStyle(Color.bankGreen)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity)
         }
@@ -222,9 +222,9 @@ struct StartView: View {
             HStack(spacing: 12) {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(boardGold)
+                    .foregroundStyle(Color.boardGold)
                     .frame(width: 42, height: 42)
-                    .background(boardGold.opacity(0.16), in: Circle())
+                    .background(Color.boardGold.opacity(0.16), in: Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Partida guardada")
@@ -259,7 +259,7 @@ struct StartView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
                 .frame(maxWidth: .infinity)
-                .background(boardGreen, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(Color.boardGreen, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(.plain)
 
@@ -273,9 +273,9 @@ struct StartView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(boardGold.opacity(0.58), lineWidth: 1.5)
+                .stroke(Color.boardGold.opacity(0.58), lineWidth: 1.5)
         }
-        .shadow(color: boardGold.opacity(0.12), radius: 14, y: 7)
+        .shadow(color: Color.boardGold.opacity(0.12), radius: 14, y: 7)
     }
 
     private func summary(of savedGame: SavedGame) -> String {
@@ -289,42 +289,18 @@ struct StartView: View {
             Color(.systemGroupedBackground)
 
             Circle()
-                .fill(boardRed.opacity(colorScheme == .dark ? 0.08 : 0.045))
+                .fill(Color.boardRed.opacity(colorScheme == .dark ? 0.08 : 0.045))
                 .frame(width: 260)
                 .blur(radius: 8)
                 .offset(x: 170, y: -300)
 
             Circle()
-                .fill(brandGreen.opacity(colorScheme == .dark ? 0.1 : 0.05))
+                .fill(Color.bankGreen.opacity(colorScheme == .dark ? 0.1 : 0.05))
                 .frame(width: 220)
                 .blur(radius: 12)
                 .offset(x: -180, y: 360)
         }
         .ignoresSafeArea()
-    }
-
-    private var brandGreen: Color {
-        colorScheme == .dark
-            ? Color(red: 0.12, green: 0.28, blue: 0.22)
-            : Color(red: 0.08, green: 0.32, blue: 0.22)
-    }
-
-    private var boardGreen: Color {
-        colorScheme == .dark
-            ? Color(red: 0.18, green: 0.42, blue: 0.31)
-            : Color(red: 0.1, green: 0.38, blue: 0.25)
-    }
-
-    private var boardRed: Color {
-        colorScheme == .dark
-            ? Color(red: 0.68, green: 0.12, blue: 0.15)
-            : Color(red: 0.72, green: 0.08, blue: 0.11)
-    }
-
-    private var boardGold: Color {
-        colorScheme == .dark
-            ? Color(red: 0.96, green: 0.72, blue: 0.29)
-            : Color(red: 0.74, green: 0.49, blue: 0.08)
     }
 }
 
