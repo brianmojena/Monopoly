@@ -15,6 +15,11 @@ struct DiscoveredRoom: Identifiable, Equatable {
     let playerCount: Int
     let phase: Phase
     let round: Int
+    let mode: GameMode
+
+    // Single letters keep the Bonjour TXT record small.
+    private static let classicCode = "c"
+    private static let monopolifeCode = "l"
 
     private enum Key {
         static let room = "room"
@@ -22,6 +27,7 @@ struct DiscoveredRoom: Identifiable, Equatable {
         static let players = "players"
         static let phase = "phase"
         static let round = "round"
+        static let mode = "mode"
     }
 
     init?(peerID: PeerID, discoveryInfo info: [String: String]) {
@@ -36,6 +42,7 @@ struct DiscoveredRoom: Identifiable, Equatable {
         self.playerCount = info[Key.players].flatMap(Int.init) ?? 0
         self.phase = phase
         self.round = info[Key.round].flatMap(Int.init) ?? 1
+        self.mode = info[Key.mode] == Self.monopolifeCode ? .monopolife : .classic
     }
 
     static func discoveryInfo(
@@ -43,14 +50,16 @@ struct DiscoveredRoom: Identifiable, Equatable {
         name: String,
         playerCount: Int,
         phase: Phase,
-        round: Int
+        round: Int,
+        mode: GameMode = .classic
     ) -> [String: String] {
         [
             Key.room: roomID.uuidString,
             Key.name: String(name.prefix(40)),
             Key.players: String(playerCount),
             Key.phase: phase.rawValue,
-            Key.round: String(round)
+            Key.round: String(round),
+            Key.mode: mode == .monopolife ? monopolifeCode : classicCode
         ]
     }
 }

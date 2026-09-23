@@ -63,6 +63,10 @@ enum GameRuleError: Error, Equatable, Codable {
     case invalidRentInvestmentPercentage(Int)
     case rentInvestmentPercentageExceeded(propertyID: UUID, recipientID: UUID, requested: Int, available: Int)
     case rentInvestmentNotFound(UUID)
+    case gameFinished
+    case monopolifeOnly
+    case lifeCardDecisionPending
+    case noPendingLifeCard
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -120,6 +124,10 @@ enum GameRuleError: Error, Equatable, Codable {
         case invalidRentInvestmentPercentage
         case rentInvestmentPercentageExceeded
         case rentInvestmentNotFound
+        case gameFinished
+        case monopolifeOnly
+        case lifeCardDecisionPending
+        case noPendingLifeCard
     }
 
     init(from decoder: Decoder) throws {
@@ -222,6 +230,14 @@ enum GameRuleError: Error, Equatable, Codable {
             )
         case .rentInvestmentNotFound:
             self = .rentInvestmentNotFound(try container.decode(UUID.self, forKey: .investmentID))
+        case .gameFinished:
+            self = .gameFinished
+        case .monopolifeOnly:
+            self = .monopolifeOnly
+        case .lifeCardDecisionPending:
+            self = .lifeCardDecisionPending
+        case .noPendingLifeCard:
+            self = .noPendingLifeCard
         }
     }
 
@@ -342,6 +358,14 @@ enum GameRuleError: Error, Equatable, Codable {
         case let .rentInvestmentNotFound(investmentID):
             try container.encode(Code.rentInvestmentNotFound, forKey: .code)
             try container.encode(investmentID, forKey: .investmentID)
+        case .gameFinished:
+            try container.encode(Code.gameFinished, forKey: .code)
+        case .monopolifeOnly:
+            try container.encode(Code.monopolifeOnly, forKey: .code)
+        case .lifeCardDecisionPending:
+            try container.encode(Code.lifeCardDecisionPending, forKey: .code)
+        case .noPendingLifeCard:
+            try container.encode(Code.noPendingLifeCard, forKey: .code)
         }
     }
 }

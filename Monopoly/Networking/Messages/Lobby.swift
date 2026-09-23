@@ -18,15 +18,39 @@ struct Lobby: Codable, Equatable {
     var players: [LobbyPlayer]
     var creditCardsEnabled: Bool
     var proximityPaymentsEnabled: Bool
+    var gameMode: GameMode
+    /// Only used in Monopolife games.
+    var roundLimit: Int
 
     init(
         players: [LobbyPlayer] = [],
         creditCardsEnabled: Bool = true,
-        proximityPaymentsEnabled: Bool = false
+        proximityPaymentsEnabled: Bool = false,
+        gameMode: GameMode = .classic,
+        roundLimit: Int = MonopolifeState.defaultRoundLimit
     ) {
         self.players = players
         self.creditCardsEnabled = creditCardsEnabled
         self.proximityPaymentsEnabled = proximityPaymentsEnabled
+        self.gameMode = gameMode
+        self.roundLimit = roundLimit
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case players
+        case creditCardsEnabled
+        case proximityPaymentsEnabled
+        case gameMode
+        case roundLimit
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        players = try container.decode([LobbyPlayer].self, forKey: .players)
+        creditCardsEnabled = try container.decode(Bool.self, forKey: .creditCardsEnabled)
+        proximityPaymentsEnabled = try container.decode(Bool.self, forKey: .proximityPaymentsEnabled)
+        gameMode = try container.decodeIfPresent(GameMode.self, forKey: .gameMode) ?? .classic
+        roundLimit = try container.decodeIfPresent(Int.self, forKey: .roundLimit) ?? MonopolifeState.defaultRoundLimit
     }
 
     var canStart: Bool {
@@ -35,6 +59,15 @@ struct Lobby: Codable, Equatable {
     }
 
     func makeGameState(initialBalance: Int, properties: [Property]) -> GameState {
+        var generator = SystemRandomNumberGenerator()
+        return makeGameState(initialBalance: initialBalance, properties: properties, using: &generator)
+    }
+
+    func makeGameState<Generator: RandomNumberGenerator>(
+        initialBalance: Int,
+        properties: [Property],
+        using generator: inout Generator
+    ) -> GameState {
         let gamePlayers = players.map { player in
             Player(
                 id: player.id,
@@ -47,7 +80,15 @@ struct Lobby: Codable, Equatable {
             properties: properties,
             currentPlayerID: gamePlayers.first?.id,
             activeHouseRules: creditCardsEnabled ? [.creditCards] : [],
-            proximityPaymentsEnabled: proximityPaymentsEnabled
+            proximityPaymentsEnabled: proximityPaymentsEnabled,
+            mode: gameMode,
+            monopolife: gameMode == .monopolife
+                ? GameRules.makeMonopolifeState(
+                    playerIDs: gamePlayers.map(\.id),
+                    roundLimit: roundLimit,
+                    using: &generator
+                )
+                : nil
         )
     }
 }

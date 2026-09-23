@@ -439,7 +439,8 @@ final class GameSession {
             name: hostName.trimmingCharacters(in: .whitespacesAndNewlines),
             playerCount: players.count,
             phase: state == nil ? .lobby : .playing,
-            round: state?.round ?? 1
+            round: state?.round ?? 1,
+            mode: state?.mode ?? lobby?.gameMode ?? .classic
         ))
     }
 
@@ -484,6 +485,7 @@ final class GameSession {
         isHost: Bool,
         in state: GameState
     ) throws -> GameState {
+        try GameRules.requireGameNotFinished(in: state)
         if intent.requiresTurn {
             try GameRules.requireTurn(in: state, playerID: playerID)
         }
@@ -538,6 +540,13 @@ final class GameSession {
                 throw GameRuleError.onlyHostCanSkipTurn
             }
             return GameRules.advanceTurn(in: state)
+        case .acknowledgeRole:
+            return try GameRules.acknowledgeRole(in: state, playerID: playerID)
+        case .drawLifeCard:
+            var generator = SystemRandomNumberGenerator()
+            return try GameRules.drawLifeCard(in: state, playerID: playerID, using: &generator)
+        case let .resolveLifeCardDecision(_, accept):
+            return try GameRules.resolveLifeCardDecision(in: state, playerID: playerID, accept: accept)
         }
     }
 }

@@ -40,7 +40,9 @@ struct BankruptcyView: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(!canContinue)
                     } footer: {
-                        Text("La bancarrota es irreversible: perderás tus activos y quedarás eliminado de la partida.")
+                        Text(model.isMonopolife
+                            ? "Perderás tus activos y la mitad de tu felicidad, pero seguirás jugando con $\(LifeRoleValues.bankruptcyRescueBalance) de rescate."
+                            : "La bancarrota es irreversible: perderás tus activos y quedarás eliminado de la partida.")
                     }
                 }
             } else {

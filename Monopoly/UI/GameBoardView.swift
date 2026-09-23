@@ -3,10 +3,13 @@ import SwiftUI
 struct GameBoardView: View {
     @ObservedObject var model: GameSessionModel
     @State private var amountAction: AmountAction?
+    @State private var isShowingRole = false
 
     var body: some View {
         Group {
-            if let state = model.gameState {
+            if let state = model.gameState, state.monopolife?.isFinished == true {
+                FinalRankingView(state: state)
+            } else if let state = model.gameState {
                 List {
                     if model.role == .client, !model.isHostConnected {
                         Section {
@@ -20,8 +23,32 @@ struct GameBoardView: View {
 
                     turnSection(state)
 
+                    if let profile = model.localProfile {
+                        HappinessSection(model: model, profile: profile, isShowingRole: $isShowingRole)
+                    }
+
+                    if let pending = model.localPendingLifeCard, model.presentedLifeCard == nil {
+                        Section {
+                            Button {
+                                model.presentedLifeCard = pending
+                            } label: {
+                                Label("Tienes una Tarjeta de Vida por decidir", systemImage: "questionmark.circle.fill")
+                                    .font(.headline)
+                            }
+                        }
+                    }
+
                     if isLocalPlayerActive(in: state) {
                         Section {
+                            if model.isMonopolife {
+                                Button {
+                                    model.drawLifeCard()
+                                } label: {
+                                    Label("Caí en Suerte / Caja de Comunidad", systemImage: "rectangle.stack.badge.person.crop")
+                                }
+                                .disabled(!model.isLocalPlayersTurn || model.localPendingLifeCard != nil)
+                            }
+
                             Button {
                                 amountAction = .tax
                             } label: {
@@ -65,7 +92,9 @@ struct GameBoardView: View {
                         } header: {
                             Text("Acciones del jugador")
                         } footer: {
-                            if !model.isLocalPlayersTurn {
+                            if model.isMonopolife {
+                                Text("En Monopolife no se usan las cartas físicas de Suerte ni de Caja de Comunidad: al caer ahí, saca una Tarjeta de Vida.")
+                            } else if !model.isLocalPlayersTurn {
                                 Text("Impuestos, salario, compras, rentas, subastas y préstamos se hacen en tu turno. Pagar a otros jugadores, negociar en el Mercado, hipotecar y construir se puede en cualquier momento.")
                             }
                         }
@@ -147,6 +176,21 @@ struct GameBoardView: View {
             }
         }
         .proximityReceiverBanner(model: model)
+        .monopolifeBanners(model: model)
+        .sheet(isPresented: $isShowingRole) {
+            if let role = model.localProfile?.role {
+                RoleSheet(role: role)
+            }
+        }
+        .sheet(item: $model.presentedLifeCard) { draw in
+            LifeCardSheet(model: model, draw: draw)
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { !model.pendingRoleReveals.isEmpty },
+            set: { _ in }
+        )) {
+            RoleRevealView(model: model)
+        }
     }
 
     @ViewBuilder
@@ -184,7 +228,7 @@ struct GameBoardView: View {
     @ViewBuilder
     private func turnSection(_ state: GameState) -> some View {
         if let currentPlayer = model.currentPlayer {
-            Section("Ronda \(state.round)") {
+            Section(roundTitle(state)) {
                 if model.controllablePlayers.count > 1 {
                     Picker("Jugando como", selection: Binding(
                         get: { model.localPlayerID },
@@ -223,6 +267,13 @@ struct GameBoardView: View {
         }
     }
 
+    private func roundTitle(_ state: GameState) -> String {
+        guard let roundLimit = state.monopolife?.roundLimit else {
+            return "Ronda \(state.round)"
+        }
+        return "Ronda \(state.round) de \(roundLimit)"
+    }
+
     private func ownerName(for property: Property, state: GameState) -> String {
         guard property.isOwned else {
             return "Sin dueño"
@@ -258,4 +309,8 @@ private enum AmountAction: String, Identifiable {
             return "Cobrar salario"
         }
     }
+}
+
+extension LifeCardDraw: Identifiable {
+    var id: Int { sequence }
 }

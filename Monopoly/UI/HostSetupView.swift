@@ -85,6 +85,34 @@ struct HostSetupView: View {
             }
 
             Section {
+                Picker("Modo de juego", selection: Binding(
+                    get: { lobby.gameMode },
+                    set: { mode in model.updateLobby { $0.gameMode = mode } }
+                )) {
+                    Text("Monopoly Classic").tag(GameMode.classic)
+                    Text("Monopolife").tag(GameMode.monopolife)
+                }
+                .pickerStyle(.segmented)
+
+                if lobby.gameMode == .monopolife {
+                    Picker("Rondas", selection: Binding(
+                        get: { lobby.roundLimit },
+                        set: { limit in model.updateLobby { $0.roundLimit = limit } }
+                    )) {
+                        ForEach(MonopolifeState.roundLimitOptions, id: \.self) { limit in
+                            Text("\(limit)").tag(limit)
+                        }
+                    }
+                }
+            } header: {
+                Text("Modo de juego")
+            } footer: {
+                Text(lobby.gameMode == .monopolife
+                    ? "Gana quien tenga más felicidad al terminar la última ronda. Cada jugador recibe un rol secreto con una ruleta, y las cartas de Suerte y Caja de Comunidad se cambian por Tarjetas de Vida."
+                    : "El Monopoly de siempre: gana quien no quiebre.")
+            }
+
+            Section {
                 Toggle(isOn: lobbyToggle(\.creditCardsEnabled)) {
                     Label("Tarjetas de crédito", systemImage: "creditcard")
                 }

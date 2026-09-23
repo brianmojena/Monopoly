@@ -19,6 +19,9 @@ enum GameIntent: Codable, Equatable {
     case payCreditCard(playerID: UUID, loanID: UUID, amount: Int)
     case endTurn(playerID: UUID)
     case skipTurn
+    case acknowledgeRole(playerID: UUID)
+    case drawLifeCard(playerID: UUID)
+    case resolveLifeCardDecision(playerID: UUID, accept: Bool)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -34,6 +37,7 @@ enum GameIntent: Codable, Equatable {
         case postponedLoanIDs
         case installments
         case loanID
+        case accept
     }
 
     private enum IntentType: String, Codable {
@@ -55,6 +59,9 @@ enum GameIntent: Codable, Equatable {
         case payCreditCard
         case endTurn
         case skipTurn
+        case acknowledgeRole
+        case drawLifeCard
+        case resolveLifeCardDecision
     }
 
     init(from decoder: Decoder) throws {
@@ -141,6 +148,15 @@ enum GameIntent: Codable, Equatable {
             self = .endTurn(playerID: try container.decode(UUID.self, forKey: .playerID))
         case .skipTurn:
             self = .skipTurn
+        case .acknowledgeRole:
+            self = .acknowledgeRole(playerID: try container.decode(UUID.self, forKey: .playerID))
+        case .drawLifeCard:
+            self = .drawLifeCard(playerID: try container.decode(UUID.self, forKey: .playerID))
+        case .resolveLifeCardDecision:
+            self = .resolveLifeCardDecision(
+                playerID: try container.decode(UUID.self, forKey: .playerID),
+                accept: try container.decode(Bool.self, forKey: .accept)
+            )
         }
     }
 
@@ -218,6 +234,16 @@ enum GameIntent: Codable, Equatable {
             try container.encode(playerID, forKey: .playerID)
         case .skipTurn:
             try container.encode(IntentType.skipTurn, forKey: .type)
+        case let .acknowledgeRole(playerID):
+            try container.encode(IntentType.acknowledgeRole, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+        case let .drawLifeCard(playerID):
+            try container.encode(IntentType.drawLifeCard, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+        case let .resolveLifeCardDecision(playerID, accept):
+            try container.encode(IntentType.resolveLifeCardDecision, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+            try container.encode(accept, forKey: .accept)
         }
     }
 }
@@ -228,11 +254,12 @@ extension GameIntent {
     // players and bankruptcy stay available at any time.
     var requiresTurn: Bool {
         switch self {
-        case .buyProperty, .resolveAuction, .collectRent, .payTax, .collectSalary, .borrowOnCreditCard:
+        case .buyProperty, .resolveAuction, .collectRent, .payTax, .collectSalary, .borrowOnCreditCard,
+             .drawLifeCard, .resolveLifeCardDecision:
             return true
         case .levelUp, .levelDown, .mortgageProperty, .unmortgageProperty,
              .declareBankruptcy, .proposeDeal, .acceptDeal, .rejectDeal, .transferMoney, .payCreditCard,
-             .endTurn, .skipTurn:
+             .endTurn, .skipTurn, .acknowledgeRole:
             return false
         }
     }

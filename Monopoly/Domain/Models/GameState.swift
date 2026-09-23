@@ -9,6 +9,9 @@ struct GameState: Codable, Equatable {
     var proximityPaymentsEnabled: Bool
     var marketDeals: [MarketDeal]
     var rentInvestments: [RentInvestment]
+    var mode: GameMode
+    /// Present only in Monopolife games.
+    var monopolife: MonopolifeState?
 
     init(
         players: [Player],
@@ -18,7 +21,9 @@ struct GameState: Codable, Equatable {
         activeHouseRules: Set<HouseRule> = [],
         proximityPaymentsEnabled: Bool = false,
         marketDeals: [MarketDeal] = [],
-        rentInvestments: [RentInvestment] = []
+        rentInvestments: [RentInvestment] = [],
+        mode: GameMode = .classic,
+        monopolife: MonopolifeState? = nil
     ) {
         self.players = players
         self.properties = properties
@@ -28,6 +33,8 @@ struct GameState: Codable, Equatable {
         self.proximityPaymentsEnabled = proximityPaymentsEnabled
         self.marketDeals = marketDeals
         self.rentInvestments = rentInvestments
+        self.mode = mode
+        self.monopolife = monopolife
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -39,6 +46,8 @@ struct GameState: Codable, Equatable {
         case proximityPaymentsEnabled
         case marketDeals
         case rentInvestments
+        case mode
+        case monopolife
     }
 
     init(from decoder: Decoder) throws {
@@ -51,6 +60,8 @@ struct GameState: Codable, Equatable {
         proximityPaymentsEnabled = try container.decode(Bool.self, forKey: .proximityPaymentsEnabled)
         marketDeals = try container.decode([MarketDeal].self, forKey: .marketDeals)
         rentInvestments = try container.decodeIfPresent([RentInvestment].self, forKey: .rentInvestments) ?? []
+        mode = try container.decodeIfPresent(GameMode.self, forKey: .mode) ?? .classic
+        monopolife = try container.decodeIfPresent(MonopolifeState.self, forKey: .monopolife)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -63,5 +74,7 @@ struct GameState: Codable, Equatable {
         try container.encode(proximityPaymentsEnabled, forKey: .proximityPaymentsEnabled)
         try container.encode(marketDeals, forKey: .marketDeals)
         try container.encode(rentInvestments, forKey: .rentInvestments)
+        try container.encode(mode, forKey: .mode)
+        try container.encodeIfPresent(monopolife, forKey: .monopolife)
     }
 }

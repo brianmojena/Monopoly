@@ -109,9 +109,20 @@ private struct RoomCard: View {
                 .background(room.phase == .lobby ? Color.accentColor : Color.green, in: RoundedRectangle(cornerRadius: 12))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                        .lineLimit(1)
+                    Text(room.mode == .monopolife ? "Monopolife" : "Classic")
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .foregroundStyle(room.mode == .monopolife ? Color.pink : Color.secondary)
+                        .background(
+                            (room.mode == .monopolife ? Color.pink : Color.secondary).opacity(0.14),
+                            in: Capsule()
+                        )
+                }
                 Text(playersText)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -189,6 +200,10 @@ private struct JoinedGameView: View {
             }
 
             Section("Reglas") {
+                LabeledContent("Modo de juego", value: lobby.gameMode == .monopolife ? "Monopolife" : "Monopoly Classic")
+                if lobby.gameMode == .monopolife {
+                    LabeledContent("Rondas", value: "\(lobby.roundLimit)")
+                }
                 LabeledContent("Tarjetas de crédito", value: lobby.creditCardsEnabled ? "Sí" : "No")
                 LabeledContent("Pagar acercando iPhones", value: lobby.proximityPaymentsEnabled ? "Sí" : "No")
             }

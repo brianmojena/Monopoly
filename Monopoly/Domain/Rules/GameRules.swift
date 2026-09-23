@@ -36,6 +36,7 @@ enum GameRules {
         updatedState.properties[propertyIndex].ownership = [PropertyShare(playerID: playerID, shares: Property.totalShares)]
         updatedState.marketDeals.removeAll { $0.sharedPurchase?.propertyID == propertyID }
         reindexPropertyIDs(in: &updatedState)
+        applyLifeTrigger(.propertyBought(playerID: playerID), in: &updatedState)
         return updatedState
     }
 
@@ -94,6 +95,7 @@ enum GameRules {
         ]
         updatedState.marketDeals.removeAll { $0.sharedPurchase?.propertyID == propertyID }
         reindexPropertyIDs(in: &updatedState)
+        applyLifeTrigger(.propertyBought(playerID: winningBid.playerID), in: &updatedState)
         return updatedState
     }
 
@@ -160,9 +162,17 @@ enum GameRules {
                 guard amount > 0 else { continue }
                 credit(amount, to: investment.investorID, in: &updatedState)
                 remaining -= amount
+                applyLifeTrigger(.investmentPayout(investorID: investment.investorID), in: &updatedState)
             }
             credit(remaining, to: portion.playerID, in: &updatedState)
+            if remaining > 0 {
+                applyLifeTrigger(.rentReceived(playerID: portion.playerID), in: &updatedState)
+            }
         }
+        applyLifeTrigger(
+            .rentPaid(payerID: payerID, amount: amountDue, colorGroup: property.colorGroup),
+            in: &updatedState
+        )
         return RentResult(state: updatedState, amount: amountDue)
     }
 
@@ -190,6 +200,9 @@ enum GameRules {
 
         var updatedState = state
         updatedState.players[playerIndex].balance -= amount
+        if amount > 0 {
+            applyLifeTrigger(.taxPaid(playerID: playerID), in: &updatedState)
+        }
         return updatedState
     }
 
@@ -219,6 +232,7 @@ enum GameRules {
 
         var updatedState = state
         var player = updatedState.players[playerIndex]
+        let hadCardDebt = player.creditCardDebt > 0
         player.balance += amount
 
         for index in player.creditCardLoans.indices {
@@ -239,6 +253,7 @@ enum GameRules {
         player.creditCardLoans.removeAll { $0.remainingDebt <= 0 }
 
         updatedState.players[playerIndex] = player
+        applyLifeTrigger(.salaryCollected(playerID: playerID, hadCardDebt: hadCardDebt), in: &updatedState)
         return updatedState
     }
 
@@ -321,6 +336,7 @@ enum GameRules {
             installmentsRemaining: installments,
             postponementsRemaining: maxCreditCardInstallments - installments
         ))
+        applyLifeTrigger(.loanTaken(playerID: playerID), in: &updatedState)
         return updatedState
     }
 
@@ -419,6 +435,7 @@ enum GameRules {
         let cost = Property.levelUpCost(purchasePrice: property.purchasePrice, level: targetLevel)
         try chargeShareholders(cost, of: property, in: &updatedState)
         updatedState.properties[propertyIndex].constructionLevel = targetLevel
+        applyLifeTrigger(.leveledUp(playerID: playerID), in: &updatedState)
         return updatedState
     }
 
@@ -482,6 +499,7 @@ enum GameRules {
         var updatedState = state
         updatedState.properties[propertyIndex].isMortgaged = true
         payShareholders(property.mortgageValue, of: property, in: &updatedState)
+        applyLifeTrigger(.mortgaged(playerID: playerID), in: &updatedState)
         return updatedState
     }
 
@@ -596,6 +614,11 @@ enum GameRules {
         }
         reindexPropertyIDs(in: &updatedState)
 
+        // A Monopolife player keeps playing, so their turn goes on.
+        if updatedState.monopolife != nil {
+            rescueFromBankruptcy(playerID, in: &updatedState)
+            return updatedState
+        }
         if updatedState.currentPlayerID == playerID {
             updatedState = advanceTurn(in: updatedState)
         }
@@ -615,6 +638,7 @@ enum GameRules {
 
     static func endTurn(in state: GameState, playerID: UUID) throws -> GameState {
         try requireTurn(in: state, playerID: playerID)
+        try requireNoPendingLifeCard(in: state, playerID: playerID)
         return advanceTurn(in: state)
     }
 
@@ -634,6 +658,13 @@ enum GameRules {
 
             var updatedState = state
             if currentIndex + offset >= state.players.count {
+                endOfRound(in: &updatedState)
+                // A Monopolife game ends when its last round does.
+                if let monopolife = updatedState.monopolife, updatedState.round >= monopolife.roundLimit {
+                    updatedState.monopolife?.isFinished = true
+                    updatedState.currentPlayerID = nil
+                    return updatedState
+                }
                 updatedState.round += 1
             }
             updatedState.currentPlayerID = state.players[nextIndex].id

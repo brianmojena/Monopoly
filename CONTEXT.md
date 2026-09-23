@@ -25,7 +25,8 @@ El usuario (Brian) juega Monopoly Ultimate Banking con su grupo y el dispositivo
 - Capa de red (`Monopoly/Networking`): host-autoritativo sobre MultipeerConnectivity, con `GameIntent`/`NetworkMessage`, sala de espera (`Lobby`), descubrimiento de salas cercanas como tarjetas (`DiscoveredRoom`) y reconexión de clientes.
 - Persistencia (`Monopoly/Persistence`): `GameStore` guarda la partida del host en Application Support tras cada cambio de estado; la app ofrece "Continuar partida" al reabrir.
 - UI (`Monopoly/UI`): pantallas de inicio, host/join, lobby, tablero, detalle de propiedad, Mercado (`MarketView`, `DealBuilderView`, `SharedPurchaseView`), tarjeta de crédito y pagos por proximidad.
-- Tests unitarios (XCTest) en `MonopolyTests/GameRulesTests.swift` cubriendo la capa de dominio.
+- Modo **Monopolife** (`MONOPOLIFE_RULES.md`, prompts 014–017, implementado directamente por Claude a pedido de Brian): `GameMode` en sala y estado, roles secretos con ruleta (`RoleRevealView`), felicidad y su historial (`GameRules+Monopolife.swift`), Tarjetas de Vida (`Domain/Data/LifeCards.swift`), valores de roles en `Domain/Data/LifeRoles.swift` y pantalla final (`FinalRankingView`).
+- Tests unitarios (XCTest) en `MonopolyTests/GameRulesTests.swift` y `MonopolyTests/MonopolifeRulesTests.swift` cubriendo la capa de dominio.
 
 ## Documentos de referencia
 

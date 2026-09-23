@@ -20,6 +20,12 @@ final class GameSessionModel: ObservableObject {
     @Published private(set) var isHostConnected = true
     @Published private(set) var rooms: [DiscoveredRoom] = []
     @Published private(set) var joinedRoomID: UUID?
+    /// Happiness changes of the player this device is playing as, shown one by one.
+    @Published private(set) var happinessToasts: [HappinessToast] = []
+    /// A Life Card this device's player just drew, to show it full size.
+    @Published var presentedLifeCard: LifeCardDraw?
+    /// A Life Card another player just drew (the card is public, its effect is not).
+    @Published private(set) var lifeCardNotice: LifeCardDraw?
 
     let proximity = ProximityPaymentCoordinator()
 
@@ -45,6 +51,37 @@ final class GameSessionModel: ObservableObject {
         case .client:
             return gameState.players.filter { $0.id == localPlayerID }
         }
+    }
+
+    var isMonopolife: Bool {
+        gameState?.monopolife != nil
+    }
+
+    /// The Monopolife profile of the player this device is playing as.
+    var localProfile: LifeProfile? {
+        guard let localPlayerID else {
+            return nil
+        }
+        return gameState?.monopolife?.profiles[localPlayerID]
+    }
+
+    /// Players on this device who still have to see their role, the device owner
+    /// first; on the host, followed by the players without a phone.
+    var pendingRoleReveals: [Player] {
+        guard let monopolife = gameState?.monopolife, !monopolife.isFinished else {
+            return []
+        }
+        let unacknowledged = controllablePlayers.filter {
+            monopolife.profiles[$0.id]?.hasAcknowledgedRole == false
+        }
+        return unacknowledged.filter { $0.id == ownPlayerID } + unacknowledged.filter { $0.id != ownPlayerID }
+    }
+
+    var localPendingLifeCard: LifeCardDraw? {
+        guard let pending = gameState?.monopolife?.pendingLifeCard, pending.playerID == localPlayerID else {
+            return nil
+        }
+        return pending
     }
 
     var currentPlayer: Player? {
@@ -201,7 +238,9 @@ final class GameSessionModel: ObservableObject {
 
     private func receive(_ state: GameState) {
         let previousPlayerID = gameState?.currentPlayerID
+        let previousState = gameState
         gameState = state
+        announceMonopolifeChanges(from: previousState, to: state)
         lobby = nil
         save(state)
         reclaimPlayerByName(in: state)
@@ -214,6 +253,57 @@ final class GameSessionModel: ObservableObject {
            hostControlledPlayerIDs.contains(currentPlayerID) {
             localPlayerID = currentPlayerID
         }
+    }
+
+    private func announceMonopolifeChanges(from previousState: GameState?, to state: GameState) {
+        guard let monopolife = state.monopolife, let previous = previousState?.monopolife else {
+            return
+        }
+
+        if monopolife.happinessLog.count > previous.happinessLog.count {
+            let newEvents = monopolife.happinessLog
+                .suffix(from: previous.happinessLog.count)
+                .filter { $0.playerID == localPlayerID }
+            happinessToasts.append(contentsOf: newEvents.map { HappinessToast(event: $0) })
+        }
+
+        if let draw = monopolife.lastLifeCardDraw, draw.sequence != previous.lastLifeCardDraw?.sequence {
+            if draw.playerID == localPlayerID {
+                presentedLifeCard = draw
+            } else {
+                lifeCardNotice = draw
+            }
+        }
+    }
+
+    func dismissHappinessToast(_ toast: HappinessToast) {
+        happinessToasts.removeAll { $0.id == toast.id }
+    }
+
+    func dismissLifeCardNotice() {
+        lifeCardNotice = nil
+    }
+
+    func acknowledgeRole(for playerID: UUID) {
+        send(.acknowledgeRole(playerID: playerID), as: playerID)
+    }
+
+    func drawLifeCard() {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de sacar una tarjeta."
+            return
+        }
+
+        send(.drawLifeCard(playerID: localPlayerID))
+    }
+
+    func resolveLifeCard(accept: Bool) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de decidir."
+            return
+        }
+
+        send(.resolveLifeCardDecision(playerID: localPlayerID, accept: accept))
     }
 
     private func save(_ state: GameState) {
@@ -258,6 +348,16 @@ final class GameSessionModel: ObservableObject {
             return "No es tu turno. Ahora juega \(name)."
         case .onlyHostCanSkipTurn:
             return "Solo el host puede pasar el turno de otro jugador."
+        case .gameFinished:
+            return "La partida ya terminó."
+        case .monopolifeOnly:
+            return "Eso solo existe en Monopolife."
+        case .lifeCardDecisionPending:
+            return "Primero decide qué hacer con tu Tarjeta de Vida."
+        case .noPendingLifeCard:
+            return "No tienes ninguna Tarjeta de Vida pendiente."
+        case let .insufficientFunds(_, required, available):
+            return "No te alcanza: hacen falta $\(required) y tienes $\(available)."
         default:
             return "La acción fue rechazada: \(String(describing: error))"
         }
@@ -420,12 +520,16 @@ final class GameSessionModel: ObservableObject {
             return
         }
 
+        send(intent, as: localPlayerID)
+    }
+
+    private func send(_ intent: GameIntent, as playerID: UUID) {
         do {
             switch role {
             case .host:
-                try session.submitLocal(intent: intent, playerID: localPlayerID)
+                try session.submitLocal(intent: intent, playerID: playerID)
             case .client:
-                try session.submit(intent: intent, playerID: localPlayerID)
+                try session.submit(intent: intent, playerID: playerID)
             }
         } catch {
             alertMessage = "No se pudo enviar la acción: \(error.localizedDescription)"
@@ -443,4 +547,9 @@ final class GameSessionModel: ObservableObject {
     func dismissAlert() {
         alertMessage = nil
     }
+}
+
+struct HappinessToast: Identifiable, Equatable {
+    let id = UUID()
+    let event: HappinessEvent
 }
