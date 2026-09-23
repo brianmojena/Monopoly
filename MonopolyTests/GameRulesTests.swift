@@ -1965,22 +1965,39 @@ extension NetworkingTests {
 }
 
 final class GameStoreTests: XCTestCase {
-    private var fileURL: URL!
+    private var rootURL: URL!
+
+    private var directoryURL: URL {
+        rootURL.appending(path: "saved-games")
+    }
+
+    private var legacyFileURL: URL {
+        rootURL.appending(path: "saved-game.json")
+    }
 
     override func setUp() {
         super.setUp()
-        fileURL = FileManager.default.temporaryDirectory
-            .appending(path: UUID().uuidString)
-            .appending(path: "saved-game.json")
+        rootURL = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     }
 
     override func tearDown() {
-        try? FileManager.default.removeItem(at: fileURL.deletingLastPathComponent())
+        try? FileManager.default.removeItem(at: rootURL)
         super.tearDown()
     }
 
+    private func makeSavedGame(savedAt: Date = Date()) -> SavedGame {
+        let player = Player(name: "Ana", balance: 100)
+        return SavedGame(
+            roomID: UUID(),
+            state: GameState(players: [player], properties: []),
+            ownPlayerID: player.id,
+            hostControlledPlayerIDs: [player.id],
+            savedAt: savedAt
+        )
+    }
+
     func testSavedGameRoundTripsThroughDisk() throws {
-        let store = GameStore(fileURL: fileURL)
+        let store = GameStore(directoryURL: directoryURL)
         let ana = Player(
             name: "Ana",
             balance: 900,
@@ -2005,33 +2022,117 @@ final class GameStoreTests: XCTestCase {
 
         try store.save(savedGame)
 
-        XCTAssertEqual(store.load(), savedGame)
+        XCTAssertEqual(store.load(roomID: savedGame.roomID), savedGame)
     }
 
     func testLoadReturnsNilWithoutSaveOrWithUnreadableFile() throws {
-        let store = GameStore(fileURL: fileURL)
-        XCTAssertNil(store.load())
+        let store = GameStore(directoryURL: directoryURL)
+        let roomID = UUID()
+        XCTAssertNil(store.load(roomID: roomID))
+        XCTAssertEqual(store.loadAll(), [])
 
-        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data("not a game".utf8).write(to: fileURL)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        try Data("not a game".utf8).write(to: directoryURL.appending(path: "\(roomID.uuidString).json"))
 
-        XCTAssertNil(store.load())
+        XCTAssertNil(store.load(roomID: roomID))
+        XCTAssertEqual(store.loadAll(), [])
     }
 
-    func testDeleteRemovesSavedGame() throws {
-        let store = GameStore(fileURL: fileURL)
-        let player = Player(name: "Ana", balance: 100)
-        try store.save(SavedGame(
+    func testKeepsSeveralGamesMostRecentFirst() throws {
+        let store = GameStore(directoryURL: directoryURL)
+        let older = makeSavedGame(savedAt: Date(timeIntervalSince1970: 1_000))
+        let newer = makeSavedGame(savedAt: Date(timeIntervalSince1970: 2_000))
+
+        try store.save(older)
+        try store.save(newer)
+
+        XCTAssertEqual(store.loadAll(), [newer, older])
+    }
+
+    func testDeleteRemovesOnlyThatGame() throws {
+        let store = GameStore(directoryURL: directoryURL)
+        let kept = makeSavedGame()
+        let deleted = makeSavedGame()
+        try store.save(kept)
+        try store.save(deleted)
+
+        store.delete(roomID: deleted.roomID)
+
+        XCTAssertNil(store.load(roomID: deleted.roomID))
+        XCTAssertEqual(store.loadAll(), [kept])
+    }
+
+    func testMovesTheSingleSaveOfOlderVersionsIntoTheList() throws {
+        let legacyGame = makeSavedGame()
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try JSONEncoder().encode(legacyGame).write(to: legacyFileURL)
+        let store = GameStore(directoryURL: directoryURL, legacyFileURL: legacyFileURL)
+
+        XCTAssertEqual(store.loadAll(), [legacyGame])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: legacyFileURL.path(percentEncoded: false)))
+        XCTAssertEqual(store.load(roomID: legacyGame.roomID), legacyGame)
+    }
+}
+
+final class JoinedGamesStoreTests: XCTestCase {
+    private var suiteName: String!
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        suiteName = "JoinedGamesStoreTests-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suiteName)
+        super.tearDown()
+    }
+
+    private func makeJoinedGame(lastPlayedAt: Date) -> JoinedGame {
+        JoinedGame(
             roomID: UUID(),
-            state: GameState(players: [player], properties: []),
-            ownPlayerID: player.id,
-            hostControlledPlayerIDs: [player.id],
-            savedAt: Date()
-        ))
+            hostName: "Brian",
+            playerID: UUID(),
+            playerNames: ["Brian", "Ana"],
+            round: 2,
+            mode: .classic,
+            lastPlayedAt: lastPlayedAt
+        )
+    }
 
-        store.delete()
+    func testSavingAgainUpdatesTheGameInsteadOfDuplicatingIt() {
+        let store = JoinedGamesStore(defaults: defaults)
+        var game = makeJoinedGame(lastPlayedAt: Date(timeIntervalSince1970: 1_000))
+        let other = makeJoinedGame(lastPlayedAt: Date(timeIntervalSince1970: 2_000))
+        store.save(game)
+        store.save(other)
 
-        XCTAssertNil(store.load())
+        game.round = 5
+        game.lastPlayedAt = Date(timeIntervalSince1970: 3_000)
+        store.save(game)
+
+        XCTAssertEqual(store.loadAll(), [game, other])
+        XCTAssertEqual(store.load(roomID: game.roomID)?.round, 5)
+    }
+
+    func testKeepsOnlyTheMostRecentGames() {
+        let store = JoinedGamesStore(defaults: defaults)
+        for index in 0..<(JoinedGamesStore.limit + 2) {
+            store.save(makeJoinedGame(lastPlayedAt: Date(timeIntervalSince1970: TimeInterval(index))))
+        }
+
+        XCTAssertEqual(store.loadAll().count, JoinedGamesStore.limit)
+    }
+
+    func testDeleteForgetsTheGame() {
+        let store = JoinedGamesStore(defaults: defaults)
+        let game = makeJoinedGame(lastPlayedAt: Date())
+        store.save(game)
+
+        store.delete(roomID: game.roomID)
+
+        XCTAssertNil(store.load(roomID: game.roomID))
     }
 }
 
@@ -2113,6 +2214,9 @@ private final class InMemoryGameTransport: GameTransport {
     }
 
     func stop() {
+    }
+
+    func restartDiscovery() {
     }
 
     func inject(_ data: Data, from peerID: PeerID) {

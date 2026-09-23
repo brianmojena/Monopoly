@@ -1,37 +1,13 @@
 import SwiftUI
 
+/// Lists nearby rooms. Joining one hands the game to `AppModel`, which replaces
+/// the start screen with it.
 struct JoinView: View {
-    @StateObject private var model: GameSessionModel
-
+    @EnvironmentObject private var appModel: AppModel
     // Built inside the StateObject autoclosure so browsing only starts when this
     // screen is actually shown, not when the start screen renders.
-    init() {
-        _model = StateObject(wrappedValue: Self.makeModel())
-    }
-
-    private static func makeModel() -> GameSessionModel {
-        let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
-        let session = GameSession(transport: transport, role: .client)
-        return GameSessionModel(session: session, role: .client)
-    }
-
-    var body: some View {
-        Group {
-            if model.joinedRoomID == nil {
-                RoomBrowserView(model: model)
-            } else {
-                JoinedGameView(model: model)
-            }
-        }
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
-    }
-}
-
-private struct RoomBrowserView: View {
-    @ObservedObject var model: GameSessionModel
-    @State private var name = ""
+    @StateObject private var model = GameSessionModel.browsing()
+    @AppStorage(AppSettings.Key.playerName) private var name = ""
 
     var body: some View {
         ScrollView {
@@ -42,7 +18,7 @@ private struct RoomBrowserView: View {
                     TextField("¿Cómo te llamas?", text: $name)
                         .textFieldStyle(.roundedBorder)
                         .submitLabel(.done)
-                    Text("Para volver a una partida en curso, usa el mismo nombre que tenías.")
+                    Text("Se guarda para las próximas partidas; puedes cambiarlo en Ajustes.")
                         .font(.app(.footnote))
                         .foregroundStyle(.secondary)
                 }
@@ -62,6 +38,7 @@ private struct RoomBrowserView: View {
                         ForEach(model.rooms) { room in
                             RoomCard(room: room, canJoin: !trimmedName.isEmpty) {
                                 model.join(room, name: trimmedName)
+                                appModel.didJoin(model)
                             }
                         }
                     }
@@ -70,6 +47,9 @@ private struct RoomBrowserView: View {
             .padding()
         }
         .navigationTitle("Unirse a partida")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
         .animation(.default, value: model.rooms)
     }
 
@@ -155,8 +135,10 @@ private struct RoomCard: View {
     }
 }
 
-private struct JoinedGameView: View {
+/// A client's side of a game: connecting, its waiting room, then the board.
+struct JoinedGameView: View {
     @ObservedObject var model: GameSessionModel
+    @EnvironmentObject private var appModel: AppModel
 
     var body: some View {
         Group {
@@ -213,11 +195,6 @@ private struct JoinedGameView: View {
                 LabeledContent("Pagar acercando iPhones", value: lobby.proximityPaymentsEnabled ? "Sí" : "No")
             }
 
-            Section {
-                Button("Salir de la sala", role: .destructive) {
-                    model.leaveRoom()
-                }
-            }
         }
         .navigationTitle("Sala de espera")
     }
@@ -235,10 +212,15 @@ private struct JoinedGameView: View {
     private var connectingView: some View {
         VStack(spacing: 16) {
             ProgressView()
-            Text("Conectando a la sala…")
+            Text(model.joinedRoomName.isEmpty ? "Conectando a la sala…" : "Buscando la partida de \(model.joinedRoomName)…")
                 .font(.app(.headline))
+                .multilineTextAlignment(.center)
+            Text("El host debe tener la app abierta y estar cerca, en la misma red Wi‑Fi o con Bluetooth activado. Entrarás solo en cuanto aparezca.")
+                .font(.app(.footnote))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
             Button("Cancelar") {
-                model.leaveRoom()
+                appModel.leaveActiveGame()
             }
             .buttonStyle(.bordered)
         }
@@ -251,4 +233,5 @@ private struct JoinedGameView: View {
     NavigationStack {
         JoinView()
     }
+    .environmentObject(AppModel())
 }

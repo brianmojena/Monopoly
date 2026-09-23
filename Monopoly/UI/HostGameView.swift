@@ -1,49 +1,40 @@
 import SwiftUI
 
-struct HostSetupView: View {
-    @StateObject private var model: GameSessionModel
+/// The host's side of a game: its waiting room, then the board once it starts.
+struct HostGameView: View {
+    @ObservedObject var model: GameSessionModel
+
+    var body: some View {
+        if model.gameState != nil {
+            GameBoardView(model: model)
+        } else if let lobby = model.lobby {
+            HostLobbyView(model: model, lobby: lobby)
+        } else {
+            ProgressView("Iniciando partida…")
+        }
+    }
+}
+
+private struct HostLobbyView: View {
+    @ObservedObject var model: GameSessionModel
+    let lobby: Lobby
     @State private var manualPlayerName = ""
-
-    // SwiftUI builds this view as soon as the start screen renders; creating the
-    // session inside the StateObject autoclosure defers advertising until the lobby
-    // is actually shown, and does it only once.
-    init() {
-        _model = StateObject(wrappedValue: Self.makeModel())
-    }
-
-    private static func makeModel() -> GameSessionModel {
-        let hostPlayer = LobbyPlayer(name: "", isHostControlled: true)
-        let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
-        let session = GameSession(
-            transport: transport,
-            role: .host,
-            lobby: Lobby(players: [hostPlayer]),
-            hostPlayerID: hostPlayer.id
-        )
-        return GameSessionModel(session: session, role: .host, localPlayerID: hostPlayer.id, store: GameStore.shared)
-    }
 
     private var hostPlayerID: UUID? {
         model.ownPlayerID
     }
 
     var body: some View {
-        // The board replaces the lobby in place: going back leaves the game (it stays
-        // saved) instead of returning to a lobby that no longer exists.
-        if model.gameState != nil {
-            GameBoardView(model: model)
-        } else if let lobby = model.lobby {
-            lobbyList(lobby)
-                .navigationTitle("Sala de espera")
+        lobbyList(lobby)
+            .navigationTitle("Sala de espera")
 #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
                     EditButton()
                 }
+            }
 #endif
-        } else {
-            ProgressView("Iniciando partida…")
-        }
     }
 
     private func lobbyList(_ lobby: Lobby) -> some View {
@@ -280,6 +271,10 @@ struct HostSetupView: View {
                     }
                     lobby.players[index].name = name
                 }
+                // The host's own name is the app-wide one, so the next game has it.
+                if playerID == hostPlayerID {
+                    AppSettings.playerName = name
+                }
             }
         )
     }
@@ -305,6 +300,6 @@ struct HostSetupView: View {
 
 #Preview {
     NavigationStack {
-        HostSetupView()
+        HostGameView(model: .hosting(playerName: "Brian"))
     }
 }
