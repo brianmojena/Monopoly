@@ -58,7 +58,7 @@ struct SalaryView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Préstamo \(number): cuota de \(currency(GameRules.creditCardInstallmentDue(for: loan)))")
                 Text(postponementsDescription(loan.postponementsRemaining))
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(.secondary)
             }
         }

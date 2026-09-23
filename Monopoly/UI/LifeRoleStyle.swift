@@ -65,36 +65,36 @@ struct RoleCardView: View {
         VStack(spacing: 18) {
             VStack(spacing: 8) {
                 Text(definition.emoji)
-                    .font(.system(size: 72))
+                    .font(.app(size: 72))
                 Text(definition.name)
-                    .font(.system(.largeTitle, design: .rounded, weight: .black))
+                    .font(.app(.largeTitle, weight: .black))
                     .foregroundStyle(role.color)
                 Text(definition.summary)
-                    .font(.headline)
+                    .font(.app(.headline))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 12) {
                 Label("Te hace feliz", systemImage: "face.smiling")
-                    .font(.subheadline.weight(.bold))
+                    .font(.app(.subheadline, weight: .bold))
                     .foregroundStyle(.green)
                 ForEach(definition.likes, id: \.self) { like in
                     Text("• \(like)")
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Label("No te gusta", systemImage: "cloud.rain")
-                    .font(.subheadline.weight(.bold))
+                    .font(.app(.subheadline, weight: .bold))
                     .foregroundStyle(.red)
                     .padding(.top, 4)
                 Text("• \(definition.dislike)")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text("Cada Tarjeta de Vida te afecta distinto según tu rol. Tu rol es secreto: nadie más lo ve hasta el final.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
                     .fixedSize(horizontal: false, vertical: true)

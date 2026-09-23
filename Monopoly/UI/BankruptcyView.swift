@@ -19,7 +19,7 @@ struct BankruptcyView: View {
                             .keyboardType(.numberPad)
 #endif
                         Text("Indica el monto de la deuda antes de continuar. Se usará para confirmar la decisión; la intención de bancarrota solo necesita conocer al acreedor.")
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(.secondary)
                     }
 

@@ -38,19 +38,19 @@ private struct RoomBrowserView: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Tu nombre")
-                        .font(.headline)
+                        .font(.app(.headline))
                     TextField("¿Cómo te llamas?", text: $name)
                         .textFieldStyle(.roundedBorder)
                         .submitLabel(.done)
                     Text("Para volver a una partida en curso, usa el mismo nombre que tenías.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Salas cercanas")
-                            .font(.headline)
+                            .font(.app(.headline))
                         Spacer()
                         ProgressView()
                             .controlSize(.small)
@@ -76,12 +76,12 @@ private struct RoomBrowserView: View {
     private var emptyState: some View {
         VStack(spacing: 8) {
             Image(systemName: "antenna.radiowaves.left.and.right")
-                .font(.largeTitle)
+                .font(.app(.largeTitle))
                 .foregroundStyle(.secondary)
             Text("Buscando salas…")
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline, weight: .semibold))
             Text("Pide al host que pulse \"Alojar partida\" y que estéis en la misma red Wi‑Fi o cerca con Bluetooth activado.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -103,7 +103,7 @@ private struct RoomCard: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: room.phase == .lobby ? "person.3.fill" : "dice.fill")
-                .font(.title2)
+                .font(.app(.title2))
                 .foregroundStyle(.white)
                 .frame(width: 48, height: 48)
                 .background(room.phase == .lobby ? Color.accentColor : Color.green, in: RoundedRectangle(cornerRadius: 12))
@@ -111,10 +111,10 @@ private struct RoomCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(title)
-                        .font(.headline)
+                        .font(.app(.headline))
                         .lineLimit(1)
                     Text(room.mode == .monopolife ? "Monopolife" : "Classic")
-                        .font(.caption2.weight(.bold))
+                        .font(.app(.caption2, weight: .bold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .foregroundStyle(room.mode == .monopolife ? Color.pink : Color.secondary)
@@ -124,10 +124,10 @@ private struct RoomCard: View {
                         )
                 }
                 Text(playersText)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(.secondary)
                 Label(statusText, systemImage: room.phase == .lobby ? "hourglass" : "play.fill")
-                    .font(.caption.weight(.medium))
+                    .font(.app(.caption, weight: .medium))
                     .foregroundStyle(room.phase == .lobby ? Color.accentColor : Color.green)
             }
 
@@ -192,7 +192,7 @@ private struct JoinedGameView: View {
                         Spacer()
                         if player.id == model.localPlayerID {
                             Text("Tú")
-                                .font(.caption)
+                                .font(.app(.caption))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -222,7 +222,7 @@ private struct JoinedGameView: View {
         VStack(spacing: 16) {
             ProgressView()
             Text("Conectando a la sala…")
-                .font(.headline)
+                .font(.app(.headline))
             Button("Cancelar") {
                 model.leaveRoom()
             }

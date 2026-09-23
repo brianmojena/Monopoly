@@ -160,7 +160,7 @@ struct HostSetupView: View {
                 Text(player.name.isEmpty ? "Sin nombre" : player.name)
                     .foregroundStyle(player.name.isEmpty ? .secondary : .primary)
                 Text(playerDescription(player))
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(.secondary)
             }
         }

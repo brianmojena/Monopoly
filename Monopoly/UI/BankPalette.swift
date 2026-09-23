@@ -74,7 +74,7 @@ struct BankCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 14) {
             if let title {
                 Text(title.uppercased())
-                    .font(.caption.weight(.semibold))
+                    .font(.app(.caption, weight: .semibold))
                     .tracking(1.6)
                     .foregroundStyle(Lux.textSecondary)
             }

@@ -16,12 +16,12 @@ struct TravelView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(title(for: route))
                                     Text(detail(for: route))
-                                        .font(.caption)
+                                        .font(.app(.caption))
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 Text("$\(route.fare)")
-                                    .fontWeight(.semibold)
+                                    .font(.app(.body, weight: .semibold))
                                     .monospacedDigit()
                             }
                             .tag(route)

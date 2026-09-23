@@ -21,7 +21,7 @@ struct SharedPurchaseView: View {
                                 VStack(alignment: .leading) {
                                     Text(player.id == localPlayerID ? "\(player.name) (tú)" : player.name)
                                     Text(costText(for: player.id, costs: costs))
-                                        .font(.caption)
+                                        .font(.app(.caption))
                                         .foregroundStyle(.secondary)
                                 }
                             }

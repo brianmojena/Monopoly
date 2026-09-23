@@ -23,7 +23,7 @@ struct DealBuilderView: View {
                 Form {
                     Section {
                         Text(introText)
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(.secondary)
                     }
 
@@ -155,12 +155,12 @@ struct DealBuilderView: View {
 
                 if let property = properties.first(where: { $0.id == investmentPropertyID }) {
                     Text(state.ownershipSummary(of: property))
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(.secondary)
                 }
 
                 Text("El pago se añade automáticamente como parte del trato. La inversión dura hasta que ambos acuerden cancelarla.")
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(.secondary)
             }
         } header: {
@@ -192,7 +192,7 @@ struct DealBuilderView: View {
                 Text("\(percentage(min(line.shareCount, maximum))) de \(percentage(maximum)) disponible")
             }
             Text(state.ownershipSummary(of: property))
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(.secondary)
         }
     }

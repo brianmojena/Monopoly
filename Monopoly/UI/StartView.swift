@@ -13,7 +13,7 @@ struct StartView: View {
 
                     VStack(alignment: .leading, spacing: 14) {
                         Text(savedGame == nil ? "Empieza una partida" : "Tu partida")
-                            .font(.title2.weight(.bold))
+                            .font(.app(.title2, weight: .bold))
 
                         if let savedGame {
                             savedGameCard(savedGame)
@@ -65,24 +65,24 @@ struct StartView: View {
                         .frame(width: 52, height: 52)
 
                     Image(systemName: "building.2.crop.circle")
-                        .font(.system(size: 27, weight: .semibold))
+                        .font(.app(size: 27, weight: .semibold))
                 }
 
                 Spacer()
 
                 Text("BANCA DIGITAL")
-                    .font(.caption2.weight(.bold))
+                    .font(.app(.caption2, weight: .bold))
                     .tracking(1.4)
                     .foregroundStyle(.white.opacity(0.75))
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Monopoly")
-                    .font(.system(size: 44, weight: .black, design: .rounded))
+                    .font(.app(size: 44, weight: .black))
                     .minimumScaleFactor(0.75)
 
                 Text("Banca local para tu partida")
-                    .font(.headline)
+                    .font(.app(.headline))
                     .foregroundStyle(.white.opacity(0.84))
             }
 
@@ -133,17 +133,17 @@ struct StartView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.headline)
+                        .font(.app(.headline))
 
                     Text("Configura la banca y empieza a jugar")
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(.white.opacity(0.78))
                 }
 
                 Spacer(minLength: 8)
 
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.bold))
+                    .font(.app(.footnote, weight: .bold))
                     .foregroundStyle(.white.opacity(0.72))
             }
             .foregroundStyle(.white)
@@ -171,17 +171,17 @@ struct StartView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Unirse a partida")
-                        .font(.headline)
+                        .font(.app(.headline))
 
                     Text("Conéctate a una sala cercana")
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer(minLength: 8)
 
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.bold))
+                    .font(.app(.footnote, weight: .bold))
                     .foregroundStyle(.secondary)
             }
             .foregroundStyle(.primary)
@@ -201,7 +201,7 @@ struct StartView: View {
             RulesView()
         } label: {
             Label("Cómo se juega", systemImage: "book.fill")
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline, weight: .semibold))
                 .foregroundStyle(Color.bankGreen)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity)
@@ -211,7 +211,7 @@ struct StartView: View {
 
     private func actionIcon(systemName: String, color: Color) -> some View {
         Image(systemName: systemName)
-            .font(.title3.weight(.semibold))
+            .font(.app(.title3, weight: .semibold))
             .foregroundStyle(color)
             .frame(width: 42, height: 42)
             .background(.white.opacity(colorScheme == .dark ? 0.14 : 0.2), in: Circle())
@@ -221,17 +221,17 @@ struct StartView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 Image(systemName: "clock.arrow.circlepath")
-                    .font(.title3.weight(.semibold))
+                    .font(.app(.title3, weight: .semibold))
                     .foregroundStyle(Color.boardGold)
                     .frame(width: 42, height: 42)
                     .background(Color.boardGold.opacity(0.16), in: Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Partida guardada")
-                        .font(.headline)
+                        .font(.app(.headline))
 
                     Text("Lista para continuar")
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(.secondary)
                 }
 
@@ -239,7 +239,7 @@ struct StartView: View {
             }
 
             Text(summary(of: savedGame))
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(.secondary)
                 .lineSpacing(2)
 
@@ -248,12 +248,12 @@ struct StartView: View {
             } label: {
                 HStack {
                     Label("Continuar partida", systemImage: "play.fill")
-                        .font(.headline)
+                        .font(.app(.headline))
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.bold))
+                        .font(.app(.footnote, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
@@ -266,7 +266,7 @@ struct StartView: View {
             Button("Descartar partida guardada", role: .destructive) {
                 isConfirmingDiscard = true
             }
-            .font(.footnote.weight(.semibold))
+            .font(.app(.footnote, weight: .semibold))
             .frame(maxWidth: .infinity)
         }
         .padding(20)

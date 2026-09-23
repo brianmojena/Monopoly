@@ -41,7 +41,7 @@ struct FinalRankingView: View {
                     dismiss()
                 } label: {
                     Text("Volver al inicio")
-                        .font(.headline)
+                        .font(.app(.headline))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
                 }
@@ -62,17 +62,17 @@ struct FinalRankingView: View {
         let winners = ranking.filter { winnerIDs.contains($0.player.id) }
         return VStack(spacing: 8) {
             Text("🏆")
-                .font(.system(size: 64))
+                .font(.app(size: 64))
             Text(winners.count > 1 ? "¡Empate!" : "¡Ganó \(winners.first?.player.name ?? "")!")
-                .font(.system(.largeTitle, design: .rounded, weight: .black))
+                .font(.app(.largeTitle, weight: .black))
                 .multilineTextAlignment(.center)
             if winners.count > 1 {
                 Text(winners.map(\.player.name).joined(separator: " y "))
-                    .font(.title3.weight(.semibold))
+                    .font(.app(.title3, weight: .semibold))
             }
             if let happiness = winners.first?.profile.happiness {
                 Text("\(happiness) 😊 de felicidad")
-                    .font(.headline)
+                    .font(.app(.headline))
                     .foregroundStyle(.secondary)
             }
         }
@@ -89,21 +89,21 @@ struct FinalRankingView: View {
             } label: {
                 HStack(spacing: 12) {
                     Text("\(position)")
-                        .font(.headline.monospacedDigit())
+                        .font(.app(.headline).monospacedDigit())
                         .foregroundStyle(.secondary)
                         .frame(width: 22)
                     Text(profile.role.definition.emoji)
-                        .font(.title)
+                        .font(.app(.title))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(player.name)
-                            .font(.headline)
+                            .font(.app(.headline))
                         Text(profile.role.definition.name)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.app(.subheadline, weight: .semibold))
                             .foregroundStyle(profile.role.color)
                     }
                     Spacer()
                     Text("\(profile.happiness) 😊")
-                        .font(.system(.title3, design: .rounded, weight: .heavy))
+                        .font(.app(.title3, weight: .heavy))
                     Image(systemName: "chevron.down")
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                         .foregroundStyle(.secondary)
@@ -139,17 +139,17 @@ struct FinalRankingView: View {
                     Text(title)
                     Spacer()
                     Text(happinessText(total))
-                        .fontWeight(.bold)
+                        .font(.app(.body, weight: .bold))
                         .foregroundStyle(happinessColor(total))
                 }
-                .font(.subheadline)
+                .font(.app(.subheadline))
             }
             if !profile.possessions.isEmpty {
                 Divider()
                 Text("Posesiones: " + profile.possessions.sorted(by: { $0.rawValue < $1.rawValue })
                     .map { "\($0.emoji) \($0.name)" }
                     .joined(separator: ", "))
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
             }
         }
         .padding(.leading, 34)

@@ -9,9 +9,16 @@ import SwiftUI
 
 @main
 struct MonopolyApp: App {
+    init() {
+#if os(iOS)
+        AppFont.applyToUIKit()
+#endif
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .font(.app(.body))
         }
     }
 }

@@ -21,15 +21,15 @@ private struct ProximityReceiverBanner: ViewModifier {
     private func banner(for request: ProximityIncomingRequest) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "wave.3.left")
-                .font(.title2)
+                .font(.app(.title2))
                 .foregroundStyle(.tint)
                 .symbolEffect(.variableColor.iterative)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(payerName(request.payerID)) está pagando acercando iPhones")
-                    .font(.headline)
+                    .font(.app(.headline))
                 Text(detail(for: request))
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
