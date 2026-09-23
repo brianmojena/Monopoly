@@ -1409,8 +1409,97 @@ extension NetworkingTests {
         }
     }
 
+    func testClientIsNotifiedWhenHostDisconnectsAndReconnects() throws {
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let state = GameState(players: [Player(name: "Ana", balance: 100)], properties: [])
+        let host = GameSession(transport: hostTransport, role: .host, initialState: state)
+        let client = GameSession(transport: clientTransport, role: .client)
+        var connectionChanges: [Bool] = []
+        client.onHostConnectionChanged = { connectionChanges.append($0) }
+
+        hostTransport.connect(to: clientTransport)
+        hostTransport.disconnect(from: clientTransport)
+        let restartedHostTransport = InMemoryGameTransport(peerID: PeerID("host-restarted"))
+        let restartedHost = GameSession(transport: restartedHostTransport, role: .host, initialState: state)
+        restartedHostTransport.connect(to: clientTransport)
+
+        XCTAssertEqual(connectionChanges, [true, false, true])
+        XCTAssertEqual(client.gameState, state)
+        withExtendedLifetime((host, restartedHost)) {}
+    }
+
     func testGameStateDisablesProximityPaymentsByDefault() {
         XCTAssertFalse(GameState(players: [], properties: []).proximityPaymentsEnabled)
+    }
+}
+
+final class GameStoreTests: XCTestCase {
+    private var fileURL: URL!
+
+    override func setUp() {
+        super.setUp()
+        fileURL = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString)
+            .appending(path: "saved-game.json")
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: fileURL.deletingLastPathComponent())
+        super.tearDown()
+    }
+
+    func testSavedGameRoundTripsThroughDisk() throws {
+        let store = GameStore(fileURL: fileURL)
+        let ana = Player(
+            name: "Ana",
+            balance: 900,
+            creditCardLoans: [CreditCardLoan(remainingDebt: 330, installmentsRemaining: 3, postponementsRemaining: 2)]
+        )
+        let luis = Player(name: "Luis", balance: 1500)
+        let state = GameState(
+            players: [ana, luis],
+            properties: [Property(name: "Property", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 2, ownerID: ana.id)],
+            currentPlayerID: luis.id,
+            round: 4,
+            activeHouseRules: [.creditCards],
+            proximityPaymentsEnabled: true
+        )
+        let savedGame = SavedGame(
+            state: state,
+            ownPlayerID: ana.id,
+            hostControlledPlayerIDs: [ana.id, luis.id],
+            savedAt: Date(timeIntervalSince1970: 1_000_000)
+        )
+
+        try store.save(savedGame)
+
+        XCTAssertEqual(store.load(), savedGame)
+    }
+
+    func testLoadReturnsNilWithoutSaveOrWithUnreadableFile() throws {
+        let store = GameStore(fileURL: fileURL)
+        XCTAssertNil(store.load())
+
+        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("not a game".utf8).write(to: fileURL)
+
+        XCTAssertNil(store.load())
+    }
+
+    func testDeleteRemovesSavedGame() throws {
+        let store = GameStore(fileURL: fileURL)
+        let player = Player(name: "Ana", balance: 100)
+        try store.save(SavedGame(
+            state: GameState(players: [player], properties: []),
+            ownPlayerID: player.id,
+            hostControlledPlayerIDs: [player.id],
+            savedAt: Date()
+        ))
+
+        store.delete()
+
+        XCTAssertNil(store.load())
     }
 }
 

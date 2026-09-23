@@ -3,7 +3,6 @@ import SwiftUI
 struct HostSetupView: View {
     @StateObject private var model: GameSessionModel
     @State private var manualPlayerName = ""
-    @State private var isGameStarted = false
 
     // SwiftUI builds this view as soon as the start screen renders; creating the
     // session inside the StateObject autoclosure defers advertising until the lobby
@@ -16,7 +15,7 @@ struct HostSetupView: View {
         let hostPlayer = LobbyPlayer(name: "", isHostControlled: true)
         let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
         let session = GameSession(transport: transport, role: .host, lobby: Lobby(players: [hostPlayer]))
-        return GameSessionModel(session: session, role: .host, localPlayerID: hostPlayer.id)
+        return GameSessionModel(session: session, role: .host, localPlayerID: hostPlayer.id, store: GameStore.shared)
     }
 
     private var hostPlayerID: UUID? {
@@ -24,22 +23,21 @@ struct HostSetupView: View {
     }
 
     var body: some View {
-        Group {
-            if let lobby = model.lobby {
-                lobbyList(lobby)
-            } else {
-                ProgressView("Iniciando partida…")
-            }
-        }
-        .navigationTitle("Sala de espera")
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            EditButton()
-        }
-#endif
-        .navigationDestination(isPresented: $isGameStarted) {
+        // The board replaces the lobby in place: going back leaves the game (it stays
+        // saved) instead of returning to a lobby that no longer exists.
+        if model.gameState != nil {
             GameBoardView(model: model)
+        } else if let lobby = model.lobby {
+            lobbyList(lobby)
+                .navigationTitle("Sala de espera")
+#if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    EditButton()
+                }
+#endif
+        } else {
+            ProgressView("Iniciando partida…")
         }
     }
 
@@ -104,7 +102,6 @@ struct HostSetupView: View {
             Section {
                 Button("Iniciar partida") {
                     model.startGame()
-                    isGameStarted = true
                 }
                 .disabled(!lobby.canStart)
             } footer: {

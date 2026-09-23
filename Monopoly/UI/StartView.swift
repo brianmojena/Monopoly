@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct StartView: View {
+    @State private var savedGame: SavedGame?
+    @State private var isConfirmingDiscard = false
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
@@ -16,13 +19,17 @@ struct StartView: View {
                 }
 
                 VStack(spacing: 12) {
-                    NavigationLink {
-                        HostSetupView()
-                    } label: {
-                        Label("Alojar partida", systemImage: "antenna.radiowaves.left.and.right")
-                            .frame(maxWidth: .infinity)
+                    if let savedGame {
+                        savedGameCard(savedGame)
                     }
-                    .buttonStyle(.borderedProminent)
+
+                    if savedGame == nil {
+                        hostLink(title: "Alojar partida")
+                            .buttonStyle(.borderedProminent)
+                    } else {
+                        hostLink(title: "Alojar partida nueva")
+                            .buttonStyle(.bordered)
+                    }
 
                     NavigationLink {
                         JoinView()
@@ -36,9 +43,63 @@ struct StartView: View {
             }
             .padding(24)
             .navigationTitle("Inicio")
+            .onAppear {
+                savedGame = GameStore.shared.load()
+            }
+            .confirmationDialog(
+                "¿Descartar la partida guardada?",
+                isPresented: $isConfirmingDiscard,
+                titleVisibility: .visible
+            ) {
+                Button("Descartar partida", role: .destructive) {
+                    GameStore.shared.delete()
+                    savedGame = nil
+                }
+            } message: {
+                Text("No se puede deshacer.")
+            }
         }
     }
+
+    private func hostLink(title: String) -> some View {
+        NavigationLink {
+            HostSetupView()
+        } label: {
+            Label(title, systemImage: "antenna.radiowaves.left.and.right")
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func savedGameCard(_ savedGame: SavedGame) -> some View {
+        VStack(spacing: 8) {
+            NavigationLink {
+                ResumeHostView(savedGame: savedGame)
+            } label: {
+                Label("Continuar partida", systemImage: "play.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+
+            Text(summary(of: savedGame))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button("Descartar partida guardada", role: .destructive) {
+                isConfirmingDiscard = true
+            }
+            .font(.footnote)
+        }
+        .padding(.bottom, 8)
+    }
+
+    private func summary(of savedGame: SavedGame) -> String {
+        let names = savedGame.state.players.map(\.name).joined(separator: ", ")
+        let date = savedGame.savedAt.formatted(date: .abbreviated, time: .shortened)
+        return "Ronda \(savedGame.state.round) · \(names)\nGuardada \(date)"
+    }
 }
+
 
 #Preview {
     StartView()

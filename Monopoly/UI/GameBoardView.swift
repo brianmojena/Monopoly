@@ -8,6 +8,16 @@ struct GameBoardView: View {
         Group {
             if let state = model.gameState {
                 List {
+                    if model.role == .client, !model.isHostConnected {
+                        Section {
+                            Label {
+                                Text("Se perdió la conexión con el host. Esperando a que vuelva a abrir la partida…")
+                            } icon: {
+                                ProgressView()
+                            }
+                        }
+                    }
+
                     turnSection(state)
 
                     if isLocalPlayerActive(in: state) {

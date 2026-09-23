@@ -51,7 +51,7 @@ struct JoinView: View {
         let player = LobbyPlayer(name: trimmedName, isHostControlled: false)
         let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
         let session = GameSession(transport: transport, role: .client, lobbyPlayer: player)
-        model = GameSessionModel(session: session, role: .client, localPlayerID: player.id)
+        model = GameSessionModel(session: session, role: .client, localPlayerID: player.id, joinName: trimmedName)
     }
 }
 

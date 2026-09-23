@@ -17,6 +17,7 @@ final class GameSessionModel: ObservableObject {
     @Published private(set) var alertMessage: String?
     @Published private(set) var localPlayerID: UUID?
     @Published private(set) var lobby: Lobby?
+    @Published private(set) var isHostConnected = true
 
     let proximity = ProximityPaymentCoordinator()
 
@@ -55,12 +56,30 @@ final class GameSessionModel: ObservableObject {
         return gameState.currentPlayerID == nil || gameState.currentPlayerID == localPlayerID
     }
 
-    private var hostControlledPlayerIDs: Set<UUID> = []
+    private var hostControlledPlayerIDs: Set<UUID>
+    private let store: GameStore?
+    private let joinName: String?
 
-    init(session: GameSession, role: Role, localPlayerID: UUID? = nil) {
+    /// - Parameters:
+    ///   - hostControlledPlayerIDs: when resuming a saved game, the players that
+    ///     act from the host's iPhone.
+    ///   - store: where the host saves every state change; nil disables saving.
+    ///   - joinName: the name a client typed, used to find its player again when it
+    ///     rejoins a game that already started.
+    init(
+        session: GameSession,
+        role: Role,
+        localPlayerID: UUID? = nil,
+        hostControlledPlayerIDs: Set<UUID> = [],
+        store: GameStore? = nil,
+        joinName: String? = nil
+    ) {
         self.session = session
         self.role = role
         self.ownPlayerID = localPlayerID
+        self.hostControlledPlayerIDs = hostControlledPlayerIDs
+        self.store = store
+        self.joinName = joinName
         self.gameState = session.gameState
         self.lobby = session.lobby
         self.localPlayerID = localPlayerID
@@ -76,6 +95,11 @@ final class GameSessionModel: ObservableObject {
                     return
                 }
                 self?.lobby = lobby
+            }
+        }
+        session.onHostConnectionChanged = { [weak self] isConnected in
+            DispatchQueue.main.async {
+                self?.isHostConnected = isConnected
             }
         }
         session.onIntentRejected = { [weak self] error in
@@ -154,6 +178,8 @@ final class GameSessionModel: ObservableObject {
         let previousPlayerID = gameState?.currentPlayerID
         gameState = state
         lobby = nil
+        save(state)
+        reclaimPlayerByName(in: state)
 
         // A player without a phone acts from the host's iPhone, so the host follows
         // the turn to them automatically.
@@ -162,6 +188,40 @@ final class GameSessionModel: ObservableObject {
            currentPlayerID != previousPlayerID,
            hostControlledPlayerIDs.contains(currentPlayerID) {
             localPlayerID = currentPlayerID
+        }
+    }
+
+    private func save(_ state: GameState) {
+        guard role == .host, let store, let ownPlayerID else {
+            return
+        }
+
+        do {
+            try store.save(SavedGame(
+                state: state,
+                ownPlayerID: ownPlayerID,
+                hostControlledPlayerIDs: hostControlledPlayerIDs,
+                savedAt: Date()
+            ))
+        } catch {
+            alertMessage = "No se pudo guardar la partida: \(error.localizedDescription)"
+        }
+    }
+
+    // A player who closed the app and joins again gets a new ID; matching the name
+    // they typed puts them back on their player instead of asking them to pick it.
+    private func reclaimPlayerByName(in state: GameState) {
+        guard role == .client,
+              let joinName,
+              !state.players.contains(where: { $0.id == localPlayerID }) else {
+            return
+        }
+
+        let matches = state.players.filter {
+            $0.name.compare(joinName, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }
+        if matches.count == 1 {
+            localPlayerID = matches[0].id
         }
     }
 

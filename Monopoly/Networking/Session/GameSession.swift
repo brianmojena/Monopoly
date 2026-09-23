@@ -53,6 +53,7 @@ final class GameSession {
     var onTransportError: ((Error) -> Void)?
     var onProximitySignal: ((ProximitySignal) -> Void)?
     var onLobbyChanged: ((Lobby) -> Void)?
+    var onHostConnectionChanged: ((Bool) -> Void)?
 
     /// A host starts either with a running game (`initialState`) or with a `lobby`
     /// that players join before `startGame`. A client passes `lobbyPlayer` to join
@@ -219,7 +220,11 @@ final class GameSession {
                     try transport.send(data: try encoder.encode(NetworkMessage.lobbySnapshot(lobby)), to: peerID)
                 }
             case .client:
-                if let lobbyPlayer, peerID == hostPeerID {
+                guard peerID == hostPeerID else {
+                    break
+                }
+                onHostConnectionChanged?(true)
+                if let lobbyPlayer {
                     try transport.send(data: try encoder.encode(NetworkMessage.joinLobby(lobbyPlayer)), to: peerID)
                 }
             }
@@ -229,8 +234,9 @@ final class GameSession {
     }
 
     private func peerDisconnected(_ peerID: PeerID) {
-        let updatedLobby: Lobby? = stateQueue.sync {
+        let (updatedLobby, lostHost): (Lobby?, Bool) = stateQueue.sync {
             connectedPeerIDs.remove(peerID)
+            let lostHost = role == .client && (configuredHostPeerID ?? discoveredHostPeerID) == peerID
             if discoveredHostPeerID == peerID {
                 discoveredHostPeerID = nil
             }
@@ -240,13 +246,16 @@ final class GameSession {
             guard case .host = role,
                   var lobby = _lobby,
                   let playerIDs = lobbyPlayerIDsByPeer.removeValue(forKey: peerID) else {
-                return nil
+                return (nil, lostHost)
             }
             lobby.players.removeAll { playerIDs.contains($0.id) }
             _lobby = lobby
-            return lobby
+            return (lobby, lostHost)
         }
 
+        if lostHost {
+            onHostConnectionChanged?(false)
+        }
         guard let updatedLobby else {
             return
         }
