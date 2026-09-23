@@ -22,7 +22,7 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 - Cada jugador recibe un saldo inicial estándar (definido en configuración de partida, valor por defecto histórico: 15,000 en la unidad de moneda del juego para Ultimate Banking, ajustable).
 - Se define el número de jugadores (2–6 recomendado, ver reglas de proyecto para límites técnicos).
 - Se elige quién es el dispositivo **host/banca** (ver `PROJECT_RULES.md`).
-- **Sala de espera**: el host abre la sala y cada jugador se une desde su iPhone escribiendo su propio nombre. El host puede añadir jugadores sin teléfono, que juegan desde el iPhone del host (el host cambia entre ellos con "Jugando como" y la app lo cambia sola cuando les toca).
+- **Sala de espera**: el host abre la sala y cada jugador se une desde su iPhone con su nombre (se escribe una vez y queda en Ajustes). El host puede añadir jugadores sin teléfono, que juegan desde el iPhone del host (el host cambia entre ellos con "Jugando como" y la app lo cambia sola cuando les toca).
 - **Orden de turno**: el orden de la sala; por defecto el de llegada, y el host puede reordenarlo (ej. según los dados físicos) antes de iniciar.
 
 ## 3. Turnos y movimiento

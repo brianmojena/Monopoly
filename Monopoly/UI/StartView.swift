@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct StartView: View {
+    @EnvironmentObject private var appModel: AppModel
     @Environment(\.colorScheme) private var colorScheme
-    @State private var savedGame: SavedGame?
-    @State private var isConfirmingDiscard = false
+    @AppStorage(AppSettings.Key.playerName) private var playerName = ""
+    @State private var recentGames: [RecentGame] = []
+    @State private var gamePendingDeletion: RecentGame?
 
     var body: some View {
         NavigationStack {
@@ -11,23 +13,21 @@ struct StartView: View {
                 VStack(alignment: .leading, spacing: 28) {
                     brandHeader
 
+                    if trimmedPlayerName.isEmpty {
+                        nameCard
+                    }
+
                     VStack(alignment: .leading, spacing: 14) {
-                        Text(savedGame == nil ? "Empieza una partida" : "Tu partida")
+                        Text("Empieza una partida")
                             .font(.app(.title2, weight: .bold))
 
-                        if let savedGame {
-                            savedGameCard(savedGame)
-                        }
-
-                        if savedGame == nil {
-                            hostLink(title: "Alojar partida")
-                        } else {
-                            hostLink(title: "Alojar partida nueva")
-                        }
-
+                        hostButton
                         joinLink
-
                         rulesLink
+                    }
+
+                    if !recentGames.isEmpty {
+                        recentGamesSection
                     }
                 }
                 .padding(.horizontal, 20)
@@ -38,22 +38,53 @@ struct StartView: View {
             .background(screenBackground)
             .navigationTitle("Inicio")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                savedGame = GameStore.shared.load()
-            }
-            .confirmationDialog(
-                "¿Descartar la partida guardada?",
-                isPresented: $isConfirmingDiscard,
-                titleVisibility: .visible
-            ) {
-                Button("Descartar partida", role: .destructive) {
-                    GameStore.shared.delete()
-                    savedGame = nil
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink {
+                        SettingsView()
+                    } label: {
+                        Label("Ajustes", systemImage: "gearshape")
+                    }
                 }
-            } message: {
-                Text("No se puede deshacer.")
+            }
+            .onAppear(perform: loadRecentGames)
+            .confirmationDialog(
+                deletionTitle,
+                isPresented: Binding(
+                    get: { gamePendingDeletion != nil },
+                    set: { if !$0 { gamePendingDeletion = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: gamePendingDeletion
+            ) { game in
+                Button(game.isHosted ? "Borrar partida" : "Quitar de la lista", role: .destructive) {
+                    delete(game)
+                }
+            } message: { game in
+                Text(game.isHosted
+                    ? "Tu iPhone es la banca de esta partida: se pierde para todos y no se puede deshacer."
+                    : "La partida sigue en el iPhone del host; solo desaparece de esta lista.")
             }
         }
+    }
+
+    private var trimmedPlayerName: String {
+        playerName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var nameCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("¿Cómo te llamas?")
+                .font(.app(.headline))
+            TextField("Tu nombre", text: $playerName)
+                .textFieldStyle(.roundedBorder)
+                .submitLabel(.done)
+            Text("Se usa en todas tus partidas. Puedes cambiarlo en Ajustes.")
+                .font(.app(.footnote))
+                .foregroundStyle(.secondary)
+        }
+        .padding(18)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private var brandHeader: some View {
@@ -124,15 +155,15 @@ struct StartView: View {
             .frame(maxWidth: .infinity)
     }
 
-    private func hostLink(title: String) -> some View {
-        NavigationLink {
-            HostSetupView()
+    private var hostButton: some View {
+        Button {
+            appModel.hostNewGame()
         } label: {
             HStack(spacing: 15) {
                 actionIcon(systemName: "antenna.radiowaves.left.and.right", color: .white)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
+                    Text("Alojar partida")
                         .font(.app(.headline))
 
                     Text("Configura la banca y empieza a jugar")
@@ -217,41 +248,60 @@ struct StartView: View {
             .background(.white.opacity(colorScheme == .dark ? 0.14 : 0.2), in: Circle())
     }
 
-    private func savedGameCard(_ savedGame: SavedGame) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Image(systemName: "clock.arrow.circlepath")
+    // MARK: Recent games
+
+    private var recentGamesSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Partidas recientes")
+                .font(.app(.title2, weight: .bold))
+
+            ForEach(recentGames) { game in
+                recentGameCard(game)
+            }
+        }
+    }
+
+    private func recentGameCard(_ game: RecentGame) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: game.isHosted ? "building.columns.fill" : "person.2.fill")
                     .font(.app(.title3, weight: .semibold))
                     .foregroundStyle(Color.boardGold)
                     .frame(width: 42, height: 42)
                     .background(Color.boardGold.opacity(0.16), in: Circle())
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Partida guardada")
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(game.title)
                         .font(.app(.headline))
-
-                    Text("Lista para continuar")
+                    Text(game.summary)
                         .font(.app(.subheadline))
                         .foregroundStyle(.secondary)
+                        .lineSpacing(2)
                 }
 
-                Spacer()
+                Spacer(minLength: 8)
+
+                Menu {
+                    Button(game.isHosted ? "Borrar partida" : "Quitar de la lista", systemImage: "trash", role: .destructive) {
+                        gamePendingDeletion = game
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.app(.body, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Más opciones")
             }
 
-            Text(summary(of: savedGame))
-                .font(.app(.subheadline))
-                .foregroundStyle(.secondary)
-                .lineSpacing(2)
-
-            NavigationLink {
-                ResumeHostView(savedGame: savedGame)
+            Button {
+                open(game)
             } label: {
                 HStack {
-                    Label("Continuar partida", systemImage: "play.fill")
+                    Label(game.isHosted ? "Continuar partida" : "Volver a entrar", systemImage: "play.fill")
                         .font(.app(.headline))
-
                     Spacer()
-
                     Image(systemName: "chevron.right")
                         .font(.app(.footnote, weight: .bold))
                 }
@@ -262,26 +312,41 @@ struct StartView: View {
                 .background(Color.boardGreen, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(.plain)
-
-            Button("Descartar partida guardada", role: .destructive) {
-                isConfirmingDiscard = true
-            }
-            .font(.app(.footnote, weight: .semibold))
-            .frame(maxWidth: .infinity)
+            .disabled(!game.isHosted && trimmedPlayerName.isEmpty)
         }
         .padding(20)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color.boardGold.opacity(0.58), lineWidth: 1.5)
+                .stroke(Color.boardGold.opacity(0.4), lineWidth: 1)
         }
-        .shadow(color: Color.boardGold.opacity(0.12), radius: 14, y: 7)
     }
 
-    private func summary(of savedGame: SavedGame) -> String {
-        let names = savedGame.state.players.map(\.name).joined(separator: ", ")
-        let date = savedGame.savedAt.formatted(date: .abbreviated, time: .shortened)
-        return "Ronda \(savedGame.state.round) · \(names)\nGuardada \(date)"
+    private var deletionTitle: String {
+        gamePendingDeletion?.isHosted == true ? "¿Borrar la partida?" : "¿Quitar la partida de la lista?"
+    }
+
+    private func loadRecentGames() {
+        recentGames = RecentGame.load()
+    }
+
+    private func open(_ game: RecentGame) {
+        switch game.kind {
+        case let .hosted(savedGame):
+            appModel.resume(savedGame)
+        case let .joined(joinedGame):
+            appModel.rejoin(joinedGame)
+        }
+    }
+
+    private func delete(_ game: RecentGame) {
+        switch game.kind {
+        case .hosted:
+            appModel.deleteSavedGame(roomID: game.id)
+        case .joined:
+            appModel.forgetJoinedGame(roomID: game.id)
+        }
+        loadRecentGames()
     }
 
     private var screenBackground: some View {
@@ -306,4 +371,5 @@ struct StartView: View {
 
 #Preview {
     StartView()
+        .environmentObject(AppModel())
 }

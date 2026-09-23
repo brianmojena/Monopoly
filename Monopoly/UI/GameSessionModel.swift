@@ -113,14 +113,24 @@ final class GameSessionModel: ObservableObject {
         return gameState.currentPlayerID == nil || gameState.currentPlayerID == localPlayerID
     }
 
+    /// The room this device hosts or joined; nil while a client is still browsing.
+    var roomID: UUID? {
+        role == .host ? session.roomID : joinedRoomID
+    }
+
     private var hostControlledPlayerIDs: Set<UUID>
     private let store: GameStore?
+    private let joinedGamesStore: JoinedGamesStore?
     private var joinName: String?
+    /// The host's name as the room advertised it, kept for "Partidas recientes".
+    private(set) var joinedRoomName = ""
 
     /// - Parameters:
     ///   - hostControlledPlayerIDs: when resuming a saved game, the players that
     ///     act from the host's iPhone.
     ///   - store: where the host saves every state change; nil disables saving.
+    ///   - joinedGamesStore: where a client remembers the games it joins; nil
+    ///     disables it.
     ///   - joinName: the name a client typed, used to find its player again when it
     ///     rejoins a game that already started.
     init(
@@ -129,6 +139,7 @@ final class GameSessionModel: ObservableObject {
         localPlayerID: UUID? = nil,
         hostControlledPlayerIDs: Set<UUID> = [],
         store: GameStore? = nil,
+        joinedGamesStore: JoinedGamesStore? = nil,
         joinName: String? = nil
     ) {
         self.session = session
@@ -136,6 +147,7 @@ final class GameSessionModel: ObservableObject {
         self.ownPlayerID = localPlayerID
         self.hostControlledPlayerIDs = hostControlledPlayerIDs
         self.store = store
+        self.joinedGamesStore = joinedGamesStore
         self.joinName = joinName
         self.gameState = session.gameState
         self.lobby = session.lobby
@@ -148,10 +160,11 @@ final class GameSessionModel: ObservableObject {
         }
         session.onLobbyChanged = { [weak self] lobby in
             DispatchQueue.main.async {
-                guard self?.gameState == nil else {
+                guard let self, self.gameState == nil else {
                     return
                 }
-                self?.lobby = lobby
+                self.lobby = lobby
+                self.rememberJoinedGame()
             }
         }
         session.onRoomsChanged = { [weak self] rooms in
@@ -187,26 +200,112 @@ final class GameSessionModel: ObservableObject {
         }
     }
 
+    // MARK: Creating a game
+
+    private static func makeTransport() -> MultipeerGameTransport {
+        MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
+    }
+
+    /// A new room in its waiting room, with the host named after the app's setting.
+    static func hosting(playerName: String) -> GameSessionModel {
+        let hostPlayer = LobbyPlayer(name: playerName, isHostControlled: true)
+        let session = GameSession(
+            transport: makeTransport(),
+            role: .host,
+            lobby: Lobby(players: [hostPlayer]),
+            hostPlayerID: hostPlayer.id
+        )
+        return GameSessionModel(session: session, role: .host, localPlayerID: hostPlayer.id, store: .shared)
+    }
+
+    /// A game this iPhone hosted before, advertised again under the same room so
+    /// its players rejoin it on their own.
+    static func resuming(_ savedGame: SavedGame) -> GameSessionModel {
+        let session = GameSession(
+            transport: makeTransport(),
+            role: .host,
+            initialState: savedGame.state,
+            roomID: savedGame.roomID,
+            hostPlayerID: savedGame.ownPlayerID
+        )
+        let model = GameSessionModel(
+            session: session,
+            role: .host,
+            localPlayerID: savedGame.ownPlayerID,
+            hostControlledPlayerIDs: savedGame.hostControlledPlayerIDs,
+            store: .shared
+        )
+        if let currentPlayerID = savedGame.state.currentPlayerID,
+           savedGame.hostControlledPlayerIDs.contains(currentPlayerID) {
+            model.selectPlayer(currentPlayerID)
+        }
+        return model
+    }
+
+    /// A client looking for nearby rooms.
+    static func browsing() -> GameSessionModel {
+        GameSessionModel(session: GameSession(transport: makeTransport(), role: .client), role: .client, joinedGamesStore: .shared)
+    }
+
+    /// A client going back to a game it joined before, as the same player. It
+    /// connects as soon as the host's room shows up nearby.
+    static func rejoining(_ joinedGame: JoinedGame, playerName: String) -> GameSessionModel {
+        let model = browsing()
+        model.joinedRoomName = joinedGame.hostName
+        model.join(
+            roomID: joinedGame.roomID,
+            as: LobbyPlayer(id: joinedGame.playerID, name: playerName, isHostControlled: false)
+        )
+        model.isHostConnected = false
+        return model
+    }
+
     func selectPlayer(_ playerID: UUID) {
         localPlayerID = playerID
+        rememberJoinedGame()
     }
 
     func join(_ room: DiscoveredRoom, name: String) {
-        let player = LobbyPlayer(name: name, isHostControlled: false)
-        localPlayerID = player.id
-        joinName = name
-        joinedRoomID = room.id
-        isHostConnected = true
-        session.join(roomID: room.id, as: player)
+        joinedRoomName = room.name
+        join(roomID: room.id, as: LobbyPlayer(name: name, isHostControlled: false))
     }
 
-    func leaveRoom() {
-        session.leaveRoom()
-        joinedRoomID = nil
-        localPlayerID = nil
-        joinName = nil
-        gameState = nil
-        lobby = nil
+    private func join(roomID: UUID, as player: LobbyPlayer) {
+        localPlayerID = player.id
+        joinName = player.name
+        joinedRoomID = roomID
+        isHostConnected = true
+        session.join(roomID: roomID, as: player)
+        rememberJoinedGame()
+    }
+
+    /// Leaves the game for good on this iPhone: stops advertising or browsing and
+    /// drops every connection. A host's game stays saved.
+    func close() {
+        proximity.stopPayment()
+        session.close()
+    }
+
+    /// See `GameSession.resumeNetworking()`.
+    func resumeNetworking() {
+        session.resumeNetworking()
+    }
+
+    // Keeps the joined game in "Partidas recientes" up to date, so the player can
+    // go back to it as the same player after closing the app.
+    private func rememberJoinedGame() {
+        guard role == .client, let joinedGamesStore, let joinedRoomID, let localPlayerID else {
+            return
+        }
+        joinedGamesStore.save(JoinedGame(
+            roomID: joinedRoomID,
+            hostName: joinedRoomName,
+            playerID: localPlayerID,
+            playerNames: gameState?.players.map(\.name) ?? lobby?.players.map(\.name) ?? [],
+            round: gameState?.round,
+            mode: gameState?.mode ?? lobby?.gameMode ?? .classic,
+            lastPlayedAt: Date()
+        ))
     }
 
     func updateLobby(_ change: (inout Lobby) -> Void) {
@@ -267,6 +366,7 @@ final class GameSessionModel: ObservableObject {
         lobby = nil
         save(state)
         reclaimPlayerByName(in: state)
+        rememberJoinedGame()
 
         // A player without a phone acts from the host's iPhone, so the host follows
         // the turn to them automatically.
@@ -583,7 +683,18 @@ final class GameSessionModel: ObservableObject {
                 try session.submit(intent: intent, playerID: playerID)
             }
         } catch {
-            alertMessage = "No se pudo enviar la acción: \(error.localizedDescription)"
+            alertMessage = Self.isDisconnection(error)
+                ? "Sin conexión con la banca (el iPhone del host). Se reconecta sola en cuanto esté cerca y con la app abierta; vuelve a intentarlo entonces."
+                : "No se pudo enviar la acción: \(error.localizedDescription)"
+        }
+    }
+
+    private static func isDisconnection(_ error: Error) -> Bool {
+        switch error {
+        case GameSessionError.hostNotConnected, GameTransportError.peerNotConnected:
+            return true
+        default:
+            return false
         }
     }
 
@@ -591,7 +702,9 @@ final class GameSessionModel: ObservableObject {
         do {
             try session.sendProximitySignal(signal)
         } catch {
-            alertMessage = "No se pudo contactar al otro iPhone: \(error.localizedDescription)"
+            alertMessage = Self.isDisconnection(error)
+                ? "Sin conexión con la banca: no se puede avisar al otro iPhone hasta que vuelva la conexión."
+                : "No se pudo contactar al otro iPhone: \(error.localizedDescription)"
         }
     }
 

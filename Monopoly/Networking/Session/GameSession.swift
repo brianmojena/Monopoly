@@ -34,6 +34,7 @@ final class GameSession {
     private let hostPlayerID: UUID?
     private var discoveredRooms: [PeerID: DiscoveredRoom] = [:]
     private var joinedRoomID: UUID?
+    private var isRediscoveryScheduled = false
     private var _lastIntentRejection: GameRuleError?
 
     var gameState: GameState? {
@@ -142,6 +143,23 @@ final class GameSession {
             discoveredHostPeerID = configuredHostPeerID
         }
         transport.disconnect()
+    }
+
+    /// Stops advertising or browsing and drops every connection. The session can't
+    /// be used again afterwards.
+    func close() {
+        stateQueue.sync {
+            joinedRoomID = nil
+            lobbyPlayer = nil
+        }
+        transport.stop()
+    }
+
+    /// Called when the app comes back to the foreground: iOS stops advertising and
+    /// browsing in the background and drops the connections, so the host shows its
+    /// room again and a client finds it again (and rejoins it, see `peerFound`).
+    func resumeNetworking() {
+        transport.restartDiscovery()
     }
 
     deinit {
@@ -303,6 +321,7 @@ final class GameSession {
         if lostHost {
             onHostConnectionChanged?(false)
         }
+        scheduleRediscoveryIfDisconnected()
         guard let updatedLobby else {
             return
         }
@@ -459,6 +478,39 @@ final class GameSession {
         onRoomsChanged?(rooms)
         if shouldRejoin {
             transport.invite(peerID)
+        }
+    }
+
+    // A client that lost the host, or whose invitation to it failed, only rejoins
+    // when the browser reports the room again, which doesn't happen if the host's
+    // advertisement never went away (a Wi-Fi hiccup, a timed-out invitation).
+    // Browsing again after a pause reports it and retries until it connects.
+    private func scheduleRediscoveryIfDisconnected() {
+        let shouldSchedule: Bool = stateQueue.sync {
+            guard case .client = role,
+                  joinedRoomID != nil,
+                  (configuredHostPeerID ?? discoveredHostPeerID) == nil,
+                  !isRediscoveryScheduled else {
+                return false
+            }
+            isRediscoveryScheduled = true
+            return true
+        }
+        guard shouldSchedule else {
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self else {
+                return
+            }
+            let isStillDisconnected: Bool = self.stateQueue.sync {
+                self.isRediscoveryScheduled = false
+                return self.joinedRoomID != nil && self.discoveredHostPeerID == nil
+            }
+            if isStillDisconnected {
+                self.transport.restartDiscovery()
+            }
         }
     }
 
