@@ -291,6 +291,12 @@ extension ProximityPaymentCoordinator: NISessionDelegate {
     ) {
         MainActor.assumeIsolated {
             updateDistance(nil, for: session)
+            // A timed-out session stops ranging for good unless it runs again, and
+            // NI also times out a session that fails to start on its first attempt
+            // (see "Restart the Session on Timeout" in NISessionDelegate's docs).
+            if reason == .timeout, let configuration = session.configuration {
+                session.run(configuration)
+            }
         }
     }
 

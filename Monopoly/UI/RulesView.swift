@@ -252,7 +252,7 @@ extension RuleTopic {
                 "Con QR: quien cobra pulsa \"Cobrar\" y muestra su QR (de una propiedad o de sí mismo, con monto opcional); quien paga pulsa \"Pagar\" y lo escanea: el pago se hace en cuanto se lee. Si el QR no trae monto, escríbelo antes de escanear.",
                 "A mano: en la pantalla de escanear, pulsa \"Manual\" para elegir el jugador y el monto. Sirve para cartas que te obligan a pagarle a alguien.",
                 "La renta también se paga desde la propiedad, en la lista.",
-                "Acercando iPhones (si el host lo activó): acercas tu iPhone al de quien cobra a unos 20 cm, sin juntarlos, y el pago se hace solo. No juntes las partes de arriba: eso abre NameDrop (compartir contacto) de iOS."
+                "Acercando iPhones (si el host lo activó): con los iPhone en vertical y la parte de atrás de uno mirando al otro, acercas tu iPhone al de quien cobra a unos 20 cm sin juntarlos, y el pago se hace solo. No juntes las partes de arriba: eso abre NameDrop (compartir contacto) de iOS."
             ]
         ),
         RuleTopic(
