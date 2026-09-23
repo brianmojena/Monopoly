@@ -270,7 +270,7 @@ extension RuleTopic {
         RuleTopic(
             id: "board-events", icon: "tornado", color: .red, title: "Eventos del tablero",
             points: [
-                "Regla opcional: el host elige en la sala si hay eventos y cada cuántas rondas (\(BoardEventsState.intervalOptions.map(String.init).joined(separator: ", "))).",
+                "Regla opcional: el host elige en la sala si hay eventos y cada cuántas rondas: un número fijo (de \(BoardEventsState.intervalRange.lowerBound) a \(BoardEventsState.intervalRange.upperBound)) o al azar dentro de un rango, para que nadie sepa cuándo llega el siguiente.",
                 "Al terminar esas rondas ocurre un evento al azar y todos lo ven a la vez. Afecta a un lado del tablero, a un grupo de color, a una propiedad o a todos.",
                 "Los cambios de renta se suman a la renta normal (primero los %, luego los $) y la renta nunca baja de $0. Los ves en el tablero y en cada propiedad.",
                 "Un evento nunca te lleva a la bancarrota: si no te alcanza para una reparación, pagas lo que tengas."

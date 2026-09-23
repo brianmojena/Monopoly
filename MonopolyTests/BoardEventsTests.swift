@@ -188,6 +188,63 @@ final class BoardEventsTests: XCTestCase {
         XCTAssertEqual(state.boardEvents?.history.map(\.sequence), [1, 2])
     }
 
+    func testAnyFixedIntervalWorks() throws {
+        var everyRound = makeState(interval: 1)
+        var everySeven = makeState(interval: 7)
+        for _ in 0..<14 {
+            everyRound = try finishRound(everyRound)
+            everySeven = try finishRound(everySeven)
+            everyRound.players = everyRound.players.map { var player = $0; player.balance = 1000; return player }
+            everySeven.players = everySeven.players.map { var player = $0; player.balance = 1000; return player }
+        }
+        XCTAssertEqual(everyRound.boardEvents?.history.map(\.round), Array(1...14))
+        XCTAssertEqual(everySeven.boardEvents?.history.map(\.round), [7, 14])
+        XCTAssertEqual(everySeven.boardEvents?.nextEventRound, 21)
+    }
+
+    func testRandomGapsStayWithinTheRangeAndVary() throws {
+        var state = GameState(
+            players: [ana, luis],
+            properties: [street("Brown", .brown, owner: luis.id)],
+            currentPlayerID: ana.id,
+            boardEvents: BoardEventsState(interval: 2, maxInterval: 6, randomState: 9)
+        )
+        XCTAssertTrue((2...6).contains(state.boardEvents?.nextEventRound ?? 0))
+
+        for _ in 0..<120 {
+            state = try finishRound(state)
+            state.players = state.players.map { var player = $0; player.balance = 1000; return player }
+        }
+        let rounds = [0] + (state.boardEvents?.history.map(\.round) ?? [])
+        let gaps = zip(rounds.dropFirst(), rounds).map { $0 - $1 }
+        XCTAssertGreaterThan(gaps.count, 15)
+        XCTAssertTrue(gaps.allSatisfy { (2...6).contains($0) }, "\(gaps)")
+        XCTAssertGreaterThan(Set(gaps).count, 1)
+    }
+
+    func testRandomScheduleIsReproducibleFromTheSeed() {
+        let first = BoardEventsState(interval: 1, maxInterval: 10, randomState: 5)
+        let second = BoardEventsState(interval: 1, maxInterval: 10, randomState: 5)
+
+        XCTAssertEqual(first.nextEventRound, second.nextEventRound)
+        XCTAssertEqual(first.randomState, second.randomState)
+    }
+
+    func testGamesSavedBeforeTheScheduleKeepEveryIntervalRounds() throws {
+        let data = try JSONEncoder().encode(BoardEventsState(interval: 3, randomState: 1))
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        json.removeValue(forKey: "nextEventRound")
+        json.removeValue(forKey: "maxInterval")
+
+        let legacy = try JSONDecoder().decode(BoardEventsState.self, from: JSONSerialization.data(withJSONObject: json))
+
+        XCTAssertNil(legacy.nextEventRound)
+        XCTAssertEqual(legacy.maxInterval, 3)
+        XCTAssertFalse(legacy.isEventDue(afterRound: 4))
+        XCTAssertTrue(legacy.isEventDue(afterRound: 6))
+        XCTAssertEqual(legacy.upcomingEventRound(from: 4), 6)
+    }
+
     func testNoEventsWhenTurnedOff() throws {
         var state = makeState(interval: nil)
         for _ in 0..<6 {
@@ -240,6 +297,10 @@ final class BoardEventsTests: XCTestCase {
 
         XCTAssertEqual(on.boardEvents?.interval, 4)
         XCTAssertNil(off.boardEvents)
+
+        let random = Lobby(players: players, boardEventInterval: 2, boardEventMaxInterval: 5).makeGameState(initialBalance: 1500, properties: [])
+        XCTAssertEqual(random.boardEvents?.maxInterval, 5)
+        XCTAssertEqual(random.boardEvents?.hasRandomInterval, true)
     }
 
     func testStateRoundTripsAndOlderSavesHaveNoEvents() throws {

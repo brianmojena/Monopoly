@@ -206,7 +206,7 @@ private struct JoinedGameView: View {
                 }
                 LabeledContent("Tarjetas de crédito", value: lobby.creditCardsEnabled ? "Sí" : "No")
                 LabeledContent("Bote de Free Parking", value: lobby.freeParkingEnabled ? "Sí" : "No")
-                LabeledContent("Eventos del tablero", value: lobby.boardEventInterval.map { "Cada \($0) rondas" } ?? "No")
+                LabeledContent("Eventos del tablero", value: boardEventsText(lobby))
                 if lobby.gameMode == .classic {
                     LabeledContent("Niveles secretos", value: lobby.hiddenLevelsEnabled ? "Sí" : "No")
                 }
@@ -220,6 +220,16 @@ private struct JoinedGameView: View {
             }
         }
         .navigationTitle("Sala de espera")
+    }
+
+    private func boardEventsText(_ lobby: Lobby) -> String {
+        guard let interval = lobby.boardEventInterval else {
+            return "No"
+        }
+        if let maximum = lobby.boardEventMaxInterval, maximum > interval {
+            return "Cada \(interval)–\(maximum) rondas, al azar"
+        }
+        return interval == 1 ? "Cada ronda" : "Cada \(interval) rondas"
     }
 
     private var connectingView: some View {

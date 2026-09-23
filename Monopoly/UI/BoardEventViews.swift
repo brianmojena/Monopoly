@@ -80,10 +80,6 @@ enum BoardEventText {
         return rounds == 1 ? "Última ronda" : "\(rounds) rondas más"
     }
 
-    /// The round at whose end the next event happens.
-    static func nextEventRound(_ events: BoardEventsState, round: Int) -> Int {
-        ((round + events.interval - 1) / events.interval) * events.interval
-    }
 }
 
 /// Announces a board event the moment it happens, on every device.
@@ -204,7 +200,7 @@ struct ActiveBoardEventsCard: View {
     }
 
     private var nextEventText: String {
-        let next = BoardEventText.nextEventRound(events, round: state.round)
+        let next = events.upcomingEventRound(from: state.round)
         if let roundLimit = state.monopolife?.roundLimit, next >= roundLimit {
             return "No habrá más"
         }

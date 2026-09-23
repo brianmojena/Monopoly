@@ -24,8 +24,10 @@ struct Lobby: Codable, Equatable {
     var gameMode: GameMode
     /// Only used in Monopolife games.
     var roundLimit: Int
-    /// Rounds between board events; nil turns them off.
+    /// Rounds between board events (the fewest, for a random gap); nil turns them off.
     var boardEventInterval: Int?
+    /// Most rounds between board events when the gap is random; nil for a fixed gap.
+    var boardEventMaxInterval: Int?
 
     init(
         players: [LobbyPlayer] = [],
@@ -35,7 +37,8 @@ struct Lobby: Codable, Equatable {
         hiddenLevelsEnabled: Bool = false,
         gameMode: GameMode = .classic,
         roundLimit: Int = MonopolifeState.defaultRoundLimit,
-        boardEventInterval: Int? = nil
+        boardEventInterval: Int? = nil,
+        boardEventMaxInterval: Int? = nil
     ) {
         self.players = players
         self.creditCardsEnabled = creditCardsEnabled
@@ -45,6 +48,7 @@ struct Lobby: Codable, Equatable {
         self.gameMode = gameMode
         self.roundLimit = roundLimit
         self.boardEventInterval = boardEventInterval
+        self.boardEventMaxInterval = boardEventMaxInterval
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -56,6 +60,7 @@ struct Lobby: Codable, Equatable {
         case gameMode
         case roundLimit
         case boardEventInterval
+        case boardEventMaxInterval
     }
 
     init(from decoder: Decoder) throws {
@@ -68,6 +73,7 @@ struct Lobby: Codable, Equatable {
         gameMode = try container.decodeIfPresent(GameMode.self, forKey: .gameMode) ?? .classic
         roundLimit = try container.decodeIfPresent(Int.self, forKey: .roundLimit) ?? MonopolifeState.defaultRoundLimit
         boardEventInterval = try container.decodeIfPresent(Int.self, forKey: .boardEventInterval)
+        boardEventMaxInterval = try container.decodeIfPresent(Int.self, forKey: .boardEventMaxInterval)
     }
 
     var canStart: Bool {
@@ -121,7 +127,7 @@ struct Lobby: Codable, Equatable {
                 )
                 : nil,
             boardEvents: boardEventInterval.map {
-                BoardEventsState(interval: $0, randomState: generator.next())
+                BoardEventsState(interval: $0, maxInterval: boardEventMaxInterval, randomState: generator.next())
             }
         )
     }

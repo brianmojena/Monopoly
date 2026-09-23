@@ -44,25 +44,41 @@ struct BoardEventOccurrence: Codable, Equatable, Identifiable {
 }
 
 struct BoardEventsState: Codable, Equatable {
-    static let intervalOptions = [2, 3, 4, 5]
+    static let intervalRange = 1...20
 
-    /// An event happens at the end of every `interval` rounds.
+    /// Fewest rounds between two events.
     var interval: Int
+    /// Most rounds between two events; equal to `interval` when the gap is fixed,
+    /// otherwise each gap is drawn between the two.
+    var maxInterval: Int
+    /// The round at whose end the next event happens. Nil only in games saved before
+    /// it existed, which keep the old "every `interval` rounds" timing.
+    var nextEventRound: Int?
     /// Seed of the event draws. Kept in the state so the rules stay deterministic and
     /// the host is the only one who draws.
     var randomState: UInt64
     var rentEffects: [ActiveRentEffect]
     var history: [BoardEventOccurrence]
 
-    init(interval: Int, randomState: UInt64, rentEffects: [ActiveRentEffect] = [], history: [BoardEventOccurrence] = []) {
+    init(
+        interval: Int,
+        maxInterval: Int? = nil,
+        randomState: UInt64,
+        rentEffects: [ActiveRentEffect] = [],
+        history: [BoardEventOccurrence] = []
+    ) {
         self.interval = interval
+        self.maxInterval = max(interval, maxInterval ?? interval)
         self.randomState = randomState
         self.rentEffects = rentEffects
         self.history = history
+        scheduleNextEvent(afterRound: 0)
     }
 
     private enum CodingKeys: String, CodingKey {
         case interval
+        case maxInterval
+        case nextEventRound
         case randomState
         case rentEffects
         case history
@@ -71,9 +87,38 @@ struct BoardEventsState: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         interval = try container.decode(Int.self, forKey: .interval)
+        maxInterval = try container.decodeIfPresent(Int.self, forKey: .maxInterval) ?? interval
+        nextEventRound = try container.decodeIfPresent(Int.self, forKey: .nextEventRound)
         randomState = try container.decode(UInt64.self, forKey: .randomState)
         rentEffects = try container.decodeIfPresent([ActiveRentEffect].self, forKey: .rentEffects) ?? []
         history = try container.decodeIfPresent([BoardEventOccurrence].self, forKey: .history) ?? []
+    }
+
+    var hasRandomInterval: Bool {
+        maxInterval > interval
+    }
+
+    /// Draws the gap to the next event (fixed or within the range) from `round`.
+    mutating func scheduleNextEvent(afterRound round: Int) {
+        guard hasRandomInterval else {
+            nextEventRound = round + interval
+            return
+        }
+        var generator = SeededRandom(state: randomState)
+        nextEventRound = round + Int.random(in: interval...maxInterval, using: &generator)
+        randomState = generator.state
+    }
+
+    func isEventDue(afterRound round: Int) -> Bool {
+        guard let nextEventRound else {
+            return interval > 0 && round % interval == 0
+        }
+        return round >= nextEventRound
+    }
+
+    /// The round at whose end the next event happens, seen from `round`.
+    func upcomingEventRound(from round: Int) -> Int {
+        nextEventRound ?? ((round + interval - 1) / interval) * interval
     }
 
     var lastOccurrence: BoardEventOccurrence? {

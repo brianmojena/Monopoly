@@ -16,8 +16,8 @@ extension GameRules {
         return max(0, rent * max(0, 100 + percent) / 100 + flat)
     }
 
-    /// Called when `round` has just ended: drops expired rent effects, then, every
-    /// `interval` rounds, draws and applies an event.
+    /// Called when `round` has just ended: drops expired rent effects, then, when the
+    /// scheduled round has come, draws and applies an event and schedules the next one.
     static func runBoardEvents(afterRound round: Int, in state: inout GameState) {
         guard let boardEvents = state.boardEvents else {
             return
@@ -25,7 +25,7 @@ extension GameRules {
         state.boardEvents?.rentEffects.removeAll { effect in
             effect.lastRound.map { $0 <= round } ?? false
         }
-        guard boardEvents.interval > 0, round % boardEvents.interval == 0 else {
+        guard boardEvents.isEventDue(afterRound: round) else {
             return
         }
 
@@ -36,6 +36,7 @@ extension GameRules {
             happen(event, on: target, afterRound: round, in: &state)
         }
         state.boardEvents?.randomState = generator.state
+        state.boardEvents?.scheduleNextEvent(afterRound: round)
     }
 
     /// Every place `event` could land right now.

@@ -140,21 +140,7 @@ struct HostSetupView: View {
                 }
             }
 
-            Section {
-                Picker(selection: Binding(
-                    get: { lobby.boardEventInterval ?? 0 },
-                    set: { interval in model.updateLobby { $0.boardEventInterval = interval == 0 ? nil : interval } }
-                )) {
-                    Text("Desactivados").tag(0)
-                    ForEach(BoardEventsState.intervalOptions, id: \.self) { interval in
-                        Text("Cada \(interval) rondas").tag(interval)
-                    }
-                } label: {
-                    Label("Eventos del tablero", systemImage: "tornado")
-                }
-            } footer: {
-                Text("Al terminar cada tantas rondas ocurre un evento al azar: un tornado, un famoso que se muda al barrio, una crisis… Cambian rentas, cobran reparaciones o reparten dinero. Todos lo ven a la vez.")
-            }
+            boardEventsSection(lobby)
 
             Section {
                 Toggle(isOn: lobbyToggle(\.proximityPaymentsEnabled)) {
@@ -173,6 +159,90 @@ struct HostSetupView: View {
                 .disabled(!lobby.canStart)
             } footer: {
                 Text("Hacen falta de \(Lobby.playerLimit.lowerBound) a \(Lobby.playerLimit.upperBound) jugadores, todos con nombre. El saldo inicial de $\(GameSessionModel.placeholderInitialBalance) es un placeholder.")
+            }
+        }
+    }
+
+    private enum BoardEventTiming: Hashable {
+        case off
+        case fixed
+        case random
+    }
+
+    private func boardEventTiming(_ lobby: Lobby) -> BoardEventTiming {
+        guard let interval = lobby.boardEventInterval else {
+            return .off
+        }
+        return (lobby.boardEventMaxInterval ?? interval) > interval ? .random : .fixed
+    }
+
+    private func boardEventsSection(_ lobby: Lobby) -> some View {
+        let range = BoardEventsState.intervalRange
+        let minimum = lobby.boardEventInterval ?? 3
+        let maximum = max(minimum, lobby.boardEventMaxInterval ?? minimum)
+
+        return Section {
+            Picker(selection: Binding(
+                get: { boardEventTiming(lobby) },
+                set: { timing in
+                    model.updateLobby { lobby in
+                        switch timing {
+                        case .off:
+                            lobby.boardEventInterval = nil
+                            lobby.boardEventMaxInterval = nil
+                        case .fixed:
+                            lobby.boardEventInterval = lobby.boardEventInterval ?? 3
+                            lobby.boardEventMaxInterval = nil
+                        case .random:
+                            let low = min(lobby.boardEventInterval ?? 2, range.upperBound - 1)
+                            lobby.boardEventInterval = low
+                            lobby.boardEventMaxInterval = max(low + 1, min(low + 3, range.upperBound))
+                        }
+                    }
+                }
+            )) {
+                Text("No").tag(BoardEventTiming.off)
+                Text("Fijo").tag(BoardEventTiming.fixed)
+                Text("Al azar").tag(BoardEventTiming.random)
+            } label: {
+                Label("Eventos del tablero", systemImage: "tornado")
+            }
+            .pickerStyle(.segmented)
+
+            switch boardEventTiming(lobby) {
+            case .off:
+                EmptyView()
+            case .fixed:
+                Stepper(value: Binding(
+                    get: { minimum },
+                    set: { value in model.updateLobby { $0.boardEventInterval = value } }
+                ), in: range) {
+                    Text(minimum == 1 ? "Cada ronda" : "Cada \(minimum) rondas")
+                }
+            case .random:
+                Stepper(value: Binding(
+                    get: { minimum },
+                    set: { value in model.updateLobby { $0.boardEventInterval = value } }
+                ), in: range.lowerBound...(maximum - 1)) {
+                    Text("Mínimo: \(minimum) \(minimum == 1 ? "ronda" : "rondas")")
+                }
+                Stepper(value: Binding(
+                    get: { maximum },
+                    set: { value in model.updateLobby { $0.boardEventMaxInterval = value } }
+                ), in: (minimum + 1)...range.upperBound) {
+                    Text("Máximo: \(maximum) rondas")
+                }
+            }
+        } header: {
+            Text("Eventos del tablero")
+        } footer: {
+            switch boardEventTiming(lobby) {
+            case .off:
+                Text("Sin eventos. Actívalos para que cada tantas rondas pase algo en el tablero: un tornado, un famoso que se muda al barrio, una crisis… Todos lo ven a la vez.")
+            case .fixed:
+                Text("Al terminar cada \(minimum == 1 ? "ronda" : "\(minimum) rondas") ocurre un evento al azar.")
+            case .random:
+                Text("Tras cada evento, el siguiente llega entre \(minimum) y \(maximum) rondas después, sin que nadie sepa cuándo exactamente.")
             }
         }
     }
