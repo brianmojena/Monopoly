@@ -26,6 +26,8 @@ final class GameSessionModel: ObservableObject {
     @Published var presentedLifeCard: LifeCardDraw?
     /// A Life Card another player just drew (the card is public, its effect is not).
     @Published private(set) var lifeCardNotice: LifeCardDraw?
+    /// A board event that just happened, announced on every device.
+    @Published var presentedBoardEvent: BoardEventOccurrence?
 
     let proximity = ProximityPaymentCoordinator()
 
@@ -245,6 +247,11 @@ final class GameSessionModel: ObservableObject {
         let previousState = gameState
         gameState = state
         announceMonopolifeChanges(from: previousState, to: state)
+        if previousState != nil,
+           let occurrence = state.boardEvents?.lastOccurrence,
+           occurrence.sequence != previousState?.boardEvents?.lastOccurrence?.sequence {
+            presentedBoardEvent = occurrence
+        }
         lobby = nil
         save(state)
         reclaimPlayerByName(in: state)

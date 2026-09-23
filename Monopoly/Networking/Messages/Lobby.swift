@@ -22,6 +22,8 @@ struct Lobby: Codable, Equatable {
     var gameMode: GameMode
     /// Only used in Monopolife games.
     var roundLimit: Int
+    /// Rounds between board events; nil turns them off.
+    var boardEventInterval: Int?
 
     init(
         players: [LobbyPlayer] = [],
@@ -29,7 +31,8 @@ struct Lobby: Codable, Equatable {
         freeParkingEnabled: Bool = false,
         proximityPaymentsEnabled: Bool = false,
         gameMode: GameMode = .classic,
-        roundLimit: Int = MonopolifeState.defaultRoundLimit
+        roundLimit: Int = MonopolifeState.defaultRoundLimit,
+        boardEventInterval: Int? = nil
     ) {
         self.players = players
         self.creditCardsEnabled = creditCardsEnabled
@@ -37,6 +40,7 @@ struct Lobby: Codable, Equatable {
         self.proximityPaymentsEnabled = proximityPaymentsEnabled
         self.gameMode = gameMode
         self.roundLimit = roundLimit
+        self.boardEventInterval = boardEventInterval
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -46,6 +50,7 @@ struct Lobby: Codable, Equatable {
         case proximityPaymentsEnabled
         case gameMode
         case roundLimit
+        case boardEventInterval
     }
 
     init(from decoder: Decoder) throws {
@@ -56,6 +61,7 @@ struct Lobby: Codable, Equatable {
         proximityPaymentsEnabled = try container.decode(Bool.self, forKey: .proximityPaymentsEnabled)
         gameMode = try container.decodeIfPresent(GameMode.self, forKey: .gameMode) ?? .classic
         roundLimit = try container.decodeIfPresent(Int.self, forKey: .roundLimit) ?? MonopolifeState.defaultRoundLimit
+        boardEventInterval = try container.decodeIfPresent(Int.self, forKey: .boardEventInterval)
     }
 
     var canStart: Bool {
@@ -104,7 +110,10 @@ struct Lobby: Codable, Equatable {
                     roundLimit: roundLimit,
                     using: &generator
                 )
-                : nil
+                : nil,
+            boardEvents: boardEventInterval.map {
+                BoardEventsState(interval: $0, randomState: generator.next())
+            }
         )
     }
 }

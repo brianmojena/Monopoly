@@ -24,10 +24,11 @@ El usuario (Brian) juega Monopoly Ultimate Banking con su grupo y el dispositivo
 - Capa de dominio (`Monopoly/Domain`): modelo de propiedades con acciones de 10%, reglas de compra/renta/construcción/hipoteca/impuestos/bancarrota, tarjetas de crédito y el Mercado (tratos multi-jugador, ofertas abiertas, compras compartidas).
 - Capa de red (`Monopoly/Networking`): host-autoritativo sobre MultipeerConnectivity, con `GameIntent`/`NetworkMessage`, sala de espera (`Lobby`), descubrimiento de salas cercanas como tarjetas (`DiscoveredRoom`) y reconexión de clientes.
 - Persistencia (`Monopoly/Persistence`): `GameStore` guarda la partida del host en Application Support tras cada cambio de estado; la app ofrece "Continuar partida" al reabrir.
-- UI (`Monopoly/UI`): pantallas de inicio, host/join, lobby, tablero, detalle de propiedad, Mercado (`MarketView`, `DealBuilderView`, `SharedPurchaseView`), tarjeta de crédito, pagos por proximidad y pagos por QR (`QRPaymentViews`, formato en `Networking/Messages/QRPaymentRequest.swift`).
+- UI (`Monopoly/UI`): pantallas de inicio, host/join, lobby, tablero, detalle de propiedad, Mercado (`MarketView`, `DealBuilderView`, `SharedPurchaseView`), tarjeta de crédito, pagos por proximidad, pagos por QR (`QRPaymentViews`, formato en `Networking/Messages/QRPaymentRequest.swift`).
 - Modo **Monopolife** (`MONOPOLIFE_RULES.md`, prompts 014–017, implementado directamente por Claude a pedido de Brian): `GameMode` en sala y estado, roles secretos con ruleta (`RoleRevealView`), felicidad y su historial (`GameRules+Monopolife.swift`), Tarjetas de Vida (`Domain/Data/LifeCards.swift`), valores de roles en `Domain/Data/LifeRoles.swift` y pantalla final (`FinalRankingView`).
 - **Casillas de viaje** (tarifa por lados del tablero, `TravelRoute`) y **bote de Free Parking** opcional (`GameRules+FreeParking.swift`, `GAME_RULES.md` 8.2): impuestos, viajes e intereses van al bote.
 - Tablero (`GameBoardView`) con tarjeta de saldo y grid de acciones; colores compartidos en `UI/BankPalette.swift`.
+- Eventos del tablero opcionales (`GAME_RULES.md` 8.3): catálogo en `Domain/Data/BoardEventCatalog.swift`, reglas en `GameRules+BoardEvents.swift` (sorteo con semilla guardada en el estado), vistas en `BoardEventViews.swift`.
 - Tests unitarios (XCTest) en `MonopolyTests/` (`GameRulesTests`, `MonopolifeRulesTests`, `QRPaymentTests`, `FreeParkingTests`) cubriendo la capa de dominio.
 
 ## Documentos de referencia

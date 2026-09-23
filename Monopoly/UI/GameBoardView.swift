@@ -30,6 +30,10 @@ struct GameBoardView: View {
                             actionsGrid(state)
                         }
 
+                        if let boardEvents = state.boardEvents {
+                            ActiveBoardEventsCard(events: boardEvents, state: state)
+                        }
+
                         if let profile = model.localProfile {
                             HappinessSection(model: model, profile: profile, isShowingRole: $isShowingRole)
                         }
@@ -122,6 +126,11 @@ struct GameBoardView: View {
         }
         .sheet(item: $model.presentedLifeCard) { draw in
             LifeCardSheet(model: model, draw: draw)
+        }
+        .sheet(item: $model.presentedBoardEvent) { occurrence in
+            if let state = model.gameState {
+                BoardEventSheet(occurrence: occurrence, state: state)
+            }
         }
         .fullScreenCover(isPresented: Binding(
             get: { !model.pendingRoleReveals.isEmpty },

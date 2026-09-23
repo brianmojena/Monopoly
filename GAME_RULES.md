@@ -178,6 +178,37 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 - Al caer en Free Parking, el jugador (en su turno) pulsa "Cobrar el bote" y recibe todo el bote, que vuelve a $0. Con el bote vacío no hay nada que cobrar.
 - Sin la regla activa, todo lo anterior sale del juego como siempre y no hay bote.
 
+### 8.3 Eventos del tablero
+
+- Regla opcional, **desactivada por defecto**. En la sala de espera el host elige cada cuántas rondas ocurre un evento: 2, 3, 4 o 5. Funciona igual en Classic y en Monopolife.
+- Al **terminar** cada N-ésima ronda (ronda N, 2N, 3N…), el host sortea un evento y todos los jugadores lo ven a la vez. En Monopolife no ocurre ningún evento al terminar la última ronda (la partida ya acabó).
+- Cada evento afecta a uno de estos objetivos, elegido al azar al ocurrir:
+  - un **lado del tablero**: lado 1 (marrón y celeste), lado 2 (rosa y naranja), lado 3 (rojo y amarillo) o lado 4 (verde y azul oscuro);
+  - un **grupo de color**;
+  - una **propiedad con dueño** (o, para el incendio, una propiedad con nivel mayor que 0; si no hay ninguna, ese evento no puede salir);
+  - **todo el tablero** o **todos los jugadores**.
+- **Cambios de renta**: se suman a la renta normal de cada propiedad afectada (nivel, monopolio). Primero se aplican los porcentajes (todos los activos sumados) y luego los montos fijos; la renta nunca baja de $0. Una propiedad hipotecada sigue sin cobrar renta. Los cambios temporales duran las N rondas siguientes al evento; los permanentes, el resto de la partida. Varios eventos sobre la misma propiedad se acumulan.
+- **Cobros a accionistas**: cada propiedad con dueño del objetivo cuesta el monto indicado, repartido entre sus accionistas por su % (como la sección 4.7). Si un jugador no tiene suficiente efectivo, paga lo que tenga (un evento nunca provoca bancarrota). Lo cobrado va al bote de Free Parking si esa regla está activa (sección 8.2); si no, sale del juego.
+- **Incendio**: la propiedad baja un nivel, sin devolver nada a los accionistas.
+- Eventos iniciales (valores placeholder):
+
+| Evento | Objetivo | Efecto |
+|---|---|---|
+| 🌪️ Tornado | Un lado | Renta −$200 durante 3 rondas |
+| ⭐ Un famoso se muda al barrio | Un grupo de color | Renta +$100 permanente |
+| 🎡 Festival de verano | Un lado | Renta +100% durante 2 rondas |
+| 🚇 Nueva línea de metro | Un lado | Renta +$50 permanente |
+| 🚧 Obras en la calle | Una propiedad con dueño | Renta −100% durante 2 rondas |
+| 🌊 Inundación | Un lado | $50 de reparación por cada propiedad con dueño |
+| 🔥 Incendio | Una propiedad con nivel | Baja un nivel sin reembolso |
+| 📈 Boom inmobiliario | Todo el tablero | Renta +25% durante 3 rondas |
+| 📉 Crisis económica | Todo el tablero | Renta −25% durante 3 rondas |
+| 🏛️ Subsidio del gobierno | Todos los jugadores | Cada jugador activo cobra $100 del banco |
+| 💸 Revalúo de impuestos | Un grupo de color | $30 por cada propiedad con dueño |
+| 🎓 Abre una universidad | Un grupo de color | Renta +50% permanente |
+| 💡 Apagón | Un lado | Renta −50% durante 1 ronda |
+| 🏆 Barrio del año | Una propiedad con dueño | Renta +$150 permanente |
+
 La app debe permitir seleccionar estas reglas opcionales al crear una partida, y el estado resultante debe ser visible para todos los jugadores conectados antes de empezar.
 
 ## 9. Preguntas abiertas / a validar con el usuario

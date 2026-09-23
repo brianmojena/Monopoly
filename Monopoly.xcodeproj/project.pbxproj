@@ -12,6 +12,7 @@
 		D31F5D200000000000000031 /* MonopolifeRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31F5D200000000000000030 /* MonopolifeRulesTests.swift */; };
 		D31F5D200000000000000033 /* QRPaymentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31F5D200000000000000032 /* QRPaymentTests.swift */; };
 		D31F5D200000000000000035 /* CreditTrustTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31F5D200000000000000034 /* CreditTrustTests.swift */; };
+		D31F5D200000000000000037 /* BoardEventsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31F5D200000000000000036 /* BoardEventsTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,6 +33,7 @@
 		D31F5D200000000000000030 /* MonopolifeRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonopolifeRulesTests.swift; sourceTree = "<group>"; };
 		D31F5D200000000000000032 /* QRPaymentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRPaymentTests.swift; sourceTree = "<group>"; };
 		D31F5D200000000000000034 /* CreditTrustTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditTrustTests.swift; sourceTree = "<group>"; };
+		D31F5D200000000000000036 /* BoardEventsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardEventsTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -91,6 +93,7 @@
 				D31F5D200000000000000030 /* MonopolifeRulesTests.swift */,
 				D31F5D200000000000000032 /* QRPaymentTests.swift */,
 				D31F5D200000000000000034 /* CreditTrustTests.swift */,
+				D31F5D200000000000000036 /* BoardEventsTests.swift */,
 			);
 			path = MonopolyTests;
 			sourceTree = "<group>";
@@ -195,6 +198,7 @@
 				D31F5D200000000000000031 /* MonopolifeRulesTests.swift in Sources */,
 				D31F5D200000000000000033 /* QRPaymentTests.swift in Sources */,
 				D31F5D200000000000000035 /* CreditTrustTests.swift in Sources */,
+				D31F5D200000000000000037 /* BoardEventsTests.swift in Sources */,
 			);
 		};
 /* End PBXSourcesBuildPhase section */

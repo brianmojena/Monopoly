@@ -723,6 +723,7 @@ enum GameRules {
                     updatedState.currentPlayerID = nil
                     return updatedState
                 }
+                runBoardEvents(afterRound: updatedState.round, in: &updatedState)
                 updatedState.round += 1
             }
             updatedState.currentPlayerID = state.players[nextIndex].id
@@ -736,16 +737,18 @@ enum GameRules {
         in state: GameState,
         ownerID: UUID
     ) throws -> Int {
+        let rent: Int
         if property.constructionLevel == 0 {
             let groupProperties = state.properties.filter { $0.colorGroup == property.colorGroup }
             let ownsMonopoly = groupProperties.count >= 2 && groupProperties.allSatisfy { $0.ownerID == ownerID }
-            return ownsMonopoly ? property.baseRent * 2 : property.baseRent
+            rent = ownsMonopoly ? property.baseRent * 2 : property.baseRent
+        } else {
+            guard property.rentByConstructionLevel.indices.contains(property.constructionLevel) else {
+                throw GameRuleError.invalidRentTable(property.id)
+            }
+            rent = property.rentByConstructionLevel[property.constructionLevel]
         }
-
-        guard property.rentByConstructionLevel.indices.contains(property.constructionLevel) else {
-            throw GameRuleError.invalidRentTable(property.id)
-        }
-        return property.rentByConstructionLevel[property.constructionLevel]
+        return applyingRentEffects(to: rent, of: property, in: state)
     }
 
     private static func buildingContext(

@@ -21,6 +21,24 @@ struct PropertyDetailView: View {
                         }
                     }
 
+                    let rentEffects = state.boardEvents?.rentEffects.filter { $0.propertyIDs.contains(property.id) } ?? []
+                    if !rentEffects.isEmpty {
+                        Section {
+                            ForEach(rentEffects) { effect in
+                                if let event = BoardEventCatalog.event(withID: effect.eventID) {
+                                    LabeledContent(
+                                        "\(event.emoji) \(event.title)",
+                                        value: "\(BoardEventText.rentChange(effect)) · \(BoardEventText.remaining(effect, round: state.round))"
+                                    )
+                                }
+                            }
+                        } header: {
+                            Text("Eventos que afectan la renta")
+                        } footer: {
+                            Text("La renta actual ya los incluye. Nunca baja de $0.")
+                        }
+                    }
+
                     if property.ownership.count > 1 {
                         Section {
                             ForEach(property.ownership, id: \.playerID) { holding in

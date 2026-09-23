@@ -119,7 +119,7 @@ struct HostSetupView: View {
             } header: {
                 Text("Reglas")
             } footer: {
-                Text("Préstamos de hasta el 50% de tu patrimonio con un 10% de interés, pagados en 1 a 5 cuotas (una por cada GO). Los plazos que no uses hasta 5 quedan como aplazamientos.")
+                Text("Préstamos desde el 50% de tu patrimonio (sube o baja según la confianza de la banca) con un 10% de interés, pagados en 1 a 5 cuotas (una por cada GO). Los plazos que no uses hasta 5 quedan como aplazamientos.")
             }
 
             Section {
@@ -128,6 +128,22 @@ struct HostSetupView: View {
                 }
             } footer: {
                 Text("Impuestos, viajes, el interés de la tarjeta y el de deshipotecar se acumulan en un bote que se lleva quien caiga en Free Parking.")
+            }
+
+            Section {
+                Picker(selection: Binding(
+                    get: { lobby.boardEventInterval ?? 0 },
+                    set: { interval in model.updateLobby { $0.boardEventInterval = interval == 0 ? nil : interval } }
+                )) {
+                    Text("Desactivados").tag(0)
+                    ForEach(BoardEventsState.intervalOptions, id: \.self) { interval in
+                        Text("Cada \(interval) rondas").tag(interval)
+                    }
+                } label: {
+                    Label("Eventos del tablero", systemImage: "tornado")
+                }
+            } footer: {
+                Text("Al terminar cada tantas rondas ocurre un evento al azar: un tornado, un famoso que se muda al barrio, una crisis… Cambian rentas, cobran reparaciones o reparten dinero. Todos lo ven a la vez.")
             }
 
             Section {

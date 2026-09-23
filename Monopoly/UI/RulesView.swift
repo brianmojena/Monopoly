@@ -259,6 +259,15 @@ extension RuleTopic {
             ]
         ),
         RuleTopic(
+            id: "board-events", icon: "tornado", color: .red, title: "Eventos del tablero",
+            points: [
+                "Regla opcional: el host elige en la sala si hay eventos y cada cuántas rondas (\(BoardEventsState.intervalOptions.map(String.init).joined(separator: ", "))).",
+                "Al terminar esas rondas ocurre un evento al azar y todos lo ven a la vez. Afecta a un lado del tablero, a un grupo de color, a una propiedad o a todos.",
+                "Los cambios de renta se suman a la renta normal (primero los %, luego los $) y la renta nunca baja de $0. Los ves en el tablero y en cada propiedad.",
+                "Un evento nunca te lleva a la bancarrota: si no te alcanza para una reparación, pagas lo que tengas."
+            ] + BoardEventCatalog.all.map { "\($0.emoji) \($0.title): \(BoardEventText.effect($0.effect).lowercasedFirst)." }
+        ),
+        RuleTopic(
             id: "free-parking", icon: "parkingsign.circle.fill", color: .cyan, title: "Bote de Free Parking",
             points: [
                 "Regla opcional que activa el host.",
@@ -338,5 +347,11 @@ extension RuleTopic {
 #Preview {
     NavigationStack {
         RulesView(mode: .monopolife)
+    }
+}
+
+private extension String {
+    var lowercasedFirst: String {
+        prefix(1).lowercased() + dropFirst()
     }
 }

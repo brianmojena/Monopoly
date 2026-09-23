@@ -14,6 +14,8 @@ struct GameState: Codable, Equatable {
     var freeParkingPot: Int
     /// Present only in Monopolife games.
     var monopolife: MonopolifeState?
+    /// Present only when the host turned board events on.
+    var boardEvents: BoardEventsState?
 
     init(
         players: [Player],
@@ -26,7 +28,8 @@ struct GameState: Codable, Equatable {
         rentInvestments: [RentInvestment] = [],
         mode: GameMode = .classic,
         freeParkingPot: Int = 0,
-        monopolife: MonopolifeState? = nil
+        monopolife: MonopolifeState? = nil,
+        boardEvents: BoardEventsState? = nil
     ) {
         self.players = players
         self.properties = properties
@@ -39,6 +42,7 @@ struct GameState: Codable, Equatable {
         self.mode = mode
         self.freeParkingPot = freeParkingPot
         self.monopolife = monopolife
+        self.boardEvents = boardEvents
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -53,6 +57,7 @@ struct GameState: Codable, Equatable {
         case mode
         case freeParkingPot
         case monopolife
+        case boardEvents
     }
 
     init(from decoder: Decoder) throws {
@@ -68,6 +73,7 @@ struct GameState: Codable, Equatable {
         mode = try container.decodeIfPresent(GameMode.self, forKey: .mode) ?? .classic
         freeParkingPot = try container.decodeIfPresent(Int.self, forKey: .freeParkingPot) ?? 0
         monopolife = try container.decodeIfPresent(MonopolifeState.self, forKey: .monopolife)
+        boardEvents = try container.decodeIfPresent(BoardEventsState.self, forKey: .boardEvents)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -83,5 +89,6 @@ struct GameState: Codable, Equatable {
         try container.encode(mode, forKey: .mode)
         try container.encode(freeParkingPot, forKey: .freeParkingPot)
         try container.encodeIfPresent(monopolife, forKey: .monopolife)
+        try container.encodeIfPresent(boardEvents, forKey: .boardEvents)
     }
 }
