@@ -16,6 +16,8 @@ enum GameIntent: Codable, Equatable {
     case transferMoney(payerID: UUID, recipientID: UUID, amount: Int)
     case borrowOnCreditCard(playerID: UUID, amount: Int, installments: Int)
     case payCreditCard(playerID: UUID, loanID: UUID, amount: Int)
+    case endTurn(playerID: UUID)
+    case skipTurn
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -48,6 +50,8 @@ enum GameIntent: Codable, Equatable {
         case transferMoney
         case borrowOnCreditCard
         case payCreditCard
+        case endTurn
+        case skipTurn
     }
 
     init(from decoder: Decoder) throws {
@@ -131,6 +135,10 @@ enum GameIntent: Codable, Equatable {
                 loanID: try container.decode(UUID.self, forKey: .loanID),
                 amount: try container.decode(Int.self, forKey: .amount)
             )
+        case .endTurn:
+            self = .endTurn(playerID: try container.decode(UUID.self, forKey: .playerID))
+        case .skipTurn:
+            self = .skipTurn
         }
     }
 
@@ -201,6 +209,26 @@ enum GameIntent: Codable, Equatable {
             try container.encode(playerID, forKey: .playerID)
             try container.encode(loanID, forKey: .loanID)
             try container.encode(amount, forKey: .amount)
+        case let .endTurn(playerID):
+            try container.encode(IntentType.endTurn, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+        case .skipTurn:
+            try container.encode(IntentType.skipTurn, forKey: .type)
+        }
+    }
+}
+
+extension GameIntent {
+    // Actions tied to landing on a square or passing GO happen only on the acting
+    // player's turn (GAME_RULES section 3). Raising money, trades, payments to other
+    // players and bankruptcy stay available at any time.
+    var requiresTurn: Bool {
+        switch self {
+        case .buyProperty, .resolveAuction, .collectRent, .payTax, .collectSalary, .borrowOnCreditCard:
+            return true
+        case .buildHouse, .buildHotel, .sellHouse, .mortgageProperty, .unmortgageProperty,
+             .declareBankruptcy, .executeTrade, .transferMoney, .payCreditCard, .endTurn, .skipTurn:
+            return false
         }
     }
 }

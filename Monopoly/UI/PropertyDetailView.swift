@@ -29,7 +29,7 @@ struct PropertyDetailView: View {
                                     .foregroundStyle(.secondary)
                             }
                         } else if property.ownerID == nil {
-                            Section("Acciones") {
+                            Section {
                                 Button("Comprar") {
                                     model.buy(propertyID: property.id)
                                 }
@@ -40,9 +40,14 @@ struct PropertyDetailView: View {
                                 } label: {
                                     Label("Iniciar subasta", systemImage: "hammer")
                                 }
+                            } header: {
+                                Text("Acciones")
+                            } footer: {
+                                turnFooter
                             }
+                            .disabled(!model.isLocalPlayersTurn)
                         } else if property.ownerID != localPlayerID {
-                            Section("Acción") {
+                            Section {
                                 Button("Pagar renta") {
                                     model.payRent(propertyID: property.id)
                                 }
@@ -55,7 +60,12 @@ struct PropertyDetailView: View {
                                         Label("Pagar renta acercando iPhones", systemImage: "wave.3.right")
                                     }
                                 }
+                            } header: {
+                                Text("Acción")
+                            } footer: {
+                                turnFooter
                             }
+                            .disabled(!model.isLocalPlayersTurn)
                         } else {
                             ownPropertyActions(for: property)
                         }
@@ -123,6 +133,13 @@ struct PropertyDetailView: View {
                     .buttonStyle(.bordered)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var turnFooter: some View {
+        if !model.isLocalPlayersTurn, let currentPlayer = model.currentPlayer {
+            Text("Solo en tu turno. Ahora juega \(currentPlayer.name).")
         }
     }
 

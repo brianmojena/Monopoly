@@ -11,10 +11,12 @@ final class GameSessionModel: ObservableObject {
     static let placeholderInitialBalance = 1500
 
     let role: Role
+    let ownPlayerID: UUID?
 
     @Published private(set) var gameState: GameState?
     @Published private(set) var alertMessage: String?
     @Published private(set) var localPlayerID: UUID?
+    @Published private(set) var lobby: Lobby?
 
     let proximity = ProximityPaymentCoordinator()
 
@@ -28,20 +30,57 @@ final class GameSessionModel: ObservableObject {
         gameState?.activeHouseRules.contains(.creditCards) == true
     }
 
+    /// Players this device acts for: on the host, its own player plus the players
+    /// added without a phone; on a client, just its own player.
+    var controllablePlayers: [Player] {
+        guard let gameState else {
+            return []
+        }
+        switch role {
+        case .host:
+            return gameState.players.filter { hostControlledPlayerIDs.contains($0.id) }
+        case .client:
+            return gameState.players.filter { $0.id == localPlayerID }
+        }
+    }
+
+    var currentPlayer: Player? {
+        gameState?.players.first(where: { $0.id == gameState?.currentPlayerID })
+    }
+
+    var isLocalPlayersTurn: Bool {
+        guard let gameState else {
+            return false
+        }
+        return gameState.currentPlayerID == nil || gameState.currentPlayerID == localPlayerID
+    }
+
+    private var hostControlledPlayerIDs: Set<UUID> = []
+
     init(session: GameSession, role: Role, localPlayerID: UUID? = nil) {
         self.session = session
         self.role = role
+        self.ownPlayerID = localPlayerID
         self.gameState = session.gameState
+        self.lobby = session.lobby
         self.localPlayerID = localPlayerID
 
         session.onStateChanged = { [weak self] state in
             DispatchQueue.main.async {
-                self?.gameState = state
+                self?.receive(state)
+            }
+        }
+        session.onLobbyChanged = { [weak self] lobby in
+            DispatchQueue.main.async {
+                guard self?.gameState == nil else {
+                    return
+                }
+                self?.lobby = lobby
             }
         }
         session.onIntentRejected = { [weak self] error in
             DispatchQueue.main.async {
-                self?.alertMessage = "La acción fue rechazada: \(String(describing: error))"
+                self?.alertMessage = self?.message(for: error)
             }
         }
         session.onTransportError = { [weak self] error in
@@ -64,6 +103,78 @@ final class GameSessionModel: ObservableObject {
 
     func selectPlayer(_ playerID: UUID) {
         localPlayerID = playerID
+    }
+
+    func updateLobby(_ change: (inout Lobby) -> Void) {
+        guard var updatedLobby = lobby else {
+            return
+        }
+        change(&updatedLobby)
+        lobby = updatedLobby
+
+        do {
+            try session.updateLobby(updatedLobby)
+        } catch {
+            alertMessage = "No se pudo actualizar la sala: \(error.localizedDescription)"
+        }
+    }
+
+    func startGame() {
+        guard let lobby, lobby.canStart else {
+            return
+        }
+
+        hostControlledPlayerIDs = Set(lobby.players.filter(\.isHostControlled).map(\.id))
+        let state = lobby.makeGameState(
+            initialBalance: Self.placeholderInitialBalance,
+            properties: PlaceholderProperties.all
+        )
+        do {
+            try session.startGame(with: state)
+            self.lobby = nil
+        } catch {
+            alertMessage = "No se pudo iniciar la partida: \(error.localizedDescription)"
+        }
+    }
+
+    func endTurn() {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de terminar el turno."
+            return
+        }
+
+        send(.endTurn(playerID: localPlayerID))
+    }
+
+    func skipTurn() {
+        send(.skipTurn)
+    }
+
+    private func receive(_ state: GameState) {
+        let previousPlayerID = gameState?.currentPlayerID
+        gameState = state
+        lobby = nil
+
+        // A player without a phone acts from the host's iPhone, so the host follows
+        // the turn to them automatically.
+        if role == .host,
+           let currentPlayerID = state.currentPlayerID,
+           currentPlayerID != previousPlayerID,
+           hostControlledPlayerIDs.contains(currentPlayerID) {
+            localPlayerID = currentPlayerID
+        }
+    }
+
+    private func message(for error: GameRuleError) -> String {
+        switch error {
+        case let .notPlayersTurn(currentPlayerID):
+            let name = gameState?.players.first(where: { $0.id == currentPlayerID })?.name ?? "otro jugador"
+            return "No es tu turno. Ahora juega \(name)."
+        case .onlyHostCanSkipTurn:
+            return "Solo el host puede pasar el turno de otro jugador."
+        default:
+            return "La acción fue rechazada: \(String(describing: error))"
+        }
     }
 
     func buy(propertyID: UUID) {

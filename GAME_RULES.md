@@ -20,9 +20,15 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 - Cada jugador recibe un saldo inicial estándar (definido en configuración de partida, valor por defecto histórico: 15,000 en la unidad de moneda del juego para Ultimate Banking, ajustable).
 - Se define el número de jugadores (2–6 recomendado, ver reglas de proyecto para límites técnicos).
 - Se elige quién es el dispositivo **host/banca** (ver `PROJECT_RULES.md`).
-- Se determina orden de turno (esto ocurre fuera de la app, físicamente, salvo que se decida delegar en la app).
+- **Sala de espera**: el host abre la sala y cada jugador se une desde su iPhone escribiendo su propio nombre. El host puede añadir jugadores sin teléfono, que juegan desde el iPhone del host (el host cambia entre ellos con "Jugando como" y la app lo cambia sola cuando les toca).
+- **Orden de turno**: el orden de la sala; por defecto el de llegada, y el host puede reordenarlo (ej. según los dados físicos) antes de iniciar.
 
 ## 3. Turnos y movimiento
+
+- La partida lleva **rondas y turnos**: empieza en la ronda 1 con el primer jugador de la sala. El jugador en turno pulsa "Terminar turno" y el turno pasa al siguiente jugador activo (los que están en bancarrota se saltan). Al volver al primero empieza una nueva ronda.
+- El host puede pasar el turno de otro jugador (ej. si se olvida o se desconecta). Si el jugador en turno se declara en bancarrota, el turno pasa automáticamente.
+- **Solo en tu turno**: comprar, pagar renta, pagar impuestos, cobrar salario, subastas y pedir préstamos de tarjeta.
+- **En cualquier momento**: hipotecar y deshipotecar, construir y vender construcciones, intercambios, pagar a otros jugadores (ej. cartas que obligan a todos a pagarte), pagar la tarjeta y declararse en bancarrota.
 
 - El movimiento de fichas y el lanzamiento de dados ocurren físicamente en la mesa; la app **no** gestiona el tablero.
 - Al finalizar el movimiento de un jugador, este (o cualquier jugador) reporta a la app en qué casilla cayó, y la app resuelve las consecuencias financieras (pagar renta, comprar propiedad, pagar impuesto, etc.).

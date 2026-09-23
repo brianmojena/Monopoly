@@ -623,6 +623,9 @@ enum GameRules {
             updatedState.players[creditorIndex].propertyIDs.append(contentsOf: transferredPropertyIDs)
         }
 
+        if updatedState.currentPlayerID == playerID {
+            updatedState = advanceTurn(in: updatedState)
+        }
         return updatedState
     }
 
@@ -685,6 +688,46 @@ enum GameRules {
         }
 
         return updatedState
+    }
+
+    // A state without a current player (e.g. built directly in tests) has no turn order,
+    // so nothing is gated by turn.
+    static func requireTurn(in state: GameState, playerID: UUID) throws {
+        guard let currentPlayerID = state.currentPlayerID else {
+            return
+        }
+        guard currentPlayerID == playerID else {
+            throw GameRuleError.notPlayersTurn(currentPlayerID: currentPlayerID)
+        }
+    }
+
+    static func endTurn(in state: GameState, playerID: UUID) throws -> GameState {
+        try requireTurn(in: state, playerID: playerID)
+        return advanceTurn(in: state)
+    }
+
+    // Turn order is the order of `players`; bankrupt players are skipped, and wrapping
+    // past the last player starts a new round.
+    static func advanceTurn(in state: GameState) -> GameState {
+        guard let currentPlayerID = state.currentPlayerID,
+              let currentIndex = state.players.firstIndex(where: { $0.id == currentPlayerID }) else {
+            return state
+        }
+
+        for offset in 1...state.players.count {
+            let nextIndex = (currentIndex + offset) % state.players.count
+            guard state.players[nextIndex].status == .active else {
+                continue
+            }
+
+            var updatedState = state
+            if currentIndex + offset >= state.players.count {
+                updatedState.round += 1
+            }
+            updatedState.currentPlayerID = state.players[nextIndex].id
+            return updatedState
+        }
+        return state
     }
 
     static func rentAmount(

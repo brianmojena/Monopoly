@@ -8,19 +8,23 @@ struct GameBoardView: View {
         Group {
             if let state = model.gameState {
                 List {
+                    turnSection(state)
+
                     if isLocalPlayerActive(in: state) {
-                        Section("Acciones del jugador") {
+                        Section {
                             Button {
                                 amountAction = .tax
                             } label: {
                                 Label("Pagar impuesto", systemImage: "arrow.down.circle")
                             }
+                            .disabled(!model.isLocalPlayersTurn)
 
                             Button {
                                 amountAction = .salary
                             } label: {
                                 Label("Cobrar salario", systemImage: "arrow.up.circle")
                             }
+                            .disabled(!model.isLocalPlayersTurn)
 
                             if model.areCreditCardsEnabled {
                                 NavigationLink {
@@ -47,6 +51,12 @@ struct GameBoardView: View {
                             } label: {
                                 Label("Declararme en bancarrota", systemImage: "exclamationmark.triangle")
                             }
+                        } header: {
+                            Text("Acciones del jugador")
+                        } footer: {
+                            if !model.isLocalPlayersTurn {
+                                Text("Impuestos, salario, compras, rentas, subastas y préstamos se hacen en tu turno. Pagar a otros jugadores, intercambiar, hipotecar y construir se puede en cualquier momento.")
+                            }
                         }
                     }
 
@@ -54,8 +64,16 @@ struct GameBoardView: View {
                         ForEach(state.players) { player in
                             HStack {
                                 VStack(alignment: .leading) {
-                                    Text(player.name)
-                                        .strikethrough(player.status == .bankrupt)
+                                    HStack(spacing: 6) {
+                                        if player.id == state.currentPlayerID {
+                                            Image(systemName: "arrowtriangle.right.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(.tint)
+                                                .accessibilityLabel("Turno actual")
+                                        }
+                                        Text(player.name)
+                                            .strikethrough(player.status == .bankrupt)
+                                    }
                                     if player.id == model.localPlayerID {
                                         Text("Este dispositivo")
                                             .font(.caption)
@@ -141,7 +159,7 @@ struct GameBoardView: View {
                 }
             }
 
-            if property.ownerID == nil, isLocalPlayerActive(in: state) {
+            if property.ownerID == nil, isLocalPlayerActive(in: state), model.isLocalPlayersTurn {
                 Button("Comprar") {
                     model.buy(propertyID: property.id)
                 }
@@ -150,6 +168,48 @@ struct GameBoardView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func turnSection(_ state: GameState) -> some View {
+        if let currentPlayer = model.currentPlayer {
+            Section("Ronda \(state.round)") {
+                if model.controllablePlayers.count > 1 {
+                    Picker("Jugando como", selection: Binding(
+                        get: { model.localPlayerID },
+                        set: { playerID in
+                            if let playerID {
+                                model.selectPlayer(playerID)
+                            }
+                        }
+                    )) {
+                        ForEach(model.controllablePlayers) { player in
+                            Text(player.name).tag(Optional(player.id))
+                        }
+                    }
+                }
+
+                if model.isLocalPlayersTurn {
+                    Label("Es tu turno", systemImage: "person.fill.checkmark")
+                        .font(.headline)
+                    Button {
+                        model.endTurn()
+                    } label: {
+                        Text("Terminar turno")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else {
+                    Label("Turno de \(currentPlayer.name)", systemImage: "hourglass")
+                        .font(.headline)
+                    if model.role == .host {
+                        Button("Pasar el turno de \(currentPlayer.name)") {
+                            model.skipTurn()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func ownerName(for property: Property, state: GameState) -> String {

@@ -32,6 +32,8 @@ enum GameRuleError: Error, Equatable, Codable {
     case invalidInstallments(Int)
     case creditCardLoanNotFound(UUID)
     case noPostponementsLeft(UUID)
+    case notPlayersTurn(currentPlayerID: UUID)
+    case onlyHostCanSkipTurn
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -80,6 +82,8 @@ enum GameRuleError: Error, Equatable, Codable {
         case invalidInstallments
         case creditCardLoanNotFound
         case noPostponementsLeft
+        case notPlayersTurn
+        case onlyHostCanSkipTurn
     }
 
     init(from decoder: Decoder) throws {
@@ -162,6 +166,10 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .creditCardLoanNotFound(try container.decode(UUID.self, forKey: .loanID))
         case .noPostponementsLeft:
             self = .noPostponementsLeft(try container.decode(UUID.self, forKey: .loanID))
+        case .notPlayersTurn:
+            self = .notPlayersTurn(currentPlayerID: try container.decode(UUID.self, forKey: .playerID))
+        case .onlyHostCanSkipTurn:
+            self = .onlyHostCanSkipTurn
         }
     }
 
@@ -262,6 +270,11 @@ enum GameRuleError: Error, Equatable, Codable {
         case let .noPostponementsLeft(loanID):
             try container.encode(Code.noPostponementsLeft, forKey: .code)
             try container.encode(loanID, forKey: .loanID)
+        case let .notPlayersTurn(currentPlayerID):
+            try container.encode(Code.notPlayersTurn, forKey: .code)
+            try container.encode(currentPlayerID, forKey: .playerID)
+        case .onlyHostCanSkipTurn:
+            try container.encode(Code.onlyHostCanSkipTurn, forKey: .code)
         }
     }
 }

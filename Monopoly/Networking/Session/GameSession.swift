@@ -4,6 +4,8 @@ enum GameSessionError: Error, Equatable {
     case hostCannotSubmitIntent
     case hostNotConnected
     case hostRequiresInitialState
+    case onlyHostCanManageLobby
+    case gameAlreadyStarted
 }
 
 final class GameSession {
@@ -25,6 +27,9 @@ final class GameSession {
     private var connectedPeerIDs: Set<PeerID> = []
     private var discoveredHostPeerID: PeerID?
     private var _gameState: GameState?
+    private var _lobby: Lobby?
+    private var lobbyPlayerIDsByPeer: [PeerID: Set<UUID>] = [:]
+    private let lobbyPlayer: LobbyPlayer?
     private var _lastIntentRejection: GameRuleError?
 
     var gameState: GameState? {
@@ -39,20 +44,30 @@ final class GameSession {
         gameState
     }
 
+    var lobby: Lobby? {
+        stateQueue.sync { return _lobby }
+    }
+
     var onStateChanged: ((GameState) -> Void)?
     var onIntentRejected: ((GameRuleError) -> Void)?
     var onTransportError: ((Error) -> Void)?
     var onProximitySignal: ((ProximitySignal) -> Void)?
+    var onLobbyChanged: ((Lobby) -> Void)?
 
+    /// A host starts either with a running game (`initialState`) or with a `lobby`
+    /// that players join before `startGame`. A client passes `lobbyPlayer` to join
+    /// the host's lobby as soon as it connects.
     init(
         transport: GameTransport,
         role: Role,
         initialState: GameState? = nil,
+        lobby: Lobby? = nil,
+        lobbyPlayer: LobbyPlayer? = nil,
         hostPeerID: PeerID? = nil,
         encoder: JSONEncoder = JSONEncoder(),
         decoder: JSONDecoder = JSONDecoder()
     ) {
-        if case .host = role, initialState == nil {
+        if case .host = role, initialState == nil, lobby == nil {
             preconditionFailure(GameSessionError.hostRequiresInitialState.localizedDescription)
         }
 
@@ -62,6 +77,8 @@ final class GameSession {
         self.decoder = decoder
         self.configuredHostPeerID = hostPeerID
         self._gameState = initialState
+        self._lobby = initialState == nil ? lobby : nil
+        self.lobbyPlayer = lobbyPlayer
         self.discoveredHostPeerID = hostPeerID
 
         transport.onDataReceived = { [weak self] data, peerID in
@@ -115,7 +132,7 @@ final class GameSession {
             }
 
             do {
-                let updatedState = try apply(intent, submittedBy: playerID, in: state)
+                let updatedState = try apply(intent, submittedBy: playerID, isHost: true, in: state)
                 _gameState = updatedState
                 return .success(updatedState)
             } catch let error as GameRuleError {
@@ -133,6 +150,37 @@ final class GameSession {
         case let .failure(error):
             onIntentRejected?(error)
         }
+    }
+
+    func updateLobby(_ lobby: Lobby) throws {
+        guard case .host = role else {
+            throw GameSessionError.onlyHostCanManageLobby
+        }
+        try stateQueue.sync {
+            guard _gameState == nil else {
+                throw GameSessionError.gameAlreadyStarted
+            }
+            _lobby = lobby
+        }
+
+        onLobbyChanged?(lobby)
+        try transport.broadcast(data: try encoder.encode(NetworkMessage.lobbySnapshot(lobby)))
+    }
+
+    func startGame(with state: GameState) throws {
+        guard case .host = role else {
+            throw GameSessionError.onlyHostCanManageLobby
+        }
+        try stateQueue.sync {
+            guard _gameState == nil else {
+                throw GameSessionError.gameAlreadyStarted
+            }
+            _gameState = state
+            _lobby = nil
+        }
+
+        onStateChanged?(state)
+        try transport.broadcast(data: try encoder.encode(NetworkMessage.stateSnapshot(state)))
     }
 
     // Clients only hold a connection to the host, so proximity signals between
@@ -154,31 +202,59 @@ final class GameSession {
     }
 
     private func peerConnected(_ peerID: PeerID) {
-        stateQueue.sync {
+        let (state, lobby, hostPeerID) = stateQueue.sync {
             connectedPeerIDs.insert(peerID)
             if case .client = role, discoveredHostPeerID == nil {
                 discoveredHostPeerID = peerID
             }
-        }
-
-        guard case .host = role, let state = gameState else {
-            return
+            return (_gameState, _lobby, configuredHostPeerID ?? discoveredHostPeerID)
         }
 
         do {
-            let snapshot = try encoder.encode(NetworkMessage.stateSnapshot(state))
-            try transport.send(data: snapshot, to: peerID)
+            switch role {
+            case .host:
+                if let state {
+                    try transport.send(data: try encoder.encode(NetworkMessage.stateSnapshot(state)), to: peerID)
+                } else if let lobby {
+                    try transport.send(data: try encoder.encode(NetworkMessage.lobbySnapshot(lobby)), to: peerID)
+                }
+            case .client:
+                if let lobbyPlayer, peerID == hostPeerID {
+                    try transport.send(data: try encoder.encode(NetworkMessage.joinLobby(lobbyPlayer)), to: peerID)
+                }
+            }
         } catch {
             onTransportError?(error)
         }
     }
 
     private func peerDisconnected(_ peerID: PeerID) {
-        stateQueue.sync {
+        let updatedLobby: Lobby? = stateQueue.sync {
             connectedPeerIDs.remove(peerID)
             if discoveredHostPeerID == peerID {
                 discoveredHostPeerID = nil
             }
+
+            // Only a lobby drops players who leave; once the game started their
+            // player stays so they can rejoin and pick it again.
+            guard case .host = role,
+                  var lobby = _lobby,
+                  let playerIDs = lobbyPlayerIDsByPeer.removeValue(forKey: peerID) else {
+                return nil
+            }
+            lobby.players.removeAll { playerIDs.contains($0.id) }
+            _lobby = lobby
+            return lobby
+        }
+
+        guard let updatedLobby else {
+            return
+        }
+        onLobbyChanged?(updatedLobby)
+        do {
+            try transport.broadcast(data: try encoder.encode(NetworkMessage.lobbySnapshot(updatedLobby)))
+        } catch {
+            onTransportError?(error)
         }
     }
 
@@ -202,6 +278,10 @@ final class GameSession {
             try transport.broadcast(data: try encoder.encode(message))
             return
         }
+        if case let .joinLobby(player) = message {
+            try handleJoinLobby(player, from: peerID)
+            return
+        }
         guard case let .intent(playerID, intent) = message else {
             return
         }
@@ -214,7 +294,7 @@ final class GameSession {
                 return .failure(.playerNotFound(playerID))
             }
             do {
-                let updatedState = try apply(intent, submittedBy: playerID, in: state)
+                let updatedState = try apply(intent, submittedBy: playerID, isHost: false, in: state)
                 _gameState = updatedState
                 return .success(updatedState)
             } catch let error as GameRuleError {
@@ -244,24 +324,57 @@ final class GameSession {
         case let .stateSnapshot(state):
             stateQueue.sync {
                 _gameState = state
+                _lobby = nil
                 _lastIntentRejection = nil
             }
             onStateChanged?(state)
+        case let .lobbySnapshot(lobby):
+            stateQueue.sync { _lobby = lobby }
+            onLobbyChanged?(lobby)
         case let .intentRejected(error):
             stateQueue.sync { _lastIntentRejection = error }
             onIntentRejected?(error)
         case let .proximitySignal(signal):
             onProximitySignal?(signal)
-        case .intent:
+        case .intent, .joinLobby:
             break
         }
+    }
+
+    private func handleJoinLobby(_ player: LobbyPlayer, from peerID: PeerID) throws {
+        let updatedLobby: Lobby? = stateQueue.sync {
+            guard var lobby = _lobby else {
+                return nil
+            }
+
+            let remotePlayer = LobbyPlayer(id: player.id, name: player.name, isHostControlled: false)
+            if let index = lobby.players.firstIndex(where: { $0.id == player.id }) {
+                lobby.players[index] = remotePlayer
+            } else {
+                lobby.players.append(remotePlayer)
+            }
+            lobbyPlayerIDsByPeer[peerID, default: []].insert(player.id)
+            _lobby = lobby
+            return lobby
+        }
+
+        guard let updatedLobby else {
+            return
+        }
+        onLobbyChanged?(updatedLobby)
+        try transport.broadcast(data: try encoder.encode(NetworkMessage.lobbySnapshot(updatedLobby)))
     }
 
     private func apply(
         _ intent: GameIntent,
         submittedBy playerID: UUID,
+        isHost: Bool,
         in state: GameState
     ) throws -> GameState {
+        if intent.requiresTurn {
+            try GameRules.requireTurn(in: state, playerID: playerID)
+        }
+
         switch intent {
         case let .buyProperty(_, propertyID):
             return try GameRules.buyProperty(in: state, playerID: playerID, propertyID: propertyID)
@@ -311,6 +424,13 @@ final class GameSession {
             )
         case let .payCreditCard(_, loanID, amount):
             return try GameRules.payCreditCard(in: state, playerID: playerID, loanID: loanID, amount: amount)
+        case .endTurn:
+            return try GameRules.endTurn(in: state, playerID: playerID)
+        case .skipTurn:
+            guard isHost else {
+                throw GameRuleError.onlyHostCanSkipTurn
+            }
+            return GameRules.advanceTurn(in: state)
         }
     }
 }

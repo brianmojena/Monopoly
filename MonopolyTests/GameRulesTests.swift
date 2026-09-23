@@ -833,6 +833,79 @@ final class GameRulesTests: XCTestCase {
         XCTAssertTrue(result.players[0].creditCardLoans.isEmpty)
     }
 
+    func testEndTurnPassesToNextPlayerAndStartsNewRoundAfterLast() throws {
+        let ana = Player(name: "Ana", balance: 100)
+        let luis = Player(name: "Luis", balance: 100)
+        let state = GameState(players: [ana, luis], properties: [], currentPlayerID: ana.id)
+
+        let afterAna = try GameRules.endTurn(in: state, playerID: ana.id)
+        let afterLuis = try GameRules.endTurn(in: afterAna, playerID: luis.id)
+
+        XCTAssertEqual(afterAna.currentPlayerID, luis.id)
+        XCTAssertEqual(afterAna.round, 1)
+        XCTAssertEqual(afterLuis.currentPlayerID, ana.id)
+        XCTAssertEqual(afterLuis.round, 2)
+    }
+
+    func testEndTurnSkipsBankruptPlayers() throws {
+        let ana = Player(name: "Ana", balance: 100)
+        let bankrupt = Player(name: "Luis", balance: 0, status: .bankrupt)
+        let eva = Player(name: "Eva", balance: 100)
+        let state = GameState(players: [ana, bankrupt, eva], properties: [], currentPlayerID: ana.id)
+
+        let result = try GameRules.endTurn(in: state, playerID: ana.id)
+
+        XCTAssertEqual(result.currentPlayerID, eva.id)
+    }
+
+    func testEndTurnFailsWhenItIsNotThePlayersTurn() {
+        let ana = Player(name: "Ana", balance: 100)
+        let luis = Player(name: "Luis", balance: 100)
+        let state = GameState(players: [ana, luis], properties: [], currentPlayerID: ana.id)
+
+        XCTAssertThrowsError(try GameRules.endTurn(in: state, playerID: luis.id)) { error in
+            XCTAssertEqual(error as? GameRuleError, .notPlayersTurn(currentPlayerID: ana.id))
+        }
+    }
+
+    func testDeclareBankruptcyOnYourTurnPassesTheTurn() throws {
+        let ana = Player(name: "Ana", balance: 100)
+        let luis = Player(name: "Luis", balance: 100)
+        let state = GameState(players: [ana, luis], properties: [], currentPlayerID: ana.id)
+
+        let result = try GameRules.declareBankruptcy(in: state, playerID: ana.id, creditor: .bank)
+
+        XCTAssertEqual(result.currentPlayerID, luis.id)
+    }
+
+    func testLobbyBuildsGameStateInLobbyOrderStartingWithFirstPlayer() {
+        let luis = LobbyPlayer(name: " Luis ", isHostControlled: false)
+        let ana = LobbyPlayer(name: "Ana", isHostControlled: true)
+        let lobby = Lobby(players: [luis, ana], creditCardsEnabled: false, proximityPaymentsEnabled: true)
+
+        let state = lobby.makeGameState(initialBalance: 1500, properties: [])
+
+        XCTAssertEqual(state.players.map(\.id), [luis.id, ana.id])
+        XCTAssertEqual(state.players[0].name, "Luis")
+        XCTAssertEqual(state.currentPlayerID, luis.id)
+        XCTAssertEqual(state.round, 1)
+        XCTAssertEqual(state.activeHouseRules, [])
+        XCTAssertTrue(state.proximityPaymentsEnabled)
+    }
+
+    func testLobbyRequiresTwoToEightNamedPlayers() {
+        XCTAssertFalse(Lobby(players: [LobbyPlayer(name: "Ana", isHostControlled: true)]).canStart)
+        XCTAssertFalse(Lobby(players: [
+            LobbyPlayer(name: "Ana", isHostControlled: true),
+            LobbyPlayer(name: "  ", isHostControlled: false)
+        ]).canStart)
+        XCTAssertTrue(Lobby(players: [
+            LobbyPlayer(name: "Ana", isHostControlled: true),
+            LobbyPlayer(name: "Luis", isHostControlled: false)
+        ]).canStart)
+        XCTAssertFalse(Lobby(players: (1...9).map { LobbyPlayer(name: "J\($0)", isHostControlled: true) }).canStart)
+    }
+
     func testExecuteTradeExchangesPropertyForMoney() throws {
         let property = Property(
             name: "Ana's Property",
@@ -1011,7 +1084,9 @@ final class NetworkingTests: XCTestCase {
             .transferMoney(payerID: playerID, recipientID: otherPlayerID, amount: 50),
             .borrowOnCreditCard(playerID: playerID, amount: 300, installments: 4),
             .payCreditCard(playerID: playerID, loanID: UUID(), amount: 100),
-            .collectSalary(playerID: playerID, amount: 200, postponedLoanIDs: [UUID()])
+            .collectSalary(playerID: playerID, amount: 200, postponedLoanIDs: [UUID()]),
+            .endTurn(playerID: playerID),
+            .skipTurn
         ]
 
         for intent in intents {
@@ -1046,6 +1121,10 @@ final class NetworkingTests: XCTestCase {
             .intentRejected(.creditLimitExceeded(requested: 600, available: 500)),
             .intentRejected(.invalidInstallments(6)),
             .intentRejected(.noPostponementsLeft(UUID())),
+            .intentRejected(.notPlayersTurn(currentPlayerID: playerID)),
+            .intentRejected(.onlyHostCanSkipTurn),
+            .lobbySnapshot(Lobby(players: [LobbyPlayer(name: "Ana", isHostControlled: true)])),
+            .joinLobby(LobbyPlayer(name: "Luis", isHostControlled: false)),
             .proximitySignal(ProximitySignal(
                 sessionID: UUID(),
                 kind: .invite,
@@ -1239,6 +1318,97 @@ extension NetworkingTests {
         XCTAssertEqual(clientSignals, [signal])
     }
 
+    func testGameSessionRejectsTurnActionFromPlayerWhoseTurnItIsNot() throws {
+        let ana = Player(name: "Ana", balance: 200)
+        let luis = Player(name: "Luis", balance: 200)
+        let initialState = GameState(players: [ana, luis], properties: [], currentPlayerID: ana.id)
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: initialState)
+        let client = GameSession(transport: clientTransport, role: .client, hostPeerID: hostTransport.localPeerID)
+        var rejection: GameRuleError?
+        client.onIntentRejected = { rejection = $0 }
+        hostTransport.connect(to: clientTransport)
+
+        try client.submit(intent: .collectSalary(playerID: luis.id, amount: 200), playerID: luis.id)
+
+        XCTAssertEqual(rejection, .notPlayersTurn(currentPlayerID: ana.id))
+        XCTAssertEqual(host.gameState?.players[1].balance, 200)
+    }
+
+    func testGameSessionAllowsOutOfTurnTransfer() throws {
+        let ana = Player(name: "Ana", balance: 200)
+        let luis = Player(name: "Luis", balance: 200)
+        let initialState = GameState(players: [ana, luis], properties: [], currentPlayerID: ana.id)
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: initialState)
+        let client = GameSession(transport: clientTransport, role: .client, hostPeerID: hostTransport.localPeerID)
+        hostTransport.connect(to: clientTransport)
+
+        try client.submit(intent: .transferMoney(payerID: luis.id, recipientID: ana.id, amount: 50), playerID: luis.id)
+
+        XCTAssertEqual(host.gameState?.players[0].balance, 250)
+    }
+
+    func testOnlyHostCanSkipAnotherPlayersTurn() throws {
+        let ana = Player(name: "Ana", balance: 200)
+        let luis = Player(name: "Luis", balance: 200)
+        let initialState = GameState(players: [ana, luis], properties: [], currentPlayerID: ana.id)
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: initialState)
+        let client = GameSession(transport: clientTransport, role: .client, hostPeerID: hostTransport.localPeerID)
+        var rejection: GameRuleError?
+        client.onIntentRejected = { rejection = $0 }
+        hostTransport.connect(to: clientTransport)
+
+        try client.submit(intent: .skipTurn, playerID: luis.id)
+        XCTAssertEqual(rejection, .onlyHostCanSkipTurn)
+        XCTAssertEqual(host.gameState?.currentPlayerID, ana.id)
+
+        try host.submitLocal(intent: .skipTurn, playerID: luis.id)
+        XCTAssertEqual(host.gameState?.currentPlayerID, luis.id)
+    }
+
+    func testClientJoinsHostLobbyWithItsNameAndLeavesOnDisconnect() throws {
+        let hostPlayer = LobbyPlayer(name: "Brian", isHostControlled: true)
+        let joiningPlayer = LobbyPlayer(name: "Luis", isHostControlled: false)
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, lobby: Lobby(players: [hostPlayer]))
+        let client = GameSession(transport: clientTransport, role: .client, lobbyPlayer: joiningPlayer)
+
+        hostTransport.connect(to: clientTransport)
+
+        XCTAssertEqual(host.lobby?.players, [hostPlayer, joiningPlayer])
+        XCTAssertEqual(client.lobby?.players, [hostPlayer, joiningPlayer])
+
+        hostTransport.disconnect(from: clientTransport)
+
+        XCTAssertEqual(host.lobby?.players, [hostPlayer])
+    }
+
+    func testHostStartGameSendsStateToLobbyClients() throws {
+        let hostPlayer = LobbyPlayer(name: "Brian", isHostControlled: true)
+        let joiningPlayer = LobbyPlayer(name: "Luis", isHostControlled: false)
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, lobby: Lobby(players: [hostPlayer]))
+        let client = GameSession(transport: clientTransport, role: .client, lobbyPlayer: joiningPlayer)
+        hostTransport.connect(to: clientTransport)
+        let state = try XCTUnwrap(host.lobby).makeGameState(initialBalance: 1500, properties: [])
+
+        try host.startGame(with: state)
+
+        XCTAssertEqual(client.gameState, state)
+        XCTAssertNil(client.lobby)
+        XCTAssertNil(host.lobby)
+        XCTAssertThrowsError(try host.updateLobby(Lobby())) { error in
+            XCTAssertEqual(error as? GameSessionError, .gameAlreadyStarted)
+        }
+    }
+
     func testGameStateDisablesProximityPaymentsByDefault() {
         XCTAssertFalse(GameState(players: [], properties: []).proximityPaymentsEnabled)
     }
@@ -1280,6 +1450,13 @@ private final class InMemoryGameTransport: GameTransport {
         for destination in peers.values {
             destination.onDataReceived?(data, localPeerID)
         }
+    }
+
+    func disconnect(from other: InMemoryGameTransport) {
+        peers[other.localPeerID] = nil
+        other.peers[localPeerID] = nil
+        onPeerDisconnected?(other.localPeerID)
+        other.onPeerDisconnected?(localPeerID)
     }
 
     func startHosting() {

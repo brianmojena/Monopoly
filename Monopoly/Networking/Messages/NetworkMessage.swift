@@ -5,6 +5,8 @@ enum NetworkMessage: Codable, Equatable {
     case stateSnapshot(GameState)
     case intentRejected(GameRuleError)
     case proximitySignal(ProximitySignal)
+    case lobbySnapshot(Lobby)
+    case joinLobby(LobbyPlayer)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -13,6 +15,8 @@ enum NetworkMessage: Codable, Equatable {
         case state
         case error
         case signal
+        case lobby
+        case player
     }
 
     private enum MessageType: String, Codable {
@@ -20,6 +24,8 @@ enum NetworkMessage: Codable, Equatable {
         case stateSnapshot
         case intentRejected
         case proximitySignal
+        case lobbySnapshot
+        case joinLobby
     }
 
     init(from decoder: Decoder) throws {
@@ -38,6 +44,10 @@ enum NetworkMessage: Codable, Equatable {
             self = .intentRejected(try container.decode(GameRuleError.self, forKey: .error))
         case .proximitySignal:
             self = .proximitySignal(try container.decode(ProximitySignal.self, forKey: .signal))
+        case .lobbySnapshot:
+            self = .lobbySnapshot(try container.decode(Lobby.self, forKey: .lobby))
+        case .joinLobby:
+            self = .joinLobby(try container.decode(LobbyPlayer.self, forKey: .player))
         }
     }
 
@@ -58,6 +68,12 @@ enum NetworkMessage: Codable, Equatable {
         case let .proximitySignal(signal):
             try container.encode(MessageType.proximitySignal, forKey: .type)
             try container.encode(signal, forKey: .signal)
+        case let .lobbySnapshot(lobby):
+            try container.encode(MessageType.lobbySnapshot, forKey: .type)
+            try container.encode(lobby, forKey: .lobby)
+        case let .joinLobby(player):
+            try container.encode(MessageType.joinLobby, forKey: .type)
+            try container.encode(player, forKey: .player)
         }
     }
 }

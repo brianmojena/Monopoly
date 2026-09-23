@@ -62,11 +62,11 @@ struct CreditCardView: View {
                 loanText = ""
             }
             .buttonStyle(.borderedProminent)
-            .disabled(amount(from: loanText).map { $0 > availableCredit } ?? true)
+            .disabled(!model.isLocalPlayersTurn || (amount(from: loanText).map { $0 > availableCredit } ?? true))
         } header: {
             Text("Pedir préstamo")
         } footer: {
-            Text(loanFooter)
+            Text(model.isLocalPlayersTurn ? loanFooter : "Los préstamos se piden en tu turno. " + loanFooter)
         }
     }
 

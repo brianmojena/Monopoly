@@ -1,63 +1,88 @@
 import SwiftUI
 
 struct HostSetupView: View {
-    @State private var playerNames = ["Jugador 1"]
-    @State private var hostPlayerIndex = 0
-    @State private var proximityPaymentsEnabled = false
-    @State private var creditCardsEnabled = true
-    @State private var gameModel: GameSessionModel?
+    @StateObject private var model: GameSessionModel
+    @State private var manualPlayerName = ""
     @State private var isGameStarted = false
 
-    private var canStart: Bool {
-        playerNames.count >= 2 && playerNames.allSatisfy { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    // SwiftUI builds this view as soon as the start screen renders; creating the
+    // session inside the StateObject autoclosure defers advertising until the lobby
+    // is actually shown, and does it only once.
+    init() {
+        _model = StateObject(wrappedValue: Self.makeModel())
+    }
+
+    private static func makeModel() -> GameSessionModel {
+        let hostPlayer = LobbyPlayer(name: "", isHostControlled: true)
+        let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
+        let session = GameSession(transport: transport, role: .host, lobby: Lobby(players: [hostPlayer]))
+        return GameSessionModel(session: session, role: .host, localPlayerID: hostPlayer.id)
+    }
+
+    private var hostPlayerID: UUID? {
+        model.ownPlayerID
     }
 
     var body: some View {
-        List {
-            Section {
-                ForEach(Array(playerNames.enumerated()), id: \.offset) { index, _ in
-                    HStack {
-                        TextField(
-                            "Nombre del jugador",
-                            text: Binding(
-                                get: { playerNames[index] },
-                                set: { playerNames[index] = $0 }
-                            )
-                        )
+        Group {
+            if let lobby = model.lobby {
+                lobbyList(lobby)
+            } else {
+                ProgressView("Iniciando partida…")
+            }
+        }
+        .navigationTitle("Sala de espera")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            EditButton()
+        }
+#endif
+        .navigationDestination(isPresented: $isGameStarted) {
+            GameBoardView(model: model)
+        }
+    }
 
-                        Button {
-                            removePlayer(at: index)
-                        } label: {
-                            Image(systemName: "minus.circle")
-                                .foregroundStyle(.red)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Quitar jugador")
+    private func lobbyList(_ lobby: Lobby) -> some View {
+        List {
+            Section("Tu nombre") {
+                if let hostPlayerID {
+                    TextField("Tu nombre", text: nameBinding(for: hostPlayerID))
+                }
+            }
+
+            Section {
+                ForEach(Array(lobby.players.enumerated()), id: \.element.id) { index, player in
+                    playerRow(player, turn: index + 1)
+                }
+                .onMove { source, destination in
+                    model.updateLobby { $0.players.move(fromOffsets: source, toOffset: destination) }
+                }
+                .onDelete { offsets in
+                    model.updateLobby { lobby in
+                        let removableIDs = offsets
+                            .map { lobby.players[$0] }
+                            .filter { $0.isHostControlled && $0.id != hostPlayerID }
+                            .map(\.id)
+                        lobby.players.removeAll { removableIDs.contains($0.id) }
                     }
                 }
 
-                Button {
-                    playerNames.append("Jugador \(playerNames.count + 1)")
-                } label: {
-                    Label("Añadir jugador", systemImage: "plus.circle")
+                HStack {
+                    TextField("Jugador sin teléfono", text: $manualPlayerName)
+                    Button("Añadir") {
+                        addManualPlayer()
+                    }
+                    .disabled(manualPlayerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             } header: {
-                Text("Jugadores")
+                Text("Jugadores (\(lobby.players.count))")
             } footer: {
-                Text("Añade al menos dos jugadores, incluido tú.")
-            }
-
-            Section("Este dispositivo") {
-                Picker("Mi jugador", selection: $hostPlayerIndex) {
-                    ForEach(playerNames.indices, id: \.self) { index in
-                        Text(playerNames[index].isEmpty ? "Sin nombre" : playerNames[index])
-                            .tag(index)
-                    }
-                }
+                Text("Los demás entran con \"Unirse a partida\" en su iPhone y escriben su nombre. Si alguien no tiene teléfono, añádelo aquí: jugará desde este iPhone. Pulsa Editar para ordenar los turnos o quitar jugadores sin teléfono.")
             }
 
             Section {
-                Toggle(isOn: $creditCardsEnabled) {
+                Toggle(isOn: lobbyToggle(\.creditCardsEnabled)) {
                     Label("Tarjetas de crédito", systemImage: "creditcard")
                 }
             } header: {
@@ -67,7 +92,7 @@ struct HostSetupView: View {
             }
 
             Section {
-                Toggle(isOn: $proximityPaymentsEnabled) {
+                Toggle(isOn: lobbyToggle(\.proximityPaymentsEnabled)) {
                     Label("Pagar acercando iPhones", systemImage: "wave.3.right")
                 }
             } header: {
@@ -78,65 +103,69 @@ struct HostSetupView: View {
 
             Section {
                 Button("Iniciar partida") {
-                    startGame()
+                    model.startGame()
+                    isGameStarted = true
                 }
-                .disabled(!canStart)
+                .disabled(!lobby.canStart)
             } footer: {
-                Text("El saldo inicial de $\(GameSessionModel.placeholderInitialBalance) es un placeholder para este walking skeleton.")
+                Text("Hacen falta de \(Lobby.playerLimit.lowerBound) a \(Lobby.playerLimit.upperBound) jugadores, todos con nombre. El saldo inicial de $\(GameSessionModel.placeholderInitialBalance) es un placeholder.")
             }
         }
-        .navigationTitle("Alojar partida")
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
-        .navigationDestination(isPresented: $isGameStarted) {
-            gameDestination
-        }
     }
 
-    @ViewBuilder
-    private var gameDestination: some View {
-        if let gameModel {
-            GameBoardView(model: gameModel)
-        } else {
-            EmptyView()
+    private func playerRow(_ player: LobbyPlayer, turn: Int) -> some View {
+        HStack {
+            Text("\(turn).")
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+            VStack(alignment: .leading) {
+                Text(player.name.isEmpty ? "Sin nombre" : player.name)
+                    .foregroundStyle(player.name.isEmpty ? .secondary : .primary)
+                Text(playerDescription(player))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .deleteDisabled(!player.isHostControlled || player.id == hostPlayerID)
     }
 
-    private func removePlayer(at index: Int) {
-        guard playerNames.count > 1 else {
+    private func playerDescription(_ player: LobbyPlayer) -> String {
+        if player.id == hostPlayerID {
+            return "Tú (host)"
+        }
+        return player.isHostControlled ? "Sin teléfono · juega en este iPhone" : "Conectado desde su iPhone"
+    }
+
+    private func nameBinding(for playerID: UUID) -> Binding<String> {
+        Binding(
+            get: { model.lobby?.players.first(where: { $0.id == playerID })?.name ?? "" },
+            set: { name in
+                model.updateLobby { lobby in
+                    guard let index = lobby.players.firstIndex(where: { $0.id == playerID }) else {
+                        return
+                    }
+                    lobby.players[index].name = name
+                }
+            }
+        )
+    }
+
+    private func lobbyToggle(_ keyPath: WritableKeyPath<Lobby, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { model.lobby?[keyPath: keyPath] ?? false },
+            set: { value in
+                model.updateLobby { $0[keyPath: keyPath] = value }
+            }
+        )
+    }
+
+    private func addManualPlayer() {
+        let name = manualPlayerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
             return
         }
-
-        playerNames.remove(at: index)
-        hostPlayerIndex = min(hostPlayerIndex, playerNames.count - 1)
-    }
-
-    private func startGame() {
-        guard canStart else {
-            return
-        }
-
-        let players = playerNames.map { name in
-            Player(
-                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                balance: GameSessionModel.placeholderInitialBalance
-            )
-        }
-        let initialState = GameState(
-            players: players,
-            properties: PlaceholderProperties.all,
-            activeHouseRules: creditCardsEnabled ? [.creditCards] : [],
-            proximityPaymentsEnabled: proximityPaymentsEnabled
-        )
-        let transport = MultipeerGameTransport(displayName: "Monopoly-\(UUID().uuidString.prefix(8))")
-        let session = GameSession(transport: transport, role: .host, initialState: initialState)
-        gameModel = GameSessionModel(
-            session: session,
-            role: .host,
-            localPlayerID: players[hostPlayerIndex].id
-        )
-        isGameStarted = true
+        model.updateLobby { $0.players.append(LobbyPlayer(name: name, isHostControlled: true)) }
+        manualPlayerName = ""
     }
 }
 
