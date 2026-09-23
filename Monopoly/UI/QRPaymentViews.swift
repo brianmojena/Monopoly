@@ -199,14 +199,18 @@ struct PayWithQRView: View {
     @State private var scanned: QRPaymentRequest?
     @State private var scanError: String?
     @State private var amountText = ""
+    @State private var paidMessage: String?
 
     var body: some View {
         Group {
             if let state = model.gameState, let payerID = model.localPlayerID {
                 VStack(spacing: 0) {
-                    if let scanned {
+                    if let paidMessage {
+                        paidView(paidMessage)
+                    } else if let scanned {
                         confirmation(for: scanned.preview(in: state, payerID: payerID))
                     } else {
+                        amountBar
                         scanner
                     }
                 }
@@ -219,6 +223,75 @@ struct PayWithQRView: View {
         .navigationBarTitleDisplayMode(.inline)
 #endif
         .sensoryFeedback(.selection, trigger: scanned)
+        .sensoryFeedback(.success, trigger: paidMessage) { _, message in
+            message != nil
+        }
+    }
+
+    /// For QR codes without an amount: typed before scanning, the payment still goes
+    /// through the moment the code is read.
+    private var amountBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "dollarsign.circle")
+                .foregroundStyle(.secondary)
+            TextField("Monto, si el QR no trae uno", text: $amountText)
+#if os(iOS)
+                .keyboardType(.numberPad)
+#endif
+        }
+        .font(.app(.subheadline))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.regularMaterial)
+    }
+
+    /// Pays right away when the QR says everything needed; otherwise shows why not,
+    /// or asks for the amount.
+    private func handleScan(_ request: QRPaymentRequest) {
+        guard let state = model.gameState, let payerID = model.localPlayerID else {
+            return
+        }
+        switch request.preview(in: state, payerID: payerID) {
+        case let .success(.rent(propertyID, propertyName, amount)):
+            model.payRent(propertyID: propertyID)
+            paidMessage = "Pagaste $\(amount) de renta de \(propertyName)"
+        case let .success(.transfer(recipientID, recipientName, fixedAmount)):
+            guard let amount = fixedAmount ?? typedAmount else {
+                scanned = request
+                return
+            }
+            model.transfer(to: recipientID, amount: amount)
+            paidMessage = "Pagaste $\(amount) a \(recipientName)"
+        case .failure:
+            scanned = request
+        }
+    }
+
+    private func paidView(_ message: String) -> some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "checkmark.circle.fill")
+                .font(.app(size: 72))
+                .foregroundStyle(.green)
+            Text(message)
+                .font(.app(.title3, weight: .bold))
+                .multilineTextAlignment(.center)
+            Spacer()
+            Button {
+                dismiss()
+            } label: {
+                Text("Listo")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            Button("Pagar otro QR") {
+                paidMessage = nil
+                scanned = nil
+                amountText = ""
+            }
+        }
+        .padding(24)
     }
 
     @ViewBuilder
@@ -231,7 +304,7 @@ struct PayWithQRView: View {
                     return
                 }
                 scanError = nil
-                scanned = request
+                handleScan(request)
             } onFailure: { failure in
                 scanError = failure.message
             }
@@ -243,7 +316,7 @@ struct PayWithQRView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .allowsHitTesting(false)
 
-            Text(scanError ?? "Apunta al QR de quien cobra")
+            Text(scanError ?? "Apunta al QR de quien cobra: el pago se hace solo")
                 .font(.app(.subheadline, weight: .semibold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -265,7 +338,7 @@ struct PayWithQRView: View {
                     LabeledContent("A pagar", value: "$\(amount)")
                     Button {
                         model.payRent(propertyID: propertyID)
-                        dismiss()
+                        paidMessage = "Pagaste $\(amount) de renta de \(propertyName)"
                     } label: {
                         Text("Pagar $\(amount)")
                             .frame(maxWidth: .infinity)
@@ -290,7 +363,7 @@ struct PayWithQRView: View {
                     Button {
                         if let amount {
                             model.transfer(to: recipientID, amount: amount)
-                            dismiss()
+                            paidMessage = "Pagaste $\(amount) a \(recipientName)"
                         }
                     } label: {
                         Text(amount.map { "Pagar $\($0)" } ?? "Pagar")

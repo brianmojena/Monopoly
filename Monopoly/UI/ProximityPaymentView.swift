@@ -20,6 +20,7 @@ struct ProximityPaymentView: View {
     @ObservedObject var model: GameSessionModel
     @ObservedObject private var proximity: ProximityPaymentCoordinator
     @Environment(\.dismiss) private var dismiss
+    @State private var paidRecipientID: UUID?
 
     init(payment: ProximityPayment, model: GameSessionModel, onPaid: @escaping () -> Void = {}) {
         self.payment = payment
@@ -56,6 +57,15 @@ struct ProximityPaymentView: View {
         }
         .sensoryFeedback(.success, trigger: proximity.detectedPlayerID) { _, detected in
             detected != nil
+        }
+        // Pays as soon as the other iPhone is detected, with no extra tap.
+        .onChange(of: proximity.detectedPlayerID) { _, detectedID in
+            guard let detectedID, paidRecipientID == nil,
+                  let state = model.gameState,
+                  let localPlayerID = model.localPlayerID else {
+                return
+            }
+            pay(to: detectedID, details: details(in: state, localPlayerID: localPlayerID))
         }
     }
 
@@ -94,7 +104,7 @@ struct ProximityPaymentView: View {
                 } header: {
                     Text("Jugadores")
                 } footer: {
-                    Text("El otro jugador debe tener la app abierta en la partida. Ambos iPhone necesitan chip UWB (iPhone 11 o posterior, excepto SE).")
+                    Text("El otro jugador debe tener la app abierta en la partida. Ambos iPhone necesitan chip UWB (iPhone 11 o posterior, excepto SE). No juntes las partes de arriba de los iPhone: eso abre NameDrop (compartir contacto) y tapa el pago. Si te pasa, puedes desactivarlo en Ajustes > General > AirDrop > Acercar dispositivos.")
                 }
             }
         }
@@ -121,23 +131,10 @@ struct ProximityPaymentView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.app(size: 64))
                 .foregroundStyle(.green)
-            Text("iPhone de \(recipientName) detectado")
+            Text("Pagaste \(currency(details.amount)) a \(recipientName)")
                 .font(.app(.headline))
             Text(details.description)
                 .foregroundStyle(.secondary)
-
-            Button {
-                pay(to: recipientID, details: details)
-            } label: {
-                Text("Pagar \(currency(details.amount)) a \(recipientName)")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-
-            Button("No es este jugador") {
-                proximity.resetDetection()
-            }
         }
         .frame(maxWidth: .infinity)
     }
@@ -162,8 +159,12 @@ struct ProximityPaymentView: View {
         case let .transfer(amount):
             model.transfer(to: recipientID, amount: amount)
         }
+        paidRecipientID = recipientID
         onPaid()
-        dismiss()
+        Task {
+            try? await Task.sleep(for: .seconds(1.2))
+            dismiss()
+        }
     }
 
     private func details(in state: GameState, localPlayerID: UUID) -> PaymentDetails {
@@ -194,9 +195,9 @@ struct ProximityPaymentView: View {
 
     private func instructions(for details: PaymentDetails, in state: GameState) -> String {
         if details.candidateIDs.count == 1, let recipientID = details.candidateIDs.first {
-            return "Acerca la parte de arriba de tu iPhone al iPhone de \(playerName(recipientID, in: state))."
+            return "Acerca tu iPhone al de \(playerName(recipientID, in: state)) a unos 20 cm, sin juntarlos. El pago se hace solo."
         }
-        return "Acerca la parte de arriba de tu iPhone al iPhone del jugador que cobra."
+        return "Acerca tu iPhone al del jugador que cobra a unos 20 cm, sin juntarlos. El pago se hace solo."
     }
 
     private func statusDescription(_ status: ProximityCandidateStatus?) -> String {

@@ -20,9 +20,13 @@ struct ProximityIncomingRequest: Equatable {
 #if os(iOS)
 @MainActor
 final class ProximityPaymentCoordinator: NSObject, ObservableObject {
-    // Two iPhones held back to back read around 0-10 cm; 15 cm leaves margin for UWB
-    // noise while still requiring a deliberate "tap" gesture across a crowded table.
-    static let tapDistance: Float = 0.15
+    // Detects the other iPhone before they touch: bringing the tops of two iPhones
+    // together (a few cm) starts iOS's NameDrop, which takes over the screen and
+    // stops the payment. 25 cm is still clearly closer than phones lying around a
+    // table, and a few readings in a row keep someone merely passing by from being
+    // picked.
+    static let tapDistance: Float = 0.25
+    static let closeReadingsToDetect = 3
 
     @Published private(set) var candidates: [UUID: ProximityCandidateStatus] = [:]
     @Published private(set) var detectedPlayerID: UUID?
@@ -35,6 +39,7 @@ final class ProximityPaymentCoordinator: NSObject, ObservableObject {
     private var outgoingSessionID: UUID?
     private var outgoingSessions: [UUID: NISession] = [:]
     private var incomingSession: NISession?
+    private var closeReadings: [UUID: Int] = [:]
 
     static var isSupported: Bool {
         NISession.deviceCapabilities.supportsPreciseDistanceMeasurement
@@ -92,10 +97,12 @@ final class ProximityPaymentCoordinator: NSObject, ObservableObject {
         outgoingSessions.removeAll()
         outgoingSessionID = nil
         candidates.removeAll()
+        closeReadings.removeAll()
         detectedPlayerID = nil
     }
 
     func resetDetection() {
+        closeReadings.removeAll()
         detectedPlayerID = nil
     }
 
@@ -211,13 +218,20 @@ final class ProximityPaymentCoordinator: NSObject, ObservableObject {
             return
         }
         candidates[candidateID] = .ranging(distance: distance)
+        if let distance, distance <= Self.tapDistance {
+            closeReadings[candidateID, default: 0] += 1
+        } else {
+            closeReadings[candidateID] = 0
+        }
 
         guard detectedPlayerID == nil else {
             return
         }
         let closest = candidates
             .compactMap { id, status -> (UUID, Float)? in
-                guard case let .ranging(distance?) = status, distance <= Self.tapDistance else {
+                guard case let .ranging(distance?) = status,
+                      distance <= Self.tapDistance,
+                      closeReadings[id, default: 0] >= Self.closeReadingsToDetect else {
                     return nil
                 }
                 return (id, distance)
@@ -306,7 +320,7 @@ final class ProximityPaymentCoordinator: ObservableObject {
 
     var sendSignal: ((ProximitySignal) -> Void)?
 
-    static let tapDistance: Float = 0.15
+    static let tapDistance: Float = 0.25
     static let isSupported = false
 
     var isSearching: Bool {
