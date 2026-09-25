@@ -61,6 +61,14 @@ enum BoardEventText {
         }
     }
 
+    /// The event or host card that left `effect`, with its emoji.
+    static func source(of effect: ActiveRentEffect) -> String? {
+        if let event = BoardEventCatalog.event(withID: effect.eventID) {
+            return "\(event.emoji) \(event.title)"
+        }
+        return HostCard(rawValue: effect.eventID).map { "\($0.emoji) \($0.title)" }
+    }
+
     static func rentChange(_ effect: ActiveRentEffect) -> String {
         var change: [String] = []
         if effect.percent != 0 {

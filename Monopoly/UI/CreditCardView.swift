@@ -42,7 +42,6 @@ struct CreditCardView: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
-        .proximityReceiverBanner(model: model)
     }
 
     private func trustSection(_ history: CreditHistory) -> some View {

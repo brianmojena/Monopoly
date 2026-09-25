@@ -50,7 +50,7 @@ Cualquier prompt que se le dé a Codex debe asumir que quien lo lee no tiene mem
 - iOS nativo con SwiftUI, sobre el proyecto Xcode ya existente.
 - Conectividad por red local (MultipeerConnectivity), sin backend en la nube.
 - Un dispositivo host actúa como banca/fuente de verdad; los demás son clientes.
-- Pagos "acercando iPhones" como opción desactivada por defecto, implementados con NearbyInteraction (UWB) porque iOS no permite NFC entre iPhones (ver `PROJECT_RULES.md` sección 3).
+- Pagos por QR o a mano. Se probaron pagos "acercando iPhones" con NearbyInteraction (UWB), pero no funcionaban en la práctica y se eliminaron (2026-09-25).
 - Dos modos de juego elegidos por el host en la sala: **Monopoly Classic** (por defecto) y **Monopolife**. En Monopolife gana quien tiene más felicidad tras un número de rondas elegido por el host; los roles son secretos y se revelan al final; la bancarrota no elimina (castigo de felicidad + saldo de rescate); las Tarjetas de Vida reemplazan a Suerte/Caja de Comunidad.
 - Se soportan reglas oficiales de Ultimate Banking por defecto, más un set de house rules opcionales configurables por partida (ver sección 8 de `GAME_RULES.md`).
 

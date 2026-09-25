@@ -134,16 +134,6 @@ private struct HostLobbyView: View {
             boardEventsSection(lobby)
 
             Section {
-                Toggle(isOn: lobbyToggle(\.proximityPaymentsEnabled)) {
-                    Label("Pagar acercando iPhones", systemImage: "wave.3.right")
-                }
-            } header: {
-                Text("Pagos")
-            } footer: {
-                Text("Opcional. Los pagos normales siguen disponibles; esto añade la opción de pagar acercando tu iPhone al de otro jugador (UWB, iPhone 11 o posterior, excepto SE).")
-            }
-
-            Section {
                 Button("Iniciar partida") {
                     model.startGame()
                 }

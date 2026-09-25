@@ -6,6 +6,7 @@ struct GameBoardView: View {
     @State private var isShowingRole = false
     @State private var isShowingRules = false
     @State private var isConfirmingFreeParking = false
+    @State private var isShowingHostCards = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 2)
 
@@ -34,10 +35,15 @@ struct GameBoardView: View {
                             ActiveBoardEventsCard(events: boardEvents, state: state)
                         }
 
+                        if !state.hostCardRentEffects.isEmpty {
+                            HostCardEffectsCard(state: state)
+                        }
+
                         if let profile = model.localProfile {
                             HappinessSection(model: model, profile: profile, isShowingRole: $isShowingRole)
                         }
 
+                        myPropertiesCard(state)
                         playersCard(state)
                         propertiesCard(state)
                     }
@@ -115,7 +121,6 @@ struct GameBoardView: View {
                 TravelView(model: model)
             }
         }
-        .proximityReceiverBanner(model: model)
         .monopolifeBanners(model: model)
         .sheet(isPresented: $isShowingRole) {
             if let role = model.localProfile?.role {
@@ -129,6 +134,14 @@ struct GameBoardView: View {
             if let state = model.gameState {
                 BoardEventSheet(occurrence: occurrence, state: state)
             }
+        }
+        .sheet(item: $model.presentedHostCard) { occurrence in
+            if let state = model.gameState {
+                HostCardSheet(occurrence: occurrence, state: state)
+            }
+        }
+        .sheet(isPresented: $isShowingHostCards) {
+            HostCardsView(model: model)
         }
         .fullScreenCover(isPresented: Binding(
             get: { !model.pendingRoleReveals.isEmpty },
@@ -378,6 +391,14 @@ struct GameBoardView: View {
                         ActionTile(title: "Crédito", detail: "Préstamos", icon: "creditcard", tint: .pink)
                     }
                 }
+
+                if model.role == .host {
+                    Button {
+                        isShowingHostCards = true
+                    } label: {
+                        ActionTile(title: "Cartas", detail: "Solo el host", icon: "rectangle.stack", tint: .teal)
+                    }
+                }
             }
             .buttonStyle(.plain)
 
@@ -522,6 +543,80 @@ struct GameBoardView: View {
             return "Deuda \(currency(player.creditCardDebt))"
         }
         return isCurrent ? "En turno" : "\(player.propertyIDs.count) propiedades"
+    }
+
+    /// The local player's properties with their board number, so they can find them
+    /// on the physical board without scanning the full list below.
+    @ViewBuilder
+    private func myPropertiesCard(_ state: GameState) -> some View {
+        if let localPlayerID = model.localPlayerID {
+            let owned = state.properties.enumerated().filter { $0.element.shares(of: localPlayerID) > 0 }
+
+            BankCard(title: "Mis propiedades") {
+                if owned.isEmpty {
+                    Text("Aún no tienes propiedades. Cómpralas en tu turno desde la lista de abajo.")
+                        .font(.app(.footnote))
+                        .foregroundStyle(Lux.textSecondary)
+                } else {
+                    ForEach(Array(owned.enumerated()), id: \.element.element.id) { position, entry in
+                        if position > 0 {
+                            Rectangle()
+                                .fill(Lux.hairline)
+                                .frame(height: 1)
+                        }
+                        myPropertyRow(entry.element, number: entry.offset + 1, playerID: localPlayerID)
+                    }
+                }
+            }
+        }
+    }
+
+    private func myPropertyRow(_ property: Property, number: Int, playerID: UUID) -> some View {
+        let shares = property.shares(of: playerID)
+        let isFullOwner = shares == Property.totalShares
+
+        return NavigationLink {
+            PropertyDetailView(propertyID: property.id, model: model)
+        } label: {
+            HStack(spacing: 12) {
+                Text("\(number)")
+                    .font(.app(.subheadline, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(property.colorGroup.hasLightSwatch ? .black : .white)
+                    .frame(width: 32, height: 32)
+                    .background(property.colorGroup.swatch, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(property.name)
+                        .font(.app(.subheadline, weight: .semibold))
+                        .lineLimit(1)
+                    Text(isFullOwner ? "100% tuya" : "\(shares * 10)% tuya\(property.ownerID == playerID ? " · la gestionas" : "")")
+                        .font(.app(.caption))
+                        .monospacedDigit()
+                        .foregroundStyle(Lux.textSecondary)
+                }
+
+                Spacer()
+
+                if property.isMortgaged {
+                    Text("Hipotecada")
+                        .font(.app(.caption2, weight: .semibold))
+                        .foregroundStyle(Lux.down)
+                } else if property.constructionLevel > 0 {
+                    Text("Nivel \(property.constructionLevel)")
+                        .font(.app(.caption2, weight: .semibold))
+                        .foregroundStyle(Lux.up)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.app(.caption2, weight: .bold))
+                    .foregroundStyle(Lux.textSecondary)
+            }
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Propiedad \(number), \(property.name)")
+        }
+        .buttonStyle(.plain)
     }
 
     private func propertiesCard(_ state: GameState) -> some View {

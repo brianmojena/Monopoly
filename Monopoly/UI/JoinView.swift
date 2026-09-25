@@ -192,7 +192,6 @@ struct JoinedGameView: View {
                 if lobby.gameMode == .classic {
                     LabeledContent("Niveles secretos", value: lobby.hiddenLevelsEnabled ? "Sí" : "No")
                 }
-                LabeledContent("Pagar acercando iPhones", value: lobby.proximityPaymentsEnabled ? "Sí" : "No")
             }
 
         }

@@ -20,16 +20,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>Monopoly usa la cámara para escanear el QR de otro jugador y pagarle.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_monopoly-game._tcp</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Monopoly usa la cámara para escanear el QR de otro jugador y pagarle.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Monopoly usa la red local para descubrir y sincronizar partidas cercanas.</string>
-	<key>NSNearbyInteractionUsageDescription</key>
-	<string>Monopoly mide la distancia entre iPhones para que puedas pagar acercando tu teléfono al de otro jugador.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Inter-Regular.ttf</string>

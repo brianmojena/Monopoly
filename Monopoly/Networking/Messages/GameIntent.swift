@@ -10,6 +10,7 @@ enum GameIntent: Codable, Equatable {
     case collectSalary(playerID: UUID, amount: Int, postponedLoanIDs: Set<UUID> = [])
     case levelUp(propertyID: UUID, playerID: UUID)
     case levelDown(propertyID: UUID, playerID: UUID)
+    case buyBackShares(coverageID: UUID, playerID: UUID)
     case mortgageProperty(propertyID: UUID, playerID: UUID)
     case unmortgageProperty(propertyID: UUID, playerID: UUID)
     case declareBankruptcy(playerID: UUID, creditor: DebtCreditor)
@@ -24,6 +25,8 @@ enum GameIntent: Codable, Equatable {
     case acknowledgeRole(playerID: UUID)
     case drawLifeCard(playerID: UUID)
     case resolveLifeCardDecision(playerID: UUID, accept: Bool)
+    /// Host only (GAME_RULES section 8.5).
+    case playHostCard(HostCardPlay)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -41,6 +44,8 @@ enum GameIntent: Codable, Equatable {
         case loanID
         case accept
         case route
+        case coverageID
+        case hostCard
     }
 
     private enum IntentType: String, Codable {
@@ -53,6 +58,7 @@ enum GameIntent: Codable, Equatable {
         case collectSalary
         case levelUp
         case levelDown
+        case buyBackShares
         case mortgageProperty
         case unmortgageProperty
         case declareBankruptcy
@@ -67,6 +73,7 @@ enum GameIntent: Codable, Equatable {
         case acknowledgeRole
         case drawLifeCard
         case resolveLifeCardDecision
+        case playHostCard
     }
 
     init(from decoder: Decoder) throws {
@@ -115,6 +122,11 @@ enum GameIntent: Codable, Equatable {
         case .levelDown:
             self = .levelDown(
                 propertyID: try container.decode(UUID.self, forKey: .propertyID),
+                playerID: try container.decode(UUID.self, forKey: .playerID)
+            )
+        case .buyBackShares:
+            self = .buyBackShares(
+                coverageID: try container.decode(UUID.self, forKey: .coverageID),
                 playerID: try container.decode(UUID.self, forKey: .playerID)
             )
         case .mortgageProperty:
@@ -169,6 +181,8 @@ enum GameIntent: Codable, Equatable {
                 playerID: try container.decode(UUID.self, forKey: .playerID),
                 accept: try container.decode(Bool.self, forKey: .accept)
             )
+        case .playHostCard:
+            self = .playHostCard(try container.decode(HostCardPlay.self, forKey: .hostCard))
         }
     }
 
@@ -211,6 +225,10 @@ enum GameIntent: Codable, Equatable {
         case let .levelDown(propertyID, playerID):
             try container.encode(IntentType.levelDown, forKey: .type)
             try container.encode(propertyID, forKey: .propertyID)
+            try container.encode(playerID, forKey: .playerID)
+        case let .buyBackShares(coverageID, playerID):
+            try container.encode(IntentType.buyBackShares, forKey: .type)
+            try container.encode(coverageID, forKey: .coverageID)
             try container.encode(playerID, forKey: .playerID)
         case let .mortgageProperty(propertyID, playerID):
             try container.encode(IntentType.mortgageProperty, forKey: .type)
@@ -263,6 +281,9 @@ enum GameIntent: Codable, Equatable {
             try container.encode(IntentType.resolveLifeCardDecision, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(accept, forKey: .accept)
+        case let .playHostCard(play):
+            try container.encode(IntentType.playHostCard, forKey: .type)
+            try container.encode(play, forKey: .hostCard)
         }
     }
 }
@@ -276,9 +297,9 @@ extension GameIntent {
         case .buyProperty, .resolveAuction, .collectRent, .payTax, .payTravel, .collectFreeParking,
              .collectSalary, .borrowOnCreditCard, .drawLifeCard, .resolveLifeCardDecision:
             return true
-        case .levelUp, .levelDown, .mortgageProperty, .unmortgageProperty,
+        case .levelUp, .levelDown, .buyBackShares, .mortgageProperty, .unmortgageProperty,
              .declareBankruptcy, .proposeDeal, .acceptDeal, .rejectDeal, .transferMoney, .payCreditCard,
-             .endTurn, .skipTurn, .acknowledgeRole:
+             .endTurn, .skipTurn, .acknowledgeRole, .playHostCard:
             return false
         }
     }

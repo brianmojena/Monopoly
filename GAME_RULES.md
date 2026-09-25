@@ -44,13 +44,35 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 - **Compra compartida**: en su turno, el jugador puede proponer comprarla entre varios, repartiendo el 100% en acciones de 10% (mínimo dos compradores, él incluido). Cada comprador paga la parte del precio de su %. Se compra cuando todos los compradores aceptan en el Mercado; si antes alguien la compra o se subasta, la propuesta desaparece.
 
 ### 4.2 Niveles de renta
-- Cada propiedad tiene un **valor base** de compra y **5 niveles** de renta por encima del nivel 0 (sin mejorar).
-- El nivel de una propiedad **nunca sube solo**: solo sube cuando su administrador (el accionista mayoritario, sección 4.7) paga el costo de subirlo, en cualquier momento (no requiere ser su turno). Caer en la propiedad y pagar renta no la mejora.
+- Cada propiedad tiene un **valor base** de compra y **5 niveles de renta**, los de la tarjeta de Ultimate Banking: el nivel 0 de la app (recién comprada, sin mejorar) es el nivel 1 de la tarjeta, y cada mejora sube un nivel hasta el 4 (nivel 5 de la tarjeta). Ver tabla en la sección 4.2.1.
+- El nivel de una propiedad **nunca sube solo**: solo sube cuando uno de sus accionistas (cualquiera, no solo el administrador; sección 4.3) paga el costo de subirlo, en cualquier momento (no requiere ser su turno). Caer en la propiedad y pagar renta no la mejora.
 - La renta a cobrar es siempre la del nivel vigente de la propiedad, no la original de compra.
-- Poseer un **color completo (monopolio)** duplica la renta base de las propiedades de ese color mientras estén en nivel 0 (regla heredada del clásico).
+- Poseer un **color completo (monopolio)** no duplica la renta: las rentas de Ultimate Banking ya parten altas y el doble rompería la progresión de niveles.
+
+#### 4.2.1 Tabla de precios y rentas (Ultimate Banking)
+
+| Propiedad | Precio | Nivel 0 | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|---|---|
+| Mediterranean Avenue / Baltic Avenue | $60 | 70 | 130 | 220 | 370 | 750 |
+| Oriental Avenue / Vermont Avenue | $100 | 80 | 140 | 240 | 410 | 800 |
+| Connecticut Avenue | $120 | 100 | 160 | 260 | 440 | 860 |
+| St. Charles Place / States Avenue | $140 | 110 | 180 | 290 | 460 | 900 |
+| Virginia Avenue | $160 | 130 | 200 | 310 | 490 | 980 |
+| St. James Place / Tennessee Avenue | $180 | 140 | 210 | 330 | 520 | 1000 |
+| New York Avenue | $200 | 160 | 230 | 350 | 550 | 1100 |
+| Kentucky Avenue / Indiana Avenue | $220 | 170 | 250 | 380 | 580 | 1160 |
+| Illinois Avenue | $240 | 190 | 270 | 400 | 610 | 1200 |
+| Atlantic Avenue / Ventnor Avenue | $260 | 200 | 280 | 420 | 640 | 1300 |
+| Marvin Gardens | $280 | 220 | 300 | 440 | 670 | 1340 |
+| Pacific Avenue / North Carolina Avenue | $300 | 230 | 320 | 460 | 700 | 1400 |
+| Pennsylvania Avenue | $320 | 250 | 340 | 480 | 730 | 1440 |
+| Park Place | $350 | 270 | 360 | 510 | 740 | 1500 |
+| Boardwalk | $400 | 300 | 400 | 560 | 810 | 1600 |
+
+El valor de hipoteca no existe en Ultimate Banking; se mantiene en la mitad del precio.
 
 ### 4.3 Subir de nivel (reemplaza casas/hoteles)
-- Solo se puede empezar a subir de nivel sobre un **color completo** (monopolio).
+- Se puede subir de nivel **cualquier propiedad**, sin necesidad de tener el color completo (como en Ultimate Banking).
 - **Costo de subir un nivel**: un porcentaje del precio de compra de la propiedad, creciente por nivel:
 
 | Nivel | Costo (% del precio de compra) |
@@ -59,11 +81,16 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 | 2 | 75% |
 | 3 | 100% |
 | 4 | 150% |
-| 5 | 200% |
 
   El costo de subir de nivel N-1 a N es ese porcentaje sobre el `purchasePrice` de la propiedad, redondeado hacia arriba. Estos porcentajes son placeholder, igual que el resto de valores de la sección 9.
-- El costo se cobra al administrador **repartido entre todos los accionistas según su %** (igual que hipotecar/deshipotecar, sección 4.7): si algún accionista no puede pagar su parte, la mejora no se hace.
-- **Nivel uniforme**: no se puede subir una propiedad dos niveles por encima de la más baja del mismo grupo de color (regla clásica de "even building", ahora aplicada a niveles en vez de casas).
+- **Cualquier accionista** puede subir el nivel. El costo se **reparte entre todos los accionistas según su %** (igual que deshipotecar, sección 4.7).
+- **Cubrir a quien no puede pagar**: si otro accionista no tiene dinero para su parte, quien sube el nivel la paga por él y a cambio se queda con acciones suyas:
+  - Cada acción (10%) vale una décima parte del precio de compra más todo lo que costaron sus niveles, incluido el nuevo.
+  - Se lleva tantas acciones como la parte cubierta dividida por ese valor, redondeado a la acción más cercana: como mínimo 1 y nunca más de las que tiene el cubierto.
+  - Ejemplo: calle de $200 en nivel 3; subir a 4 cuesta $300. Ana tiene 30% y Luis 70% sin dinero. Ana paga sus $90 y los $210 de Luis. Con el nivel 4 la calle vale $200 + $750 de niveles = $950, o sea $95 por acción: $210 son 2 acciones, así que queda Ana 50% y Luis 50%.
+  - Si quien sube el nivel no puede pagar su parte más las que cubre, la mejora no se hace.
+- **Recuperar las acciones**: el accionista cubierto puede, **en cualquier momento**, devolverle exactamente lo que se pagó por él y recuperar las acciones que cedió, siempre que quien lo cubrió todavía las tenga. El precio no cambia aunque la propiedad suba o baje de nivel. Si cualquiera de los dos quiebra, ya no se pueden recuperar.
+- **Sin nivel uniforme**: cada propiedad sube o baja de nivel por su cuenta, sin importar el nivel de las demás de su grupo de color.
 - Bajar un nivel (vender la mejora) devuelve a los accionistas, repartida por su %, la mitad de lo que costó subir ese nivel.
 
 ### 4.4 Hipoteca
@@ -86,7 +113,7 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 ### 4.7 Acciones de propiedades
 - Cada propiedad se divide en **10 acciones de 10%**. Al comprarla al banco o ganarla en subasta, el comprador recibe el 100%; luego puede vender o intercambiar acciones en el Mercado.
 - **Renta**: se reparte entre los accionistas según su %. Si quien cae tiene acciones de esa propiedad, solo paga la parte de los demás. Los redondeos se reparten por mayor resto y, en empate, al accionista más antiguo.
-- **Administración**: el accionista mayoritario (en empate, el más antiguo) administra la propiedad: sube y baja de nivel, hipoteca y deshipoteca. Los costos (subir de nivel, deshipotecar) se cobran a todos los accionistas según su %, y lo que se recibe (hipotecar, bajar de nivel) también se reparte según su %. Si un accionista no puede pagar su parte, la acción no se hace.
+- **Administración**: el accionista mayoritario (en empate, el más antiguo) administra la propiedad: baja de nivel, hipoteca y deshipoteca. Subir de nivel lo puede hacer cualquier accionista (sección 4.3). Los costos (subir de nivel, deshipotecar) se cobran a todos los accionistas según su %, y lo que se recibe (hipotecar, bajar de nivel) también se reparte según su %. Si un accionista no puede pagar su parte, la acción no se hace.
 - **Monopolio de color**: cuenta para un jugador si es el administrador de todas las propiedades del grupo.
 - **Patrimonio**: cada jugador suma solo la parte de su %.
 
@@ -190,7 +217,7 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
   - un **grupo de color**;
   - una **propiedad con dueño** (o, para el incendio, una propiedad con nivel mayor que 0; si no hay ninguna, ese evento no puede salir);
   - **todo el tablero** o **todos los jugadores**.
-- **Cambios de renta**: se suman a la renta normal de cada propiedad afectada (nivel, monopolio). Primero se aplican los porcentajes (todos los activos sumados) y luego los montos fijos; la renta nunca baja de $0. Una propiedad hipotecada sigue sin cobrar renta. Los cambios temporales duran las N rondas siguientes al evento; los permanentes, el resto de la partida. Varios eventos sobre la misma propiedad se acumulan.
+- **Cambios de renta**: se suman a la renta normal de cada propiedad afectada (la de su nivel). Primero se aplican los porcentajes (todos los activos sumados) y luego los montos fijos; la renta nunca baja de $0. Una propiedad hipotecada sigue sin cobrar renta. Los cambios temporales duran las N rondas siguientes al evento; los permanentes, el resto de la partida. Varios eventos sobre la misma propiedad se acumulan.
 - **Cobros a accionistas**: cada propiedad con dueño del objetivo cuesta el monto indicado, repartido entre sus accionistas por su % (como la sección 4.7). Si un jugador no tiene suficiente efectivo, paga lo que tenga (un evento nunca provoca bancarrota). Lo cobrado va al bote de Free Parking si esa regla está activa (sección 8.2); si no, sale del juego.
 - **Incendio**: la propiedad baja un nivel, sin devolver nada a los accionistas.
 - Eventos iniciales (valores placeholder):
@@ -223,9 +250,22 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 
 La app debe permitir seleccionar estas reglas opcionales al crear una partida, y el estado resultante debe ser visible para todos los jugadores conectados antes de empezar.
 
+### 8.5 Cartas del host
+
+Cuando sale una de estas cartas físicas en la mesa, **solo el host** la aplica desde la app (botón "Cartas"). Funcionan siempre, tengan o no activados los eventos del tablero, y todos los dispositivos ven un aviso con lo que pasó.
+
+| Carta | Efecto |
+|---|---|
+| Bajan las rentas | La renta de todas las propiedades de un lado del tablero baja $100. |
+| Suben las rentas | La renta de todas las propiedades de un lado del tablero sube $100. |
+| Todos se mudan a un lado | La renta de un lado sube $100 y la de sus dos lados vecinos baja $100 (los lados van del 1 al 4 desde la Salida; el 1 es vecino del 4). |
+| Avanza y mejora | El host elige un jugador y una propiedad con dueño (de cualquiera). El jugador mueve su ficha ahí en el tablero y la propiedad sube un nivel **gratis**. No vale para propiedades hipotecadas ni en el nivel máximo. |
+
+- En las cartas de renta el host elige el lado y la duración: **permanente** o **N rondas** contando la ronda en curso.
+- Los cambios se suman a la renta del nivel y a los de los eventos del tablero (sección 8.3), con las mismas reglas: la renta nunca baja de $0 y una propiedad hipotecada sigue sin cobrar.
+
 ## 9. Preguntas abiertas / a validar con el usuario
 
-- Tabla exacta de precios y rentas base por propiedad (pendiente de contrastar contra la caja física o manual oficial).
 - Monto exacto y frecuencia del evento "Bono en Casa".
 - Porcentajes exactos del costo de subir de nivel por propiedad (sección 4.3); los valores actuales son placeholder.
 

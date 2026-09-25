@@ -223,9 +223,8 @@ extension RuleTopic {
             id: "rent", icon: "banknote.fill", color: .mint, title: "Rentas y niveles",
             points: [
                 "Si caes en una propiedad de otro, pagas su renta actual. Si tienes acciones de ella, solo pagas la parte de los demás.",
-                "Tener todo un grupo de color duplica la renta de esas propiedades mientras estén en nivel 0.",
-                "Con el grupo completo puedes subir de nivel tus propiedades para cobrar más. Cuesta un % del precio: \(levelCosts).",
-                "Hay que subir parejo: ninguna propiedad del grupo puede quedar más de un nivel por encima de otra.",
+                "Puedes subir de nivel cualquier propiedad en la que tengas acciones para cobrar más, sin tener el grupo completo. Cuesta un % del precio: \(levelCosts).",
+                "Cualquier accionista puede subir el nivel y el costo se reparte según el %. Si otro accionista no tiene para su parte, la pagas tú y te quedas con acciones suyas; él puede recuperarlas cuando quiera devolviéndote ese dinero.",
                 "Bajar un nivel te devuelve la mitad de lo que costó."
             ]
         ),
@@ -251,8 +250,7 @@ extension RuleTopic {
             points: [
                 "Con QR: quien cobra pulsa \"Cobrar\" y muestra su QR (de una propiedad o de sí mismo, con monto opcional); quien paga pulsa \"Pagar\" y lo escanea: el pago se hace en cuanto se lee. Si el QR no trae monto, escríbelo antes de escanear.",
                 "A mano: en la pantalla de escanear, pulsa \"Manual\" para elegir el jugador y el monto. Sirve para cartas que te obligan a pagarle a alguien.",
-                "La renta también se paga desde la propiedad, en la lista.",
-                "Acercando iPhones (si el host lo activó): con los iPhone en vertical y la parte de atrás de uno mirando al otro, acercas tu iPhone al de quien cobra a unos 20 cm sin juntarlos, y el pago se hace solo. No juntes las partes de arriba: eso abre NameDrop (compartir contacto) de iOS."
+                "La renta también se paga desde la propiedad, en la lista."
             ]
         ),
         RuleTopic(

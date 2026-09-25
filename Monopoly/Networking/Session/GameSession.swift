@@ -65,7 +65,6 @@ final class GameSession {
     var onStateChanged: ((GameState) -> Void)?
     var onIntentRejected: ((GameRuleError) -> Void)?
     var onTransportError: ((Error) -> Void)?
-    var onProximitySignal: ((ProximitySignal) -> Void)?
     var onLobbyChanged: ((Lobby) -> Void)?
     var onHostConnectionChanged: ((Bool) -> Void)?
     var onRoomsChanged: (([DiscoveredRoom]) -> Void)?
@@ -266,24 +265,6 @@ final class GameSession {
         try transport.broadcast(data: try encoder.encode(NetworkMessage.stateSnapshot(state)))
     }
 
-    // Clients only hold a connection to the host, so proximity signals between
-    // two clients are relayed by the host as a broadcast; each device keeps only
-    // the signals addressed to its own player.
-    func sendProximitySignal(_ signal: ProximitySignal) throws {
-        let data = try encoder.encode(NetworkMessage.proximitySignal(signal))
-
-        switch role {
-        case .host:
-            try transport.broadcast(data: data)
-        case .client:
-            let resolvedHostPeerID = stateQueue.sync { configuredHostPeerID ?? discoveredHostPeerID }
-            guard let hostPeerID = resolvedHostPeerID else {
-                throw GameSessionError.hostNotConnected
-            }
-            try transport.send(data: data, to: hostPeerID)
-        }
-    }
-
     private func peerConnected(_ peerID: PeerID) {
         let (state, lobby, hostPeerID, lobbyPlayer) = stateQueue.sync {
             connectedPeerIDs.insert(peerID)
@@ -366,11 +347,6 @@ final class GameSession {
     }
 
     private func handleAsHost(_ message: NetworkMessage, from peerID: PeerID) throws {
-        if case let .proximitySignal(signal) = message {
-            onProximitySignal?(signal)
-            try transport.broadcast(data: try encoder.encode(message))
-            return
-        }
         if case let .joinLobby(player) = message {
             try handleJoinLobby(player, from: peerID)
             return
@@ -428,8 +404,6 @@ final class GameSession {
         case let .intentRejected(error):
             stateQueue.sync { _lastIntentRejection = error }
             onIntentRejected?(error)
-        case let .proximitySignal(signal):
-            onProximitySignal?(signal)
         case .intent, .joinLobby:
             break
         }
@@ -602,6 +576,8 @@ final class GameSession {
             return try GameRules.levelUp(in: state, propertyID: propertyID, playerID: playerID)
         case let .levelDown(propertyID, _):
             return try GameRules.levelDown(in: state, propertyID: propertyID, playerID: playerID)
+        case let .buyBackShares(coverageID, _):
+            return try GameRules.buyBackShares(in: state, coverageID: coverageID, playerID: playerID)
         case let .mortgageProperty(propertyID, _):
             return try GameRules.mortgageProperty(in: state, propertyID: propertyID, playerID: playerID)
         case let .unmortgageProperty(propertyID, _):
@@ -639,6 +615,11 @@ final class GameSession {
             return try GameRules.drawLifeCard(in: state, playerID: playerID, using: &generator)
         case let .resolveLifeCardDecision(_, accept):
             return try GameRules.resolveLifeCardDecision(in: state, playerID: playerID, accept: accept)
+        case let .playHostCard(play):
+            guard isHost else {
+                throw GameRuleError.onlyHostCanPlayCards
+            }
+            return try GameRules.playHostCard(play, in: state)
         }
     }
 }

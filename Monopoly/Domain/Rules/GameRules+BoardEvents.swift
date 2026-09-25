@@ -4,16 +4,22 @@ import Foundation
 // happens on the board. Draws use the seed stored in the state, so the rules stay
 // pure and every device agrees on the result the host broadcasts.
 extension GameRules {
-    /// The rent after the board events affecting `property`: percentages first, then
-    /// flat amounts, never below 0.
+    /// The rent after the board events and host cards affecting `property`:
+    /// percentages first, then flat amounts, never below 0.
     static func applyingRentEffects(to rent: Int, of property: Property, in state: GameState) -> Int {
-        let effects = state.boardEvents?.rentEffects.filter { $0.propertyIDs.contains(property.id) } ?? []
+        let effects = rentEffects(on: property.id, in: state)
         guard !effects.isEmpty else {
             return rent
         }
         let percent = effects.reduce(0) { $0 + $1.percent }
         let flat = effects.reduce(0) { $0 + $1.flat }
         return max(0, rent * max(0, 100 + percent) / 100 + flat)
+    }
+
+    /// Every rent change on `propertyID`, from board events and host cards.
+    static func rentEffects(on propertyID: UUID, in state: GameState) -> [ActiveRentEffect] {
+        ((state.boardEvents?.rentEffects ?? []) + state.hostCardRentEffects)
+            .filter { $0.propertyIDs.contains(propertyID) }
     }
 
     /// Called when `round` has just ended: drops expired rent effects, then, when the

@@ -55,6 +55,9 @@ enum GameRuleError: Error, Equatable, Codable {
     case noPostponementsLeft(UUID)
     case notPlayersTurn(currentPlayerID: UUID)
     case onlyHostCanSkipTurn
+    case onlyHostCanPlayCards
+    case invalidBoardSide(Int)
+    case incompleteHostCard
     case dealNotFound(UUID)
     case notDealParticipant(UUID)
     case invalidDeal
@@ -71,6 +74,7 @@ enum GameRuleError: Error, Equatable, Codable {
     case freeParkingPotEmpty
     case creditCut
     case creditCardLoanLimitReached(Int)
+    case shareCoverageNotFound(UUID)
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -88,6 +92,7 @@ enum GameRuleError: Error, Equatable, Codable {
         case dealID
         case recipientID
         case investmentID
+        case coverageID
     }
 
     private enum Code: String, Codable {
@@ -120,6 +125,9 @@ enum GameRuleError: Error, Equatable, Codable {
         case noPostponementsLeft
         case notPlayersTurn
         case onlyHostCanSkipTurn
+        case onlyHostCanPlayCards
+        case invalidBoardSide
+        case incompleteHostCard
         case dealNotFound
         case notDealParticipant
         case invalidDeal
@@ -136,6 +144,7 @@ enum GameRuleError: Error, Equatable, Codable {
         case freeParkingPotEmpty
         case creditCut
         case creditCardLoanLimitReached
+        case shareCoverageNotFound
     }
 
     init(from decoder: Decoder) throws {
@@ -214,6 +223,12 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .notPlayersTurn(currentPlayerID: try container.decode(UUID.self, forKey: .playerID))
         case .onlyHostCanSkipTurn:
             self = .onlyHostCanSkipTurn
+        case .onlyHostCanPlayCards:
+            self = .onlyHostCanPlayCards
+        case .invalidBoardSide:
+            self = .invalidBoardSide(try container.decode(Int.self, forKey: .amount))
+        case .incompleteHostCard:
+            self = .incompleteHostCard
         case .dealNotFound:
             self = .dealNotFound(try container.decode(UUID.self, forKey: .dealID))
         case .notDealParticipant:
@@ -254,6 +269,8 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .creditCut
         case .creditCardLoanLimitReached:
             self = .creditCardLoanLimitReached(try container.decode(Int.self, forKey: .amount))
+        case .shareCoverageNotFound:
+            self = .shareCoverageNotFound(try container.decode(UUID.self, forKey: .coverageID))
         }
     }
 
@@ -348,6 +365,13 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(currentPlayerID, forKey: .playerID)
         case .onlyHostCanSkipTurn:
             try container.encode(Code.onlyHostCanSkipTurn, forKey: .code)
+        case .onlyHostCanPlayCards:
+            try container.encode(Code.onlyHostCanPlayCards, forKey: .code)
+        case let .invalidBoardSide(side):
+            try container.encode(Code.invalidBoardSide, forKey: .code)
+            try container.encode(side, forKey: .amount)
+        case .incompleteHostCard:
+            try container.encode(Code.incompleteHostCard, forKey: .code)
         case let .dealNotFound(dealID):
             try container.encode(Code.dealNotFound, forKey: .code)
             try container.encode(dealID, forKey: .dealID)
@@ -391,6 +415,9 @@ enum GameRuleError: Error, Equatable, Codable {
         case let .creditCardLoanLimitReached(maximum):
             try container.encode(Code.creditCardLoanLimitReached, forKey: .code)
             try container.encode(maximum, forKey: .amount)
+        case let .shareCoverageNotFound(coverageID):
+            try container.encode(Code.shareCoverageNotFound, forKey: .code)
+            try container.encode(coverageID, forKey: .coverageID)
         }
     }
 }

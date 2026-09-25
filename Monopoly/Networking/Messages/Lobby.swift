@@ -18,7 +18,6 @@ struct Lobby: Codable, Equatable {
     var players: [LobbyPlayer]
     var creditCardsEnabled: Bool
     var freeParkingEnabled: Bool
-    var proximityPaymentsEnabled: Bool
     /// Only used in Classic games.
     var hiddenLevelsEnabled: Bool
     var gameMode: GameMode
@@ -33,7 +32,6 @@ struct Lobby: Codable, Equatable {
         players: [LobbyPlayer] = [],
         creditCardsEnabled: Bool = true,
         freeParkingEnabled: Bool = false,
-        proximityPaymentsEnabled: Bool = false,
         hiddenLevelsEnabled: Bool = false,
         gameMode: GameMode = .classic,
         roundLimit: Int = MonopolifeState.defaultRoundLimit,
@@ -43,7 +41,6 @@ struct Lobby: Codable, Equatable {
         self.players = players
         self.creditCardsEnabled = creditCardsEnabled
         self.freeParkingEnabled = freeParkingEnabled
-        self.proximityPaymentsEnabled = proximityPaymentsEnabled
         self.hiddenLevelsEnabled = hiddenLevelsEnabled
         self.gameMode = gameMode
         self.roundLimit = roundLimit
@@ -55,7 +52,6 @@ struct Lobby: Codable, Equatable {
         case players
         case creditCardsEnabled
         case freeParkingEnabled
-        case proximityPaymentsEnabled
         case hiddenLevelsEnabled
         case gameMode
         case roundLimit
@@ -68,7 +64,6 @@ struct Lobby: Codable, Equatable {
         players = try container.decode([LobbyPlayer].self, forKey: .players)
         creditCardsEnabled = try container.decode(Bool.self, forKey: .creditCardsEnabled)
         freeParkingEnabled = try container.decodeIfPresent(Bool.self, forKey: .freeParkingEnabled) ?? false
-        proximityPaymentsEnabled = try container.decode(Bool.self, forKey: .proximityPaymentsEnabled)
         hiddenLevelsEnabled = try container.decodeIfPresent(Bool.self, forKey: .hiddenLevelsEnabled) ?? false
         gameMode = try container.decodeIfPresent(GameMode.self, forKey: .gameMode) ?? .classic
         roundLimit = try container.decodeIfPresent(Int.self, forKey: .roundLimit) ?? MonopolifeState.defaultRoundLimit
@@ -117,7 +112,6 @@ struct Lobby: Codable, Equatable {
             properties: properties,
             currentPlayerID: gamePlayers.first?.id,
             activeHouseRules: activeHouseRules,
-            proximityPaymentsEnabled: proximityPaymentsEnabled,
             mode: gameMode,
             monopolife: gameMode == .monopolife
                 ? GameRules.makeMonopolifeState(

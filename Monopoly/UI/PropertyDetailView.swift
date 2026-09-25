@@ -3,7 +3,6 @@ import SwiftUI
 struct PropertyDetailView: View {
     let propertyID: UUID
     @ObservedObject var model: GameSessionModel
-    @State private var proximityPayment: ProximityPayment?
     @State private var isConfirmingSecretRent = false
 
     var body: some View {
@@ -38,19 +37,19 @@ struct PropertyDetailView: View {
                         }
                     }
 
-                    let rentEffects = state.boardEvents?.rentEffects.filter { $0.propertyIDs.contains(property.id) } ?? []
+                    let rentEffects = GameRules.rentEffects(on: property.id, in: state)
                     if !rentEffects.isEmpty {
                         Section {
                             ForEach(rentEffects) { effect in
-                                if let event = BoardEventCatalog.event(withID: effect.eventID) {
+                                if let source = BoardEventText.source(of: effect) {
                                     LabeledContent(
-                                        "\(event.emoji) \(event.title)",
+                                        source,
                                         value: "\(BoardEventText.rentChange(effect)) · \(BoardEventText.remaining(effect, round: state.round))"
                                     )
                                 }
                             }
                         } header: {
-                            Text("Eventos que afectan la renta")
+                            Text("Eventos y cartas que afectan la renta")
                         } footer: {
                             Text("La renta actual ya los incluye. Nunca baja de $0.")
                         }
@@ -66,6 +65,10 @@ struct PropertyDetailView: View {
                         } footer: {
                             Text("La renta, los costos de subir o bajar de nivel, deshipotecar e hipotecar se reparten según el %. Quien tiene más % administra.")
                         }
+                    }
+
+                    if let localPlayerID = model.localPlayerID {
+                        coverageSection(for: property, localPlayerID: localPlayerID, state: state)
                     }
 
                     if let localPlayerID = model.localPlayerID,
@@ -124,14 +127,6 @@ struct PropertyDetailView: View {
                                         Button("Cancelar", role: .cancel) {}
                                     }
                                 }
-
-                                if model.isProximityPaymentEnabled {
-                                    Button {
-                                        proximityPayment = .rent(propertyID: property.id)
-                                    } label: {
-                                        Label("Pagar renta acercando iPhones", systemImage: "wave.3.right")
-                                    }
-                                }
                             } header: {
                                 Text("Acción")
                             } footer: {
@@ -141,8 +136,18 @@ struct PropertyDetailView: View {
                                 turnFooter
                             }
                             .disabled(!model.isLocalPlayersTurn)
+
+                            if property.shares(of: localPlayerID) > 0,
+                               !property.isMortgaged,
+                               property.constructionLevel < Property.maximumLevel {
+                                Section {
+                                    levelUpButton(for: property, localPlayerID: localPlayerID, state: state)
+                                } header: {
+                                    Text("Como accionista")
+                                }
+                            }
                         } else {
-                            ownPropertyActions(for: property)
+                            ownPropertyActions(for: property, localPlayerID: localPlayerID, state: state)
                         }
                     }
                 }
@@ -167,14 +172,10 @@ struct PropertyDetailView: View {
         } message: {
             Text(model.alertMessage ?? "Inténtalo de nuevo.")
         }
-        .sheet(item: $proximityPayment) { payment in
-            ProximityPaymentView(payment: payment, model: model)
-        }
-        .proximityReceiverBanner(model: model)
     }
 
     @ViewBuilder
-    private func ownPropertyActions(for property: Property) -> some View {
+    private func ownPropertyActions(for property: Property, localPlayerID: UUID, state: GameState) -> some View {
         Section("Acciones") {
             if property.isMortgaged {
                 Button("Deshipotecar") {
@@ -190,12 +191,7 @@ struct PropertyDetailView: View {
                 }
 
                 if property.constructionLevel < Property.maximumLevel {
-                    let nextLevel = property.constructionLevel + 1
-                    let cost = Property.levelUpCost(purchasePrice: property.purchasePrice, level: nextLevel)
-                    Button("Subir de nivel a \(nextLevel) (\(currency(cost)))") {
-                        model.levelUp(propertyID: property.id)
-                    }
-                    .buttonStyle(.borderedProminent)
+                    levelUpButton(for: property, localPlayerID: localPlayerID, state: state)
                 }
 
                 if property.constructionLevel > 0 {
@@ -208,6 +204,63 @@ struct PropertyDetailView: View {
                     }
                     .buttonStyle(.bordered)
                 }
+            }
+        }
+    }
+
+    /// Any shareholder can level up; the plan shows whose part they would cover and
+    /// how many shares they would take for it (GAME_RULES section 4.3).
+    @ViewBuilder
+    private func levelUpButton(for property: Property, localPlayerID: UUID, state: GameState) -> some View {
+        let nextLevel = property.constructionLevel + 1
+        let cost = Property.levelUpCost(purchasePrice: property.purchasePrice, level: nextLevel)
+        Button("Subir de nivel a \(nextLevel) (\(currency(cost)))") {
+            model.levelUp(propertyID: property.id)
+        }
+        .buttonStyle(.borderedProminent)
+
+        if let plan = try? GameRules.levelUpPlan(in: state, propertyID: property.id, playerID: localPlayerID),
+           !plan.coverages.isEmpty {
+            ForEach(plan.coverages, id: \.playerID) { coverage in
+                Text("\(state.playerName(coverage.playerID)) no puede pagar su parte (\(currency(coverage.amount))). La pagas tú y te llevas \(percentage(coverage.shares)) de sus acciones; puede recuperarlas devolviéndote ese dinero.")
+                    .font(.app(.footnote))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// Shares taken or given up for covering a level-up, for the two players involved.
+    @ViewBuilder
+    private func coverageSection(for property: Property, localPlayerID: UUID, state: GameState) -> some View {
+        let coverages = state.shareCoverages.filter {
+            $0.propertyID == property.id && ($0.payerID == localPlayerID || $0.coveredPlayerID == localPlayerID)
+        }
+        if !coverages.isEmpty {
+            Section {
+                ForEach(coverages) { coverage in
+                    if coverage.coveredPlayerID == localPlayerID {
+                        let payerStillHolds = property.shares(of: coverage.payerID) >= coverage.shares
+                        Button("Recuperar \(percentage(coverage.shares)) de \(state.playerName(coverage.payerID)) por \(currency(coverage.amount))") {
+                            model.buyBackShares(coverageID: coverage.id)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!payerStillHolds)
+                        if !payerStillHolds {
+                            Text("\(state.playerName(coverage.payerID)) ya no tiene esas acciones.")
+                                .font(.app(.footnote))
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        LabeledContent(
+                            "\(state.playerName(coverage.coveredPlayerID)) puede recuperar \(percentage(coverage.shares))",
+                            value: "por \(currency(coverage.amount))"
+                        )
+                    }
+                }
+            } header: {
+                Text("Acciones por subir de nivel")
+            } footer: {
+                Text("Quien no pudo pagar su parte de una subida de nivel puede recuperar las acciones que cedió en cualquier momento, devolviendo lo que se pagó por él.")
             }
         }
     }

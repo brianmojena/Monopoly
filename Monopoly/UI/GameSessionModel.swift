@@ -28,14 +28,9 @@ final class GameSessionModel: ObservableObject {
     @Published private(set) var lifeCardNotice: LifeCardDraw?
     /// A board event that just happened, announced on every device.
     @Published var presentedBoardEvent: BoardEventOccurrence?
-
-    let proximity = ProximityPaymentCoordinator()
+    @Published var presentedHostCard: HostCardOccurrence?
 
     private let session: GameSession
-
-    var isProximityPaymentEnabled: Bool {
-        gameState?.proximityPaymentsEnabled == true
-    }
 
     var areCreditCardsEnabled: Bool {
         gameState?.activeHouseRules.contains(.creditCards) == true
@@ -187,17 +182,6 @@ final class GameSessionModel: ObservableObject {
                 self?.alertMessage = "Error de conexión: \(error.localizedDescription)"
             }
         }
-        session.onProximitySignal = { [weak self] signal in
-            DispatchQueue.main.async {
-                guard let self, self.isProximityPaymentEnabled else {
-                    return
-                }
-                self.proximity.handle(signal, localPlayerID: self.localPlayerID)
-            }
-        }
-        proximity.sendSignal = { [weak self] signal in
-            self?.sendProximitySignal(signal)
-        }
     }
 
     // MARK: Creating a game
@@ -282,7 +266,6 @@ final class GameSessionModel: ObservableObject {
     /// Leaves the game for good on this iPhone: stops advertising or browsing and
     /// drops every connection. A host's game stays saved.
     func close() {
-        proximity.stopPayment()
         session.close()
     }
 
@@ -358,6 +341,10 @@ final class GameSessionModel: ObservableObject {
         send(.skipTurn)
     }
 
+    func playHostCard(_ play: HostCardPlay) {
+        send(.playHostCard(play))
+    }
+
     private func receive(_ state: GameState) {
         let previousPlayerID = gameState?.currentPlayerID
         let previousState = gameState
@@ -367,6 +354,11 @@ final class GameSessionModel: ObservableObject {
            let occurrence = state.boardEvents?.lastOccurrence,
            occurrence.sequence != previousState?.boardEvents?.lastOccurrence?.sequence {
             presentedBoardEvent = occurrence
+        }
+        if previousState != nil,
+           let hostCard = state.lastHostCard,
+           hostCard.sequence != previousState?.lastHostCard?.sequence {
+            presentedHostCard = hostCard
         }
         lobby = nil
         save(state)
@@ -476,6 +468,14 @@ final class GameSessionModel: ObservableObject {
             return "No es tu turno. Ahora juega \(name)."
         case .onlyHostCanSkipTurn:
             return "Solo el host puede pasar el turno de otro jugador."
+        case .onlyHostCanPlayCards:
+            return "Solo el host puede aplicar cartas."
+        case .incompleteHostCard:
+            return "Elige el jugador y la propiedad de la carta."
+        case .propertyAtMaximumLevel:
+            return "Esa propiedad ya está en el nivel máximo."
+        case .propertyHasNoOwner:
+            return "Esa propiedad no tiene dueño."
         case .gameFinished:
             return "La partida ya terminó."
         case .monopolifeOnly:
@@ -496,6 +496,11 @@ final class GameSessionModel: ObservableObject {
             return "El bote de Free Parking está vacío."
         case let .insufficientFunds(_, required, available):
             return "No te alcanza: hacen falta $\(required) y tienes $\(available)."
+        case .shareCoverageNotFound:
+            return "Esas acciones ya no se pueden recuperar."
+        case let .notEnoughShares(_, playerID):
+            let name = gameState?.players.first(where: { $0.id == playerID })?.name ?? "El otro jugador"
+            return "\(name) ya no tiene esas acciones."
         default:
             return "La acción fue rechazada: \(String(describing: error))"
         }
@@ -544,6 +549,15 @@ final class GameSessionModel: ObservableObject {
         }
 
         send(.levelUp(propertyID: propertyID, playerID: localPlayerID))
+    }
+
+    func buyBackShares(coverageID: UUID) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de recuperar acciones."
+            return
+        }
+
+        send(.buyBackShares(coverageID: coverageID, playerID: localPlayerID))
     }
 
     func levelDown(propertyID: UUID) {
@@ -700,16 +714,6 @@ final class GameSessionModel: ObservableObject {
             return true
         default:
             return false
-        }
-    }
-
-    private func sendProximitySignal(_ signal: ProximitySignal) {
-        do {
-            try session.sendProximitySignal(signal)
-        } catch {
-            alertMessage = Self.isDisconnection(error)
-                ? "Sin conexión con la banca: no se puede avisar al otro iPhone hasta que vuelva la conexión."
-                : "No se pudo contactar al otro iPhone: \(error.localizedDescription)"
         }
     }
 

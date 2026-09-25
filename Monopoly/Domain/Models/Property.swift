@@ -10,8 +10,9 @@ struct Property: Identifiable, Codable, Equatable {
     static let totalShares = 10
 
     /// Percentage of the purchase price charged when reaching each level.
-    /// The array is indexed by `level - 1` and applies to every property.
-    static let levelUpCostPercentages = [50, 75, 100, 150, 200]
+    /// The array is indexed by `level - 1` and applies to every property. Level 0 plus
+    /// these four levels are the five rent levels of Ultimate Banking.
+    static let levelUpCostPercentages = [50, 75, 100, 150]
     static let maximumLevel = levelUpCostPercentages.count
 
     let id: UUID
@@ -85,11 +86,10 @@ struct Property: Identifiable, Codable, Equatable {
         self.baseRent = baseRent
         self.rentByConstructionLevel = rentByConstructionLevel ?? [
             baseRent,
+            baseRent * 2,
+            baseRent * 3,
             baseRent * 5,
-            baseRent * 15,
-            baseRent * 35,
-            baseRent * 50,
-            baseRent * 70
+            baseRent * 10
         ]
         self.constructionLevel = constructionLevel
         self.ownership = ownership

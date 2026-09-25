@@ -466,33 +466,129 @@ enum GameRules {
         return updatedState
     }
 
-    static func levelUp(
+    /// Works out a level-up by any shareholder (GAME_RULES section 4.3) without doing it:
+    /// each shareholder pays their part by stake, and the part of anyone who can't is
+    /// paid by `playerID` in exchange for some of their shares.
+    static func levelUpPlan(
         in state: GameState,
         propertyID: UUID,
         playerID: UUID
-    ) throws -> GameState {
-        let (propertyIndex, property) = try buildingContext(
-            in: state,
-            propertyID: propertyID,
-            playerID: playerID
-        )
-
+    ) throws -> LevelUpPlan {
+        try requireActivePlayer(in: state, playerID: playerID)
+        guard let property = state.properties.first(where: { $0.id == propertyID }) else {
+            throw GameRuleError.propertyNotFound(propertyID)
+        }
+        guard property.shares(of: playerID) > 0 else {
+            throw GameRuleError.propertyNotOwnedByPlayer(propertyID: propertyID, playerID: playerID)
+        }
         guard !property.isMortgaged else {
             throw GameRuleError.propertyIsMortgaged(propertyID)
         }
-        try requireMonopoly(in: state, for: property, ownerID: playerID)
         guard property.constructionLevel < Property.maximumLevel else {
             throw GameRuleError.propertyAtMaximumLevel(propertyID)
         }
 
         let targetLevel = property.constructionLevel + 1
-        try requireUniformLevel(in: state, for: property, targetLevel: targetLevel)
+
+        let cost = Property.levelUpCost(purchasePrice: property.purchasePrice, level: targetLevel)
+        // A share is worth a tenth of the price plus every level paid, the new one included.
+        let value = (1...targetLevel).reduce(property.purchasePrice) {
+            $0 + Property.levelUpCost(purchasePrice: property.purchasePrice, level: $1)
+        }
+        var payments: [(playerID: UUID, amount: Int)] = []
+        var coverages: [LevelUpPlan.Coverage] = []
+        for portion in split(cost, among: property.ownership) {
+            guard let shareholder = state.players.first(where: { $0.id == portion.playerID }) else {
+                throw GameRuleError.playerNotFound(portion.playerID)
+            }
+            if portion.playerID == playerID || shareholder.balance >= portion.amount {
+                payments.append(portion)
+            } else {
+                // Rounded to the nearest share, at least one and never more than they hold.
+                let shares = (portion.amount * Property.totalShares * 2 + value) / (value * 2)
+                coverages.append(LevelUpPlan.Coverage(
+                    playerID: portion.playerID,
+                    amount: portion.amount,
+                    shares: min(max(shares, 1), property.shares(of: portion.playerID))
+                ))
+            }
+        }
+
+        let ownPart = payments.first(where: { $0.playerID == playerID })?.amount ?? 0
+        let required = ownPart + coverages.reduce(0) { $0 + $1.amount }
+        let available = state.players.first(where: { $0.id == playerID })?.balance ?? 0
+        guard available >= required else {
+            throw GameRuleError.insufficientFunds(playerID: playerID, required: required, available: available)
+        }
+        return LevelUpPlan(targetLevel: targetLevel, cost: cost, payments: payments, coverages: coverages)
+    }
+
+    static func levelUp(
+        in state: GameState,
+        propertyID: UUID,
+        playerID: UUID
+    ) throws -> GameState {
+        let plan = try levelUpPlan(in: state, propertyID: propertyID, playerID: playerID)
+        guard let propertyIndex = state.properties.firstIndex(where: { $0.id == propertyID }) else {
+            throw GameRuleError.propertyNotFound(propertyID)
+        }
 
         var updatedState = state
-        let cost = Property.levelUpCost(purchasePrice: property.purchasePrice, level: targetLevel)
-        try chargeShareholders(cost, of: property, in: &updatedState)
-        updatedState.properties[propertyIndex].constructionLevel = targetLevel
+        for payment in plan.payments {
+            credit(-payment.amount, to: payment.playerID, in: &updatedState)
+        }
+        for coverage in plan.coverages {
+            credit(-coverage.amount, to: playerID, in: &updatedState)
+            updatedState.properties[propertyIndex].removeShares(coverage.shares, from: coverage.playerID)
+            updatedState.properties[propertyIndex].addShares(coverage.shares, to: playerID)
+            updatedState.shareCoverages.append(ShareCoverage(
+                propertyID: propertyID,
+                payerID: playerID,
+                coveredPlayerID: coverage.playerID,
+                amount: coverage.amount,
+                shares: coverage.shares
+            ))
+        }
+        updatedState.properties[propertyIndex].constructionLevel = plan.targetLevel
+        if !plan.coverages.isEmpty {
+            reindexPropertyIDs(in: &updatedState)
+        }
         applyLifeTrigger(.leveledUp(playerID: playerID), in: &updatedState)
+        return updatedState
+    }
+
+    /// The covered shareholder pays back exactly what was covered and gets the shares
+    /// back, as long as the payer still holds that many (GAME_RULES section 4.3).
+    static func buyBackShares(
+        in state: GameState,
+        coverageID: UUID,
+        playerID: UUID
+    ) throws -> GameState {
+        try requireActivePlayer(in: state, playerID: playerID)
+        guard let coverageIndex = state.shareCoverages.firstIndex(where: { $0.id == coverageID }),
+              state.shareCoverages[coverageIndex].coveredPlayerID == playerID else {
+            throw GameRuleError.shareCoverageNotFound(coverageID)
+        }
+        let coverage = state.shareCoverages[coverageIndex]
+        guard let propertyIndex = state.properties.firstIndex(where: { $0.id == coverage.propertyID }) else {
+            throw GameRuleError.propertyNotFound(coverage.propertyID)
+        }
+        try requireActivePlayer(in: state, playerID: coverage.payerID)
+        guard state.properties[propertyIndex].shares(of: coverage.payerID) >= coverage.shares else {
+            throw GameRuleError.notEnoughShares(propertyID: coverage.propertyID, playerID: coverage.payerID)
+        }
+        let balance = state.players.first(where: { $0.id == playerID })?.balance ?? 0
+        guard balance >= coverage.amount else {
+            throw GameRuleError.insufficientFunds(playerID: playerID, required: coverage.amount, available: balance)
+        }
+
+        var updatedState = state
+        credit(-coverage.amount, to: playerID, in: &updatedState)
+        credit(coverage.amount, to: coverage.payerID, in: &updatedState)
+        updatedState.properties[propertyIndex].removeShares(coverage.shares, from: coverage.payerID)
+        updatedState.properties[propertyIndex].addShares(coverage.shares, to: playerID)
+        updatedState.shareCoverages.remove(at: coverageIndex)
+        reindexPropertyIDs(in: &updatedState)
         return updatedState
     }
 
@@ -512,11 +608,6 @@ enum GameRules {
         }
 
         let targetLevel = property.constructionLevel - 1
-        try requireUniformLevelAfterSelling(
-            in: state,
-            for: property,
-            targetLevel: targetLevel
-        )
 
         let levelCost = Property.levelUpCost(
             purchasePrice: property.purchasePrice,
@@ -670,6 +761,9 @@ enum GameRules {
         updatedState.rentInvestments.removeAll {
             $0.investorID == playerID || $0.recipientID == playerID
         }
+        updatedState.shareCoverages.removeAll {
+            $0.payerID == playerID || $0.coveredPlayerID == playerID
+        }
         reindexPropertyIDs(in: &updatedState)
 
         // A Monopolife player keeps playing, so their turn goes on.
@@ -723,6 +817,7 @@ enum GameRules {
                     updatedState.currentPlayerID = nil
                     return updatedState
                 }
+                expireHostCardEffects(afterRound: updatedState.round, in: &updatedState)
                 runBoardEvents(afterRound: updatedState.round, in: &updatedState)
                 updatedState.round += 1
             }
@@ -739,9 +834,7 @@ enum GameRules {
     ) throws -> Int {
         let rent: Int
         if property.constructionLevel == 0 {
-            let groupProperties = state.properties.filter { $0.colorGroup == property.colorGroup }
-            let ownsMonopoly = groupProperties.count >= 2 && groupProperties.allSatisfy { $0.ownerID == ownerID }
-            rent = ownsMonopoly ? property.baseRent * 2 : property.baseRent
+            rent = property.baseRent
         } else {
             guard property.rentByConstructionLevel.indices.contains(property.constructionLevel) else {
                 throw GameRuleError.invalidRentTable(property.id)
@@ -766,45 +859,6 @@ enum GameRules {
             throw GameRuleError.propertyNotOwnedByPlayer(propertyID: propertyID, playerID: playerID)
         }
         return (propertyIndex, property)
-    }
-
-    private static func requireMonopoly(
-        in state: GameState,
-        for property: Property,
-        ownerID: UUID
-    ) throws {
-        let groupProperties = state.properties.filter { $0.colorGroup == property.colorGroup }
-        guard groupProperties.count >= 2, groupProperties.allSatisfy({ $0.ownerID == ownerID }) else {
-            throw GameRuleError.playerDoesNotOwnMonopoly(property.colorGroup)
-        }
-    }
-
-    private static func requireUniformLevel(
-        in state: GameState,
-        for property: Property,
-        targetLevel: Int
-    ) throws {
-        let groupProperties = state.properties.filter { $0.colorGroup == property.colorGroup }
-        guard groupProperties.allSatisfy({
-            let level = $0.id == property.id ? targetLevel : $0.constructionLevel
-            return abs(targetLevel - level) <= 1
-        }) else {
-            throw GameRuleError.violatesUniformLevel(property.id)
-        }
-    }
-
-    private static func requireUniformLevelAfterSelling(
-        in state: GameState,
-        for property: Property,
-        targetLevel: Int
-    ) throws {
-        let groupProperties = state.properties.filter { $0.colorGroup == property.colorGroup }
-        let levels = groupProperties.map {
-            $0.id == property.id ? targetLevel : $0.constructionLevel
-        }
-        guard let minimumLevel = levels.min(), let maximumLevel = levels.max(), maximumLevel - minimumLevel <= 1 else {
-            throw GameRuleError.violatesUniformLevel(property.id)
-        }
     }
 
     private static func constructionResaleValue(for property: Property) -> Int {

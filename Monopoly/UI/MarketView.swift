@@ -69,7 +69,6 @@ struct MarketView: View {
         } message: {
             Text(model.alertMessage ?? "Inténtalo de nuevo.")
         }
-        .proximityReceiverBanner(model: model)
     }
 
     private func investmentsSection(state: GameState, localPlayerID: UUID) -> some View {
