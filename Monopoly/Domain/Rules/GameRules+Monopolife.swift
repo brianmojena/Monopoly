@@ -3,18 +3,15 @@ import Foundation
 /// Something that happened in the game that a role may like or dislike
 /// (MONOPOLIFE_RULES section 3.3). The money rules emit these after they succeed.
 enum LifeTrigger: Equatable {
-    case rentPaid(payerID: UUID, amount: Int, colorGroup: ColorGroup)
-    case rentReceived(playerID: UUID)
-    case investmentPayout(investorID: UUID)
+    case rentPaid(payerID: UUID, amount: Int, colorGroup: ColorGroup, level: Int)
+    case rentReceived(playerID: UUID, payerID: UUID)
     case propertyBought(playerID: UUID)
     case leveledUp(playerID: UUID)
     case mortgaged(playerID: UUID)
-    case taxPaid(playerID: UUID)
     case loanTaken(playerID: UUID)
     case salaryCollected(playerID: UUID, hadCardDebt: Bool)
     case travelPaid(playerID: UUID)
     case dealSettled(participantIDs: Set<UUID>, isScorable: Bool)
-    case investmentCreated(investorID: UUID)
 }
 
 // Monopolife: the winner is whoever has the most happiness when the last round ends
@@ -109,12 +106,20 @@ extension GameRules {
         }
 
         switch trigger {
-        case let .rentPaid(payerID, amount, colorGroup):
+        case let .rentPaid(payerID, amount, colorGroup, level):
+            if let role = state.monopolife?.profiles[payerID]?.role {
+                let points = LifeRoleValues.rentVisitPoints(for: role, boardSide: colorGroup.boardSide, level: level)
+                adjustHappiness(of: payerID, by: points, reason: .rentVisit, in: &state)
+            }
+
             let consumerPoints = min(amount / LifeRoleValues.consumerRentStep, LifeRoleValues.consumerRentPointsCap)
             applyRoleEffect(.consumerRentPaid, consumerPoints, to: payerID, in: &state)
 
-            guard state.monopolife?.profiles[payerID]?.role == .globetrotter,
-                  state.monopolife?.profiles[payerID]?.rentStamps.contains(colorGroup) == false else {
+            guard state.monopolife?.profiles[payerID]?.role == .globetrotter else {
+                return
+            }
+            guard state.monopolife?.profiles[payerID]?.rentStamps.contains(colorGroup) == false else {
+                applyRoleEffect(.globetrotterRevisit, LifeRoleValues.globetrotterRevisit, to: payerID, in: &state)
                 return
             }
             state.monopolife?.profiles[payerID]?.rentStamps.insert(colorGroup)
@@ -122,18 +127,25 @@ extension GameRules {
             if state.monopolife?.profiles[payerID]?.rentStamps.count == ColorGroup.allCases.count {
                 applyRoleEffect(.globetrotterAllStamps, LifeRoleValues.globetrotterAllStamps, to: payerID, in: &state)
             }
-        case let .rentReceived(playerID):
-            applyRoleEffect(.entrepreneurRentReceived, LifeRoleValues.entrepreneurRentReceived, to: playerID, in: &state)
-        case let .investmentPayout(investorID):
-            applyRoleEffect(.investorPayout, LifeRoleValues.investorPayout, to: investorID, in: &state)
+        case let .rentReceived(playerID, payerID):
+            if let scored = state.monopolife?.profiles[playerID]?.scoredRentsThisRound,
+               scored < LifeRoleValues.entrepreneurScoredRentsPerRound,
+               state.monopolife?.profiles[playerID]?.role == .entrepreneur {
+                state.monopolife?.profiles[playerID]?.scoredRentsThisRound = scored + 1
+                applyRoleEffect(.entrepreneurRentReceived, LifeRoleValues.entrepreneurRentReceived, to: playerID, in: &state)
+            }
+            recordRentContact(of: playerID, with: payerID, in: &state)
+            recordRentContact(of: payerID, with: playerID, in: &state)
         case let .propertyBought(playerID):
-            applyRoleEffect(.globetrotterPropertyBought, LifeRoleValues.globetrotterPropertyBought, to: playerID, in: &state)
+            let heldProperties = state.properties.filter { $0.shares(of: playerID) > 0 }.count
+            if heldProperties > LifeRoleValues.globetrotterPropertiesWithoutRoots {
+                applyRoleEffect(.globetrotterPropertyBought, LifeRoleValues.globetrotterPropertyBought, to: playerID, in: &state)
+            }
         case let .leveledUp(playerID):
+            state.monopolife?.profiles[playerID]?.leveledUpThisRound = true
             applyRoleEffect(.consumerLevelUp, LifeRoleValues.consumerLevelUp, to: playerID, in: &state)
         case let .mortgaged(playerID):
             applyRoleEffect(.entrepreneurMortgage, LifeRoleValues.entrepreneurMortgage, to: playerID, in: &state)
-        case let .taxPaid(playerID):
-            applyRoleEffect(.investorTax, LifeRoleValues.investorTax, to: playerID, in: &state)
         case let .loanTaken(playerID):
             applyRoleEffect(.saverLoan, LifeRoleValues.saverLoan, to: playerID, in: &state)
         case let .salaryCollected(playerID, hadCardDebt):
@@ -155,9 +167,18 @@ extension GameRules {
                 state.monopolife?.profiles[playerID]?.scoredDealsThisRound = scored + 1
                 applyRoleEffect(.socialDeal, LifeRoleValues.socialDeal, to: playerID, in: &state)
             }
-        case let .investmentCreated(investorID):
-            applyRoleEffect(.investorInvestmentCreated, LifeRoleValues.investorInvestmentCreated, to: investorID, in: &state)
         }
+    }
+
+    /// The Social is happy the first time each round they pay rent to, or collect rent
+    /// from, each other player.
+    private static func recordRentContact(of playerID: UUID, with otherID: UUID, in state: inout GameState) {
+        guard state.monopolife?.profiles[playerID]?.role == .social,
+              state.monopolife?.profiles[playerID]?.rentContactsThisRound.contains(otherID) == false else {
+            return
+        }
+        state.monopolife?.profiles[playerID]?.rentContactsThisRound.insert(otherID)
+        applyRoleEffect(.socialVisit, LifeRoleValues.socialVisit, to: playerID, in: &state)
     }
 
     /// Whether a settled deal counts for the Social role: it must move at least a
@@ -180,6 +201,16 @@ extension GameRules {
 
     // MARK: Rounds and the end of the game
 
+    /// Applies the likes checked when a player ends their own turn.
+    static func endOfTurn(of playerID: UUID, in state: inout GameState) {
+        guard state.monopolife?.profiles[playerID]?.role == .saver,
+              let player = state.players.first(where: { $0.id == playerID }) else {
+            return
+        }
+        let points = min(player.balance / LifeRoleValues.saverCashStep, LifeRoleValues.saverSavingsPointsCap)
+        applyRoleEffect(.saverSavings, points, to: playerID, in: &state)
+    }
+
     /// Applies every role's end-of-round likes and dislikes, then resets the per-round
     /// counters.
     static func endOfRound(in state: inout GameState) {
@@ -191,7 +222,6 @@ extension GameRules {
             guard let profile = monopolife.profiles[player.id] else {
                 continue
             }
-            let heldProperties = state.properties.filter { $0.shares(of: player.id) > 0 }
 
             switch profile.role {
             case .consumer:
@@ -199,26 +229,23 @@ extension GameRules {
                     applyRoleEffect(.consumerHoardedCash, LifeRoleValues.consumerHoarding, to: player.id, in: &state)
                 }
             case .entrepreneur:
+                let leveledProperties = state.properties.filter { $0.ownerID == player.id && $0.constructionLevel > 0 }
                 let points = min(
-                    heldProperties.count * LifeRoleValues.entrepreneurPointsPerProperty,
-                    LifeRoleValues.entrepreneurPropertyPointsCap
+                    leveledProperties.count * LifeRoleValues.entrepreneurPointsPerLeveledProperty,
+                    LifeRoleValues.entrepreneurLeveledPropertyPointsCap
                 )
                 applyRoleEffect(.entrepreneurOwnedProperties, points, to: player.id, in: &state)
-            case .saver:
-                let points = min(player.balance / LifeRoleValues.saverCashStep, LifeRoleValues.saverSavingsPointsCap)
-                applyRoleEffect(.saverSavings, points, to: player.id, in: &state)
+
+                let roundsWithoutLevelUp = profile.leveledUpThisRound ? 0 : profile.roundsWithoutLevelUp + 1
+                state.monopolife?.profiles[player.id]?.roundsWithoutLevelUp = roundsWithoutLevelUp
+                if roundsWithoutLevelUp >= LifeRoleValues.entrepreneurStagnationRounds {
+                    applyRoleEffect(.entrepreneurStagnation, LifeRoleValues.entrepreneurStagnation, to: player.id, in: &state)
+                }
             case .social:
-                if !profile.tookPartInDealThisRound {
+                if !profile.tookPartInDealThisRound, state.round >= LifeRoleValues.socialNoDealsFromRound {
                     applyRoleEffect(.socialNoDeals, LifeRoleValues.socialNoDeals, to: player.id, in: &state)
                 }
-            case .investor:
-                let colorGroups = Set(heldProperties.map(\.colorGroup))
-                let points = min(
-                    colorGroups.count * LifeRoleValues.investorPointsPerColorGroup,
-                    LifeRoleValues.investorDiversificationPointsCap
-                )
-                applyRoleEffect(.investorDiversification, points, to: player.id, in: &state)
-            case .globetrotter:
+            case .saver, .globetrotter:
                 break
             }
         }
@@ -226,6 +253,9 @@ extension GameRules {
         for playerID in monopolife.profiles.keys {
             state.monopolife?.profiles[playerID]?.scoredDealsThisRound = 0
             state.monopolife?.profiles[playerID]?.tookPartInDealThisRound = false
+            state.monopolife?.profiles[playerID]?.scoredRentsThisRound = 0
+            state.monopolife?.profiles[playerID]?.leveledUpThisRound = false
+            state.monopolife?.profiles[playerID]?.rentContactsThisRound = []
         }
     }
 

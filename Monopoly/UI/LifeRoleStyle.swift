@@ -11,8 +11,6 @@ extension LifeRole {
             return Color(red: 0.13, green: 0.58, blue: 0.36)
         case .social:
             return Color(red: 0.93, green: 0.52, blue: 0.12)
-        case .investor:
-            return Color(red: 0.49, green: 0.3, blue: 0.8)
         case .globetrotter:
             return Color(red: 0.08, green: 0.6, blue: 0.66)
         }
@@ -28,6 +26,8 @@ extension HappinessReason {
             return LifeCards.card(withID: cardID)?.title ?? "Tarjeta de Vida"
         case .bankruptcy:
             return "Bancarrota"
+        case .rentVisit:
+            return "Saliste a un lugar"
         }
     }
 
@@ -41,6 +41,8 @@ extension HappinessReason {
             return "Tarjetas de Vida"
         case .bankruptcy:
             return "Bancarrota"
+        case .rentVisit:
+            return "Salir por la ciudad"
         }
     }
 }

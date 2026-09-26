@@ -179,16 +179,20 @@ enum GameRules {
                 guard amount > 0 else { continue }
                 credit(amount, to: investment.investorID, in: &updatedState)
                 remaining -= amount
-                applyLifeTrigger(.investmentPayout(investorID: investment.investorID), in: &updatedState)
             }
             let kept = takeLoanRentCuts(from: remaining, collectedBy: portion.playerID, in: &updatedState)
             credit(kept, to: portion.playerID, in: &updatedState)
             if remaining > 0 {
-                applyLifeTrigger(.rentReceived(playerID: portion.playerID), in: &updatedState)
+                applyLifeTrigger(.rentReceived(playerID: portion.playerID, payerID: payerID), in: &updatedState)
             }
         }
         applyLifeTrigger(
-            .rentPaid(payerID: payerID, amount: amountDue, colorGroup: property.colorGroup),
+            .rentPaid(
+                payerID: payerID,
+                amount: amountDue,
+                colorGroup: property.colorGroup,
+                level: property.constructionLevel
+            ),
             in: &updatedState
         )
         return RentResult(state: updatedState, amount: amountDue)
@@ -242,9 +246,6 @@ enum GameRules {
         var updatedState = state
         updatedState.players[playerIndex].balance -= amount
         depositInFreeParking(amount, in: &updatedState)
-        if amount > 0 {
-            applyLifeTrigger(.taxPaid(playerID: playerID), in: &updatedState)
-        }
         return updatedState
     }
 
@@ -875,7 +876,9 @@ enum GameRules {
     static func endTurn(in state: GameState, playerID: UUID) throws -> GameState {
         try requireTurn(in: state, playerID: playerID)
         try requireNoPendingLifeCard(in: state, playerID: playerID)
-        return advanceTurn(in: state)
+        var updatedState = state
+        endOfTurn(of: playerID, in: &updatedState)
+        return advanceTurn(in: updatedState)
     }
 
     // Turn order is the order of `players`; bankrupt players are skipped, and wrapping

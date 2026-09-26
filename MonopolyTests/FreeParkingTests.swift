@@ -60,7 +60,7 @@ final class FreeParkingTests: XCTestCase {
         }
     }
 
-    func testPayTravelIsNotATaxForMonopolifeRoles() throws {
+    func testPayTravelDoesNotAffectRolesThatDoNotTravel() throws {
         let ana = Player(name: "Ana", balance: 1500)
         let state = GameState(
             players: [ana],
@@ -69,7 +69,7 @@ final class FreeParkingTests: XCTestCase {
             mode: .monopolife,
             monopolife: MonopolifeState(
                 roundLimit: 15,
-                profiles: [ana.id: LifeProfile(role: .investor, hasAcknowledgedRole: true)],
+                profiles: [ana.id: LifeProfile(role: .saver, hasAcknowledgedRole: true)],
                 lifeDeck: []
             )
         )

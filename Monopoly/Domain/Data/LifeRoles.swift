@@ -9,32 +9,52 @@ enum LifeRoleValues {
     static let consumerHoardingThreshold = 1500
     static let consumerHoarding = -2
 
-    static let entrepreneurPointsPerProperty = 1
-    static let entrepreneurPropertyPointsCap = 5
-    static let entrepreneurRentReceived = 2
+    static let entrepreneurPointsPerLeveledProperty = 1
+    static let entrepreneurLeveledPropertyPointsCap = 4
+    static let entrepreneurRentReceived = 1
+    static let entrepreneurScoredRentsPerRound = 3
     static let entrepreneurMortgage = -3
+    static let entrepreneurStagnationRounds = 3
+    static let entrepreneurStagnation = -2
 
-    static let saverCashStep = 400
+    static let saverCashStep = 300
     static let saverSavingsPointsCap = 5
-    static let saverSalaryWithoutDebt = 1
+    static let saverSalaryWithoutDebt = 2
     static let saverLoan = -4
 
     static let socialDeal = 3
     static let socialScoredDealsPerRound = 2
     static let socialMinimumDealMoney = 50
+    static let socialVisit = 1
     static let socialNoDeals = -1
+    /// The first rounds are for getting started, so a round without deals only
+    /// counts from this one on.
+    static let socialNoDealsFromRound = 3
 
-    static let investorInvestmentCreated = 3
-    static let investorPayout = 1
-    static let investorPointsPerColorGroup = 1
-    static let investorDiversificationPointsCap = 4
-    static let investorTax = -2
-
-    static let globetrotterSalary = 2
-    static let globetrotterTrip = 2
+    static let globetrotterSalary = 3
+    static let globetrotterTrip = 3
     static let globetrotterStamp = 3
+    static let globetrotterRevisit = 1
     static let globetrotterAllStamps = 8
     static let globetrotterPropertyBought = -2
+    /// Properties the Globetrotter can hold before buying another one bothers them.
+    static let globetrotterPropertiesWithoutRoots = 2
+
+    /// MONOPOLIFE_RULES section 3.4: paying rent makes every role happy, more the
+    /// more luxurious the place (board side 1–4 plus its level) and by role.
+    static let rentVisitLuxuryPerPoint: [LifeRole: Int] = [
+        .consumer: 2,
+        .globetrotter: 2,
+        .social: 3,
+        .entrepreneur: 4,
+        .saver: 4
+    ]
+    static let rentVisitMinimum = 1
+
+    static func rentVisitPoints(for role: LifeRole, boardSide: Int, level: Int) -> Int {
+        let luxury = boardSide + level
+        return max(rentVisitMinimum, luxury / (rentVisitLuxuryPerPoint[role] ?? luxury))
+    }
 
     /// MONOPOLIFE_RULES section 6.
     static let bankruptcyRescueBalance = 500
@@ -50,6 +70,12 @@ struct LifeRoleDefinition {
 }
 
 extension LifeRole {
+    /// The rent-paying like every role shares, with this role's rate.
+    var rentVisitLike: String {
+        let perPoint = LifeRoleValues.rentVisitLuxuryPerPoint[self] ?? 1
+        return "Pagar renta: +1 por cada \(perPoint) de lujo (lado del tablero 1–4 + nivel de la propiedad), mínimo +\(LifeRoleValues.rentVisitMinimum)."
+    }
+
     var definition: LifeRoleDefinition {
         switch self {
         case .consumer:
@@ -59,7 +85,8 @@ extension LifeRole {
                 emoji: "🛍️",
                 summary: "Le gusta gastar y vivir en lugares caros.",
                 likes: [
-                    "Pagar renta: +1 por cada $100 pagados (máx +6 por pago).",
+                    rentVisitLike,
+                    "Además, al pagar renta: +1 por cada $100 pagados (máx +6 por pago).",
                     "Subir de nivel una propiedad en la que tienes acciones: +2."
                 ],
                 dislike: "Terminar la ronda con más de $1,500 en efectivo: −2."
@@ -69,12 +96,13 @@ extension LifeRole {
                 role: self,
                 name: "Emprendedor",
                 emoji: "🏢",
-                summary: "Le gusta tener negocios y que la gente caiga en ellos.",
+                summary: "Le gusta construir negocios y que la gente caiga en ellos.",
                 likes: [
-                    "Al terminar la ronda: +1 por cada propiedad en la que tienes acciones (máx +5).",
-                    "Cada vez que otro jugador te paga renta: +2."
+                    "Al terminar la ronda: +1 por cada propiedad que administras con nivel 1 o más (máx +4).",
+                    "Cada vez que otro jugador te paga renta: +1 (máx 3 por ronda).",
+                    rentVisitLike
                 ],
-                dislike: "Hipotecar una propiedad que administras: −3."
+                dislike: "Hipotecar una propiedad que administras: −3. Pasar 3 rondas seguidas sin subir de nivel ninguna propiedad: −2 al terminar cada ronda hasta que subas una."
             )
         case .saver:
             return LifeRoleDefinition(
@@ -83,8 +111,9 @@ extension LifeRole {
                 emoji: "🐷",
                 summary: "Le gusta ver crecer su cuenta.",
                 likes: [
-                    "Al terminar la ronda: +1 por cada $400 en efectivo (máx +5).",
-                    "Cobrar salario sin deuda de tarjeta: +1."
+                    "Al terminar tu turno: +1 por cada $300 en efectivo (máx +5).",
+                    "Cobrar salario sin deuda de tarjeta: +2.",
+                    rentVisitLike
                 ],
                 dislike: "Pedir un préstamo de tarjeta de crédito: −4."
             )
@@ -95,22 +124,11 @@ extension LifeRole {
                 emoji: "🎉",
                 summary: "Le gusta negociar y compartir.",
                 likes: [
-                    "Cada trato en el que participas: +3 (máx 2 por ronda). Debe mover al menos $50 o una acción. También cuenta cubrir la parte de otro accionista al subir de nivel, o recomprarle esas acciones."
+                    "Cada trato en el que participas: +3 (máx 2 por ronda). Debe mover al menos $50 o una acción. También cuenta cubrir la parte de otro accionista al subir de nivel, o recomprarle esas acciones.",
+                    "Pagarle o cobrarle renta a un jugador por primera vez en la ronda: +1 por cada jugador distinto.",
+                    rentVisitLike
                 ],
-                dislike: "Terminar una ronda sin haber participado en ningún trato: −1."
-            )
-        case .investor:
-            return LifeRoleDefinition(
-                role: self,
-                name: "Inversionista",
-                emoji: "📈",
-                summary: "Le gusta diversificar y cobrar sin trabajar.",
-                likes: [
-                    "Crear una inversión como inversor: +3.",
-                    "Cada vez que cobras el corte de una inversión: +1.",
-                    "Al terminar la ronda: +1 por cada grupo de color en el que tienes acciones (máx +4)."
-                ],
-                dislike: "Pagar un impuesto (también los eventos del tablero que son impuestos): −2."
+                dislike: "Desde la ronda \(LifeRoleValues.socialNoDealsFromRound): terminar una ronda sin haber participado en ningún trato: −1."
             )
         case .globetrotter:
             return LifeRoleDefinition(
@@ -119,11 +137,12 @@ extension LifeRole {
                 emoji: "✈️",
                 summary: "Le gusta viajar y conocer, no echar raíces.",
                 likes: [
-                    "Cobrar salario en Salida: +2.",
-                    "Pagar un viaje en una casilla de viaje: +2.",
-                    "La primera vez que pagas renta en cada grupo de color: +3. Con los 8 colores: +8 extra."
+                    "Cobrar salario en Salida: +3.",
+                    "Pagar un viaje en una casilla de viaje: +3.",
+                    "La primera vez que pagas renta en cada grupo de color: +3 (sello). Con los 8 sellos: +8 extra. Volver a pagar renta en un grupo ya sellado: +1.",
+                    rentVisitLike
                 ],
-                dislike: "Comprar una propiedad al banco (compra, subasta o compra compartida): −2."
+                dislike: "Comprar una propiedad al banco (compra, subasta o compra compartida) cuando ya tienes acciones en 2 o más: −2."
             )
         }
     }
@@ -134,15 +153,14 @@ extension LifeRoleEffect {
         switch self {
         case .consumerRentPaid, .consumerLevelUp, .consumerHoardedCash:
             return .consumer
-        case .entrepreneurOwnedProperties, .entrepreneurRentReceived, .entrepreneurMortgage:
+        case .entrepreneurOwnedProperties, .entrepreneurRentReceived, .entrepreneurMortgage, .entrepreneurStagnation:
             return .entrepreneur
         case .saverSavings, .saverSalaryWithoutDebt, .saverLoan:
             return .saver
-        case .socialDeal, .socialNoDeals:
+        case .socialDeal, .socialVisit, .socialNoDeals:
             return .social
-        case .investorInvestmentCreated, .investorPayout, .investorDiversification, .investorTax:
-            return .investor
-        case .globetrotterSalary, .globetrotterTrip, .globetrotterStamp, .globetrotterAllStamps, .globetrotterPropertyBought:
+        case .globetrotterSalary, .globetrotterTrip, .globetrotterStamp, .globetrotterRevisit,
+             .globetrotterAllStamps, .globetrotterPropertyBought:
             return .globetrotter
         }
     }
@@ -161,30 +179,28 @@ extension LifeRoleEffect {
             return "Alguien cayó en tu negocio"
         case .entrepreneurMortgage:
             return "Hipotecaste un negocio"
+        case .entrepreneurStagnation:
+            return "Tus negocios están estancados"
         case .saverSavings:
-            return "Tus ahorros al cerrar la ronda"
+            return "Tus ahorros al terminar tu turno"
         case .saverSalaryWithoutDebt:
             return "Salario sin deudas"
         case .saverLoan:
             return "Pediste un préstamo"
         case .socialDeal:
             return "Cerraste un trato"
+        case .socialVisit:
+            return "Te viste con alguien"
         case .socialNoDeals:
             return "Una ronda sin tratos"
-        case .investorInvestmentCreated:
-            return "Hiciste una inversión"
-        case .investorPayout:
-            return "Cobraste una inversión"
-        case .investorDiversification:
-            return "Tu cartera diversificada"
-        case .investorTax:
-            return "Pagaste impuestos"
         case .globetrotterSalary:
             return "Diste la vuelta al tablero"
         case .globetrotterTrip:
             return "Te fuiste de viaje"
         case .globetrotterStamp:
             return "Nuevo sello en tu pasaporte"
+        case .globetrotterRevisit:
+            return "Volviste a un lugar conocido"
         case .globetrotterAllStamps:
             return "¡Pasaporte completo!"
         case .globetrotterPropertyBought:

@@ -10,8 +10,19 @@ enum LifeRole: String, Codable, CaseIterable, Equatable, Hashable {
     case entrepreneur
     case saver
     case social
-    case investor
     case globetrotter
+
+    init(from decoder: Decoder) throws {
+        let rawValue = try decoder.singleValueContainer().decode(String.self)
+        // Games saved while the Investor role existed play on as Entrepreneurs.
+        guard let role = LifeRole(rawValue: rawValue == "investor" ? "entrepreneur" : rawValue) else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Unknown life role \(rawValue)"
+            ))
+        }
+        self = role
+    }
 }
 
 enum LifePossession: String, Codable, CaseIterable, Equatable, Hashable {
@@ -29,26 +40,46 @@ enum LifeRoleEffect: String, Codable, CaseIterable, Equatable, Hashable {
     case entrepreneurOwnedProperties
     case entrepreneurRentReceived
     case entrepreneurMortgage
+    case entrepreneurStagnation
     case saverSavings
     case saverSalaryWithoutDebt
     case saverLoan
     case socialDeal
+    case socialVisit
     case socialNoDeals
-    case investorInvestmentCreated
-    case investorPayout
-    case investorDiversification
-    case investorTax
     case globetrotterSalary
     case globetrotterTrip
     case globetrotterStamp
+    case globetrotterRevisit
     case globetrotterAllStamps
     case globetrotterPropertyBought
+
+    /// Effects of the removed Investor role, kept so saved happiness logs still load.
+    private static let legacyInvestorEffects: [String: LifeRoleEffect] = [
+        "investorInvestmentCreated": .entrepreneurOwnedProperties,
+        "investorPayout": .entrepreneurRentReceived,
+        "investorDiversification": .entrepreneurOwnedProperties,
+        "investorTax": .entrepreneurMortgage
+    ]
+
+    init(from decoder: Decoder) throws {
+        let rawValue = try decoder.singleValueContainer().decode(String.self)
+        guard let effect = LifeRoleEffect(rawValue: rawValue) ?? Self.legacyInvestorEffects[rawValue] else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Unknown life role effect \(rawValue)"
+            ))
+        }
+        self = effect
+    }
 }
 
 enum HappinessReason: Codable, Equatable, Hashable {
     case role(LifeRoleEffect)
     case lifeCard(String)
     case bankruptcy
+    /// Paying rent somewhere, which every role enjoys (MONOPOLIFE_RULES section 3.4).
+    case rentVisit
 }
 
 struct HappinessEvent: Codable, Equatable {
@@ -67,6 +98,13 @@ struct LifeProfile: Codable, Equatable {
     var scoredDealsThisRound: Int
     var tookPartInDealThisRound: Bool
     var possessions: Set<LifePossession>
+    /// Rents received this round that counted for the Entrepreneur.
+    var scoredRentsThisRound: Int
+    var leveledUpThisRound: Bool
+    /// Rounds in a row the Entrepreneur ended without leveling anything up.
+    var roundsWithoutLevelUp: Int
+    /// Players the Social paid rent to or collected rent from this round.
+    var rentContactsThisRound: Set<UUID>
 
     init(
         role: LifeRole,
@@ -75,7 +113,11 @@ struct LifeProfile: Codable, Equatable {
         rentStamps: Set<ColorGroup> = [],
         scoredDealsThisRound: Int = 0,
         tookPartInDealThisRound: Bool = false,
-        possessions: Set<LifePossession> = []
+        possessions: Set<LifePossession> = [],
+        scoredRentsThisRound: Int = 0,
+        leveledUpThisRound: Bool = false,
+        roundsWithoutLevelUp: Int = 0,
+        rentContactsThisRound: Set<UUID> = []
     ) {
         self.role = role
         self.happiness = happiness
@@ -84,6 +126,10 @@ struct LifeProfile: Codable, Equatable {
         self.scoredDealsThisRound = scoredDealsThisRound
         self.tookPartInDealThisRound = tookPartInDealThisRound
         self.possessions = possessions
+        self.scoredRentsThisRound = scoredRentsThisRound
+        self.leveledUpThisRound = leveledUpThisRound
+        self.roundsWithoutLevelUp = roundsWithoutLevelUp
+        self.rentContactsThisRound = rentContactsThisRound
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -94,6 +140,10 @@ struct LifeProfile: Codable, Equatable {
         case scoredDealsThisRound
         case tookPartInDealThisRound
         case possessions
+        case scoredRentsThisRound
+        case leveledUpThisRound
+        case roundsWithoutLevelUp
+        case rentContactsThisRound
     }
 
     init(from decoder: Decoder) throws {
@@ -105,6 +155,10 @@ struct LifeProfile: Codable, Equatable {
         scoredDealsThisRound = try container.decodeIfPresent(Int.self, forKey: .scoredDealsThisRound) ?? 0
         tookPartInDealThisRound = try container.decodeIfPresent(Bool.self, forKey: .tookPartInDealThisRound) ?? false
         possessions = try container.decodeIfPresent(Set<LifePossession>.self, forKey: .possessions) ?? []
+        scoredRentsThisRound = try container.decodeIfPresent(Int.self, forKey: .scoredRentsThisRound) ?? 0
+        leveledUpThisRound = try container.decodeIfPresent(Bool.self, forKey: .leveledUpThisRound) ?? false
+        roundsWithoutLevelUp = try container.decodeIfPresent(Int.self, forKey: .roundsWithoutLevelUp) ?? 0
+        rentContactsThisRound = try container.decodeIfPresent(Set<UUID>.self, forKey: .rentContactsThisRound) ?? []
     }
 }
 

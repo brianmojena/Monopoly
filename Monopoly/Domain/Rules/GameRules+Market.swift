@@ -231,9 +231,6 @@ extension GameRules {
         for buyer in deal.sharedPurchase?.buyers ?? [] {
             applyLifeTrigger(.propertyBought(playerID: buyer.playerID), in: &updatedState)
         }
-        if let investment = deal.proposedInvestment {
-            applyLifeTrigger(.investmentCreated(investorID: investment.investorID), in: &updatedState)
-        }
         return updatedState
     }
 

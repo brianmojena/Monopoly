@@ -126,7 +126,7 @@ struct RoleRouletteView: View {
             return
         }
 
-        // Segment `index` is centered `index * 60 + 30` degrees clockwise from the
+        // Segment `index` is centered `index * segment + segment / 2` degrees clockwise from the
         // top; turning the wheel by the rest of the circle brings it under the pointer.
         let segment = 360.0 / Double(LifeRole.allCases.count)
         let index = Double(LifeRole.allCases.firstIndex(of: role) ?? 0)

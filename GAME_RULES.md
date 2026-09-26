@@ -150,7 +150,7 @@ El valor de hipoteca no existe en Ultimate Banking; se mantiene en la mitad del 
 - **Ir a la Cárcel**: el jugador mueve su ficha físicamente a la cárcel y, en su turno, lo marca en la app con el botón "Cárcel" (por caer en "Ir a la Cárcel", por una carta o por 3 dobles seguidos). Mientras esté preso, todos los dispositivos muestran quién está en la cárcel y en qué turno de cárcel va: el turno en que entra no cuenta, y cada vez que empieza su turno estando preso suma uno (1.er turno, 2.º turno…). Estar preso no impide cobrar renta, negociar ni el resto de acciones.
 - **Salir de la Cárcel**: en su turno, el jugador toca la cárcel y elige cómo sale:
   - **Saqué dobles**: sale gratis.
-  - **Pagar $100 de fianza**: se paga como impuesto (va al bote de Free Parking si esa regla está activa, sección 8.2; si no, sale del juego) y cuenta como impuesto para Monopolife.
+  - **Pagar $100 de fianza**: se paga como impuesto (va al bote de Free Parking si esa regla está activa, sección 8.2; si no, sale del juego).
   La carta "Salir de la cárcel gratis" se juega físicamente y equivale a "Saqué dobles". Tras cumplir **3 turnos** en la cárcel, al empezar su siguiente turno la app lo saca sola, gratis (en todos los dispositivos desaparece de la cárcel); durante el 3.er turno se avisa de que sale en el próximo. Si el jugador quiebra, deja de estar en la cárcel.
 - **Salida (Go)**: al pasar por la casilla de Salida el jugador cobra $200; si cae justo en ella, $400. La app ofrece esos dos montos (el de $200 por defecto) y un monto libre para cualquier otro caso. En ese mismo cobro se descuentan las cuotas de la tarjeta de crédito (sección 8.1).
 - **Casillas de viaje**: al caer en una, el jugador (en su turno) puede pagar a la banca para mover su ficha a cualquier casilla del tablero. La tarifa depende de cuántos lados del tablero avanza, siempre hacia delante:
@@ -163,7 +163,7 @@ El valor de hipoteca no existe en Ultimate Banking; se mantiene en la mitad del 
   | Tres lados más adelante | $300 |
   | El mismo lado, pero detrás (vuelta completa) | $400 |
 
-  La app solo cobra la tarifa; el jugador mueve la ficha física. Si en el viaje pasa por la Salida, cobra el salario como siempre. La tarifa cuenta como pago a la banca (va al bote de Free Parking si esa regla está activa), pero no es un impuesto: no activa efectos de Monopolife ligados a pagar impuestos. Las tarifas son placeholder, igual que el resto de valores de la sección 9.
+  La app solo cobra la tarifa; el jugador mueve la ficha física. Si en el viaje pasa por la Salida, cobra el salario como siempre. La tarifa cuenta como pago a la banca (va al bote de Free Parking si esa regla está activa), pero no es un impuesto. Las tarifas son placeholder, igual que el resto de valores de la sección 9.
 - **Free Parking**: sin la regla opcional "Free Parking Jackpot" (sección 8) no pasa nada al caer. Con la regla activa, ver 8.2.
 - **Suerte / Caja de Comunidad**: las cartas se manejan físicamente; cuando una carta tiene efecto monetario, el jugador reporta a la app para aplicar el efecto (cobrar/pagar).
 - **Pagar con QR** (renta o pago libre): quien cobra muestra en su iPhone un QR (de una propiedad en la que tiene acciones, para renta; o de sí mismo, con monto fijo opcional, para pago libre) y quien paga lo escanea: el pago se hace en el momento de escanearlo, sin confirmar (si el QR no trae monto, quien paga lo escribe antes de escanear o justo después). Es solo otra forma de elegir a quién o qué se paga: se aplican exactamente las mismas reglas que al pagar desde la lista (la renta solo en tu turno; el pago libre en cualquier momento).
@@ -259,7 +259,7 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 - **Pagos a accionistas**: el banco paga el monto indicado por cada propiedad con dueño del objetivo, repartido entre sus accionistas por su %.
 - **Cobros a todos los jugadores**: cada jugador activo paga el monto al banco, o lo que tenga (nunca provoca bancarrota); va al bote de Free Parking si esa regla está activa.
 - **Incendio**: la propiedad baja un nivel, sin devolver nada a los accionistas. **Renovación urbana**: la propiedad sube un nivel gratis, sin cobrar a los accionistas.
-- En Monopolife, los eventos marcados como impuesto (Revalúo de impuestos, Auditoría de Hacienda e Impuesto predial) cuentan como pagar un impuesto para cada jugador que pagó algo, una vez por evento. La renovación urbana no cuenta como subir de nivel para el Consumista.
+- En Monopolife los eventos no tienen efecto de rol. La renovación urbana no cuenta como subir de nivel para el Consumista ni para el Emprendedor.
 - Eventos (valores placeholder):
 
 | Evento | Objetivo | Efecto |
