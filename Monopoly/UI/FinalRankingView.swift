@@ -100,6 +100,11 @@ struct FinalRankingView: View {
                         Text(profile.role.definition.name)
                             .font(.app(.subheadline, weight: .semibold))
                             .foregroundStyle(profile.role.color)
+                        if let detail = roleDetail(of: profile) {
+                            Text(detail)
+                                .font(.app(.caption))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     Spacer()
                     Text("\(profile.happiness) 😊")
@@ -153,6 +158,17 @@ struct FinalRankingView: View {
             }
         }
         .padding(.leading, 34)
+    }
+
+    /// Reveals the Chameleon's last personality and the Rival's target.
+    private func roleDetail(of profile: LifeProfile) -> String? {
+        if profile.role == .chameleon, let disguise = profile.disguise {
+            return "Terminó como \(disguise.definition.emoji) \(disguise.definition.name)"
+        }
+        if let targetID = profile.rivalTargetID {
+            return "Perseguía a \(state.playerName(targetID))"
+        }
+        return nil
     }
 
     private func netWorth(of player: Player) -> Int {

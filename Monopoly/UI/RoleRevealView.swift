@@ -13,9 +13,14 @@ struct RoleRevealView: View {
                 .ignoresSafeArea()
 
             if let player = model.pendingRoleReveals.first,
-               let role = model.gameState?.monopolife?.profiles[player.id]?.role {
+               let profile = model.gameState?.monopolife?.profiles[player.id] {
                 if player.id == model.ownPlayerID || model.role == .client || readyPlayerID == player.id {
-                    RoleRouletteView(playerName: player.name, role: role) {
+                    RoleRouletteView(
+                        playerName: player.name,
+                        role: profile.role,
+                        disguise: profile.disguise,
+                        targetName: profile.rivalTargetID.flatMap { model.gameState?.playerName($0) }
+                    ) {
                         model.acknowledgeRole(for: player.id)
                     }
                     .id(player.id)
@@ -56,6 +61,8 @@ struct RoleRevealView: View {
 struct RoleRouletteView: View {
     let playerName: String
     let role: LifeRole
+    var disguise: LifeRole?
+    var targetName: String?
     let onAcknowledge: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -71,7 +78,7 @@ struct RoleRouletteView: View {
                     Text("\(playerName), tu rol es…")
                         .font(.app(.headline))
                         .foregroundStyle(.secondary)
-                    RoleCardView(role: role)
+                    RoleCardView(role: role, disguise: disguise, targetName: targetName)
                         .transition(.scale(scale: 0.85).combined(with: .opacity))
                     Button {
                         onAcknowledge()
@@ -128,8 +135,8 @@ struct RoleRouletteView: View {
 
         // Segment `index` is centered `index * segment + segment / 2` degrees clockwise from the
         // top; turning the wheel by the rest of the circle brings it under the pointer.
-        let segment = 360.0 / Double(LifeRole.allCases.count)
-        let index = Double(LifeRole.allCases.firstIndex(of: role) ?? 0)
+        let segment = 360.0 / Double(LifeRole.playable.count)
+        let index = Double(LifeRole.playable.firstIndex(of: role) ?? 0)
         let target = 360.0 * 6 - (index * segment + segment / 2)
         withAnimation(.timingCurve(0.1, 0.75, 0.2, 1, duration: Self.spinDuration)) {
             rotation = target
@@ -142,7 +149,7 @@ struct RoleRouletteView: View {
 }
 
 private struct RouletteWheel: View {
-    private let roles = LifeRole.allCases
+    private let roles = LifeRole.playable
 
     var body: some View {
         GeometryReader { geometry in

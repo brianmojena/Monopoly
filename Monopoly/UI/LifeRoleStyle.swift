@@ -13,6 +13,14 @@ extension LifeRole {
             return Color(red: 0.93, green: 0.52, blue: 0.12)
         case .globetrotter:
             return Color(red: 0.08, green: 0.6, blue: 0.66)
+        case .chameleon:
+            return Color(red: 0.5, green: 0.7, blue: 0.1)
+        case .lender:
+            return Color(red: 0.36, green: 0.4, blue: 0.55)
+        case .rival:
+            return Color(red: 0.82, green: 0.16, blue: 0.2)
+        case .minimalist:
+            return Color(red: 0.62, green: 0.52, blue: 0.4)
         }
     }
 }
@@ -28,6 +36,8 @@ extension HappinessReason {
             return "Bancarrota"
         case .rentVisit:
             return "Saliste a un lugar"
+        case let .newDisguise(role):
+            return "Ahora eres \(role.definition.emoji) \(role.definition.name)"
         }
     }
 
@@ -43,6 +53,8 @@ extension HappinessReason {
             return "Bancarrota"
         case .rentVisit:
             return "Salir por la ciudad"
+        case .newDisguise:
+            return "Cambios de personalidad"
         }
     }
 }
@@ -58,6 +70,10 @@ func happinessColor(_ delta: Int) -> Color {
 /// A role's full description: what it likes and dislikes.
 struct RoleCardView: View {
     let role: LifeRole
+    /// The Chameleon's current personality.
+    var disguise: LifeRole?
+    /// Who the Rival is after.
+    var targetName: String?
 
     private var definition: LifeRoleDefinition {
         role.definition
@@ -95,6 +111,17 @@ struct RoleCardView: View {
                     .font(.app(.subheadline))
                     .fixedSize(horizontal: false, vertical: true)
 
+                if let disguise {
+                    disguiseSection(disguise)
+                }
+
+                if let targetName {
+                    Label("Tu objetivo: \(targetName)", systemImage: "scope")
+                        .font(.app(.subheadline, weight: .bold))
+                        .foregroundStyle(role.color)
+                        .padding(.top, 4)
+                }
+
                 Text("Cada Tarjeta de Vida te afecta distinto según tu rol. Tu rol es secreto: nadie más lo ve hasta el final.")
                     .font(.app(.footnote))
                     .foregroundStyle(.secondary)
@@ -110,17 +137,38 @@ struct RoleCardView: View {
             }
         }
     }
+
+    private func disguiseSection(_ disguise: LifeRole) -> some View {
+        let personality = disguise.definition
+        return VStack(alignment: .leading, spacing: 8) {
+            Divider()
+            Text("Tu personalidad ahora: \(personality.emoji) \(personality.name)")
+                .font(.app(.subheadline, weight: .bold))
+                .foregroundStyle(disguise.color)
+            ForEach(personality.likes, id: \.self) { like in
+                Text("😊 \(like)")
+                    .font(.app(.subheadline))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text("😞 \(personality.dislike)")
+                .font(.app(.subheadline))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 4)
+    }
 }
 
 struct RoleSheet: View {
     let role: LifeRole
+    var disguise: LifeRole?
+    var targetName: String?
 
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                RoleCardView(role: role)
+                RoleCardView(role: role, disguise: disguise, targetName: targetName)
                     .padding(20)
             }
             .navigationTitle("Mi rol")

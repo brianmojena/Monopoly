@@ -96,6 +96,10 @@ enum GameRules {
         updatedState.marketDeals.removeAll { $0.sharedPurchase?.propertyID == propertyID }
         reindexPropertyIDs(in: &updatedState)
         applyLifeTrigger(.propertyBought(playerID: winningBid.playerID), in: &updatedState)
+        applyLifeTrigger(
+            .auctionWon(winnerID: winningBid.playerID, bidderIDs: Set(bids.map(\.playerID))),
+            in: &updatedState
+        )
         return updatedState
     }
 
@@ -515,6 +519,7 @@ enum GameRules {
         var updatedState = state
         updatedState.players[payerIndex].balance -= amount
         updatedState.players[recipientIndex].balance += amount
+        applyLifeTrigger(.moneyGiven(playerID: payerID, amount: amount), in: &updatedState)
         return updatedState
     }
 

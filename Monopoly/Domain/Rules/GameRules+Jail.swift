@@ -23,6 +23,7 @@ extension GameRules {
         }
         var updatedState = state
         updatedState.players[index].jailTurn = 0
+        applyLifeTrigger(.jailed(playerID: playerID), in: &updatedState)
         return updatedState
     }
 

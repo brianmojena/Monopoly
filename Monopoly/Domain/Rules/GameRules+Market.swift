@@ -231,6 +231,12 @@ extension GameRules {
         for buyer in deal.sharedPurchase?.buyers ?? [] {
             applyLifeTrigger(.propertyBought(playerID: buyer.playerID), in: &updatedState)
         }
+        if let loan = deal.proposedLoan {
+            applyLifeTrigger(
+                .loanGiven(lenderID: loan.lenderID, principal: loan.principal, interestPercentage: loan.interestPercentage),
+                in: &updatedState
+            )
+        }
         return updatedState
     }
 

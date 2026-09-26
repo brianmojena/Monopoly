@@ -211,7 +211,7 @@ struct LifeCardSheet: View {
                 if let card = LifeCards.card(withID: draw.cardID) {
                     LifeCardView(
                         card: card,
-                        role: model.gameState?.monopolife?.profiles[draw.playerID]?.role,
+                        role: model.gameState?.monopolife?.profiles[draw.playerID]?.activeRole,
                         hadEffect: draw.hadEffect,
                         isPending: isPending,
                         balance: balance,

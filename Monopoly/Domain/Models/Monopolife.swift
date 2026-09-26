@@ -11,6 +11,22 @@ enum LifeRole: String, Codable, CaseIterable, Equatable, Hashable {
     case saver
     case social
     case globetrotter
+    case chameleon
+    case lender
+    case rival
+    case minimalist
+
+    /// Coming soon: its rules are in place, but it isn't dealt yet (MONOPOLIFE_RULES 3.3).
+    var isComingSoon: Bool {
+        self == .minimalist
+    }
+
+    /// The roles dealt at the start of a game.
+    static let playable = allCases.filter { !$0.isComingSoon }
+
+    /// The roles whose likes the Chameleon can take on. The Rival needs a target of
+    /// its own, so it is left out.
+    static let chameleonDisguises: [LifeRole] = [.consumer, .entrepreneur, .saver, .social, .globetrotter, .lender]
 
     init(from decoder: Decoder) throws {
         let rawValue = try decoder.singleValueContainer().decode(String.self)
@@ -53,6 +69,20 @@ enum LifeRoleEffect: String, Codable, CaseIterable, Equatable, Hashable {
     case globetrotterRevisit
     case globetrotterAllStamps
     case globetrotterPropertyBought
+    case lenderLoanGiven
+    case lenderPaymentReceived
+    case lenderLoanRepaid
+    case lenderCollateralTaken
+    case lenderLoanLost
+    case rivalAhead
+    case rivalBehind
+    case rivalRentFromTarget
+    case rivalAuctionWon
+    case rivalTargetSetback
+    case rivalTargetBankrupt
+    case minimalistGift
+    case minimalistSimpleLife
+    case minimalistPossession
 
     /// Effects of the removed Investor role, kept so saved happiness logs still load.
     private static let legacyInvestorEffects: [String: LifeRoleEffect] = [
@@ -80,6 +110,8 @@ enum HappinessReason: Codable, Equatable, Hashable {
     case bankruptcy
     /// Paying rent somewhere, which every role enjoys (MONOPOLIFE_RULES section 3.4).
     case rentVisit
+    /// The Chameleon took on a new role's likes.
+    case newDisguise(LifeRole)
 }
 
 struct HappinessEvent: Codable, Equatable {
@@ -105,6 +137,20 @@ struct LifeProfile: Codable, Equatable {
     var roundsWithoutLevelUp: Int
     /// Players the Social paid rent to or collected rent from this round.
     var rentContactsThisRound: Set<UUID>
+    /// The role whose likes the Chameleon has right now.
+    var disguise: LifeRole?
+    /// The player the Rival wants to beat.
+    var rivalTargetID: UUID?
+    var scoredLoansThisRound: Int
+    var scoredLoanPaymentsThisRound: Int
+    /// Money the Minimalist gave away to other players this round.
+    var moneyGivenThisRound: Int
+
+    /// The role whose likes, dislikes and Life Card column apply: the Chameleon's
+    /// current disguise, or the role itself.
+    var activeRole: LifeRole {
+        role == .chameleon ? disguise ?? .consumer : role
+    }
 
     init(
         role: LifeRole,
@@ -117,7 +163,12 @@ struct LifeProfile: Codable, Equatable {
         scoredRentsThisRound: Int = 0,
         leveledUpThisRound: Bool = false,
         roundsWithoutLevelUp: Int = 0,
-        rentContactsThisRound: Set<UUID> = []
+        rentContactsThisRound: Set<UUID> = [],
+        disguise: LifeRole? = nil,
+        rivalTargetID: UUID? = nil,
+        scoredLoansThisRound: Int = 0,
+        scoredLoanPaymentsThisRound: Int = 0,
+        moneyGivenThisRound: Int = 0
     ) {
         self.role = role
         self.happiness = happiness
@@ -130,6 +181,11 @@ struct LifeProfile: Codable, Equatable {
         self.leveledUpThisRound = leveledUpThisRound
         self.roundsWithoutLevelUp = roundsWithoutLevelUp
         self.rentContactsThisRound = rentContactsThisRound
+        self.disguise = disguise
+        self.rivalTargetID = rivalTargetID
+        self.scoredLoansThisRound = scoredLoansThisRound
+        self.scoredLoanPaymentsThisRound = scoredLoanPaymentsThisRound
+        self.moneyGivenThisRound = moneyGivenThisRound
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -144,6 +200,11 @@ struct LifeProfile: Codable, Equatable {
         case leveledUpThisRound
         case roundsWithoutLevelUp
         case rentContactsThisRound
+        case disguise
+        case rivalTargetID
+        case scoredLoansThisRound
+        case scoredLoanPaymentsThisRound
+        case moneyGivenThisRound
     }
 
     init(from decoder: Decoder) throws {
@@ -159,6 +220,11 @@ struct LifeProfile: Codable, Equatable {
         leveledUpThisRound = try container.decodeIfPresent(Bool.self, forKey: .leveledUpThisRound) ?? false
         roundsWithoutLevelUp = try container.decodeIfPresent(Int.self, forKey: .roundsWithoutLevelUp) ?? 0
         rentContactsThisRound = try container.decodeIfPresent(Set<UUID>.self, forKey: .rentContactsThisRound) ?? []
+        disguise = try container.decodeIfPresent(LifeRole.self, forKey: .disguise)
+        rivalTargetID = try container.decodeIfPresent(UUID.self, forKey: .rivalTargetID)
+        scoredLoansThisRound = try container.decodeIfPresent(Int.self, forKey: .scoredLoansThisRound) ?? 0
+        scoredLoanPaymentsThisRound = try container.decodeIfPresent(Int.self, forKey: .scoredLoanPaymentsThisRound) ?? 0
+        moneyGivenThisRound = try container.decodeIfPresent(Int.self, forKey: .moneyGivenThisRound) ?? 0
     }
 }
 
@@ -186,6 +252,8 @@ struct MonopolifeState: Codable, Equatable {
     /// A decision card waiting for its player to accept or pass.
     var pendingLifeCard: LifeCardDraw?
     var lastLifeCardDraw: LifeCardDraw?
+    /// Seed for draws made during the game, such as the Chameleon's next disguise.
+    var randomState: UInt64
 
     init(
         roundLimit: Int,
@@ -194,7 +262,8 @@ struct MonopolifeState: Codable, Equatable {
         isFinished: Bool = false,
         lifeDeck: [String] = [],
         pendingLifeCard: LifeCardDraw? = nil,
-        lastLifeCardDraw: LifeCardDraw? = nil
+        lastLifeCardDraw: LifeCardDraw? = nil,
+        randomState: UInt64 = 0
     ) {
         self.roundLimit = roundLimit
         self.profiles = profiles
@@ -203,6 +272,7 @@ struct MonopolifeState: Codable, Equatable {
         self.lifeDeck = lifeDeck
         self.pendingLifeCard = pendingLifeCard
         self.lastLifeCardDraw = lastLifeCardDraw
+        self.randomState = randomState
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -213,6 +283,7 @@ struct MonopolifeState: Codable, Equatable {
         case lifeDeck
         case pendingLifeCard
         case lastLifeCardDraw
+        case randomState
     }
 
     init(from decoder: Decoder) throws {
@@ -224,5 +295,6 @@ struct MonopolifeState: Codable, Equatable {
         lifeDeck = try container.decodeIfPresent([String].self, forKey: .lifeDeck) ?? []
         pendingLifeCard = try container.decodeIfPresent(LifeCardDraw.self, forKey: .pendingLifeCard)
         lastLifeCardDraw = try container.decodeIfPresent(LifeCardDraw.self, forKey: .lastLifeCardDraw)
+        randomState = try container.decodeIfPresent(UInt64.self, forKey: .randomState) ?? 0
     }
 }

@@ -135,24 +135,24 @@ final class MonopolifeRulesTests: XCTestCase {
         XCTAssertEqual(effect, [.entrepreneurMortgage, .saverLoan])
     }
 
-    func testAssignRolesDoesNotRepeatWithFivePlayers() {
+    func testAssignRolesDoesNotRepeatWhileThereAreUnusedRoles() {
         var generator = SeededGenerator(state: 42)
-        let ids = (0..<5).map { _ in UUID() }
+        let ids = LifeRole.playable.map { _ in UUID() }
 
         let roles = GameRules.assignRoles(to: ids, using: &generator)
 
-        XCTAssertEqual(Set(roles.values), Set(LifeRole.allCases))
+        XCTAssertEqual(Set(roles.values), Set(LifeRole.playable))
     }
 
-    func testAssignRolesWithEightPlayersUsesEveryRoleAndRepeatsOnlyThree() {
+    func testAssignRolesWithTwoPlayersMoreThanRolesRepeatsOnlyTwo() {
         var generator = SeededGenerator(state: 7)
-        let ids = (0..<8).map { _ in UUID() }
+        let ids = (0..<LifeRole.playable.count + 2).map { _ in UUID() }
 
         let roles = GameRules.assignRoles(to: ids, using: &generator)
         let counts = Dictionary(grouping: roles.values, by: { $0 }).mapValues(\.count)
 
-        XCTAssertEqual(Set(roles.values), Set(LifeRole.allCases))
-        XCTAssertEqual(counts.values.filter { $0 == 2 }.count, 3)
+        XCTAssertEqual(Set(roles.values), Set(LifeRole.playable))
+        XCTAssertEqual(counts.values.filter { $0 == 2 }.count, 2)
         XCTAssertTrue(counts.values.allSatisfy { $0 <= 2 })
     }
 
@@ -323,7 +323,7 @@ final class MonopolifeRulesTests: XCTestCase {
         XCTAssertEqual(LifeRoleValues.rentVisitPoints(for: .social, boardSide: 4, level: 4), 2)
         XCTAssertEqual(LifeRoleValues.rentVisitPoints(for: .saver, boardSide: 1, level: 0), 1)
         XCTAssertEqual(LifeRoleValues.rentVisitPoints(for: .saver, boardSide: 4, level: 4), 2)
-        for role in LifeRole.allCases {
+        for role in LifeRole.allCases where role != .chameleon {
             XCTAssertNotNil(LifeRoleValues.rentVisitLuxuryPerPoint[role], "\(role)")
         }
     }
@@ -576,6 +576,221 @@ final class MonopolifeRulesTests: XCTestCase {
         XCTAssertEqual(happiness(ids[1], in: auctioned), 5 + LifeRoleValues.globetrotterPropertyBought)
     }
 
+    // MARK: Chameleon
+
+    func testSetupGivesTheChameleonADisguiseAndTheRivalAnotherPlayerAsTarget() throws {
+        var generator = SeededGenerator(state: 21)
+        let ids = LifeRole.playable.map { _ in UUID() }
+
+        let monopolife = GameRules.makeMonopolifeState(playerIDs: ids, roundLimit: 15, using: &generator)
+
+        XCTAssertEqual(Set(monopolife.profiles.values.map(\.role)), Set(LifeRole.playable))
+        XCTAssertFalse(LifeRole.playable.contains(.minimalist))
+        XCTAssertFalse(LifeRole.chameleonDisguises.contains(.minimalist))
+        for (id, profile) in monopolife.profiles {
+            switch profile.role {
+            case .chameleon:
+                XCTAssertTrue(LifeRole.chameleonDisguises.contains(try XCTUnwrap(profile.disguise)))
+            case .rival:
+                let targetID = try XCTUnwrap(profile.rivalTargetID)
+                XCTAssertNotEqual(targetID, id)
+                XCTAssertTrue(ids.contains(targetID))
+            default:
+                XCTAssertNil(profile.disguise)
+                XCTAssertNil(profile.rivalTargetID)
+            }
+        }
+    }
+
+    func testChameleonLikesWhatItsDisguiseLikes() throws {
+        var (state, ids) = makeState(roles: [.chameleon, .consumer], balance: 1000)
+        state.monopolife?.profiles[ids[0]]?.disguise = .saver
+
+        let turnEnded = try GameRules.endTurn(in: state, playerID: ids[0])
+        XCTAssertEqual(happiness(ids[0], from: .role(.saverSavings), in: turnEnded), 3)
+
+        let salary = try GameRules.collectSalary(in: state, playerID: ids[0], amount: 200)
+        XCTAssertEqual(happiness(ids[0], in: salary), LifeRoleValues.saverSalaryWithoutDebt)
+    }
+
+    func testChameleonUsesItsDisguiseForLifeCards() throws {
+        var (state, ids) = makeState(roles: [.chameleon])
+        state.monopolife?.profiles[ids[0]]?.disguise = .globetrotter
+
+        let result = try draw("backpacking", by: ids[0], in: state)
+
+        XCTAssertEqual(happiness(ids[0], in: result), 7)
+    }
+
+    func testChameleonChangesDisguiseEveryThreeRoundsButNotAfterTheLast() throws {
+        var (state, ids) = makeState(roles: [.chameleon], roundLimit: 6)
+        state.monopolife?.profiles[ids[0]]?.disguise = .globetrotter
+        state.monopolife?.randomState = 99
+
+        var result = try finishRound(try finishRound(state))
+        XCTAssertEqual(result.monopolife?.profiles[ids[0]]?.disguise, .globetrotter)
+
+        result = try finishRound(result)
+        let disguise = try XCTUnwrap(result.monopolife?.profiles[ids[0]]?.disguise)
+        XCTAssertNotEqual(disguise, .globetrotter)
+        XCTAssertEqual(result.monopolife?.happinessLog.last?.reason, .newDisguise(disguise))
+        XCTAssertEqual(happiness(ids[0], from: .newDisguise(disguise), in: result), LifeRoleValues.chameleonNewDisguise)
+
+        result = try finishRound(try finishRound(try finishRound(result)))
+        XCTAssertEqual(result.monopolife?.isFinished, true)
+        XCTAssertEqual(result.monopolife?.profiles[ids[0]]?.disguise, disguise)
+    }
+
+    // MARK: Lender
+
+    /// Proposes and accepts the loan, so it is active.
+    private func lend(_ loan: PlayerLoan, in state: GameState) throws -> GameState {
+        let deal = MarketDeal(
+            proposerID: loan.lenderID,
+            transfers: [DealTransfer(from: .player(loan.lenderID), to: .player(loan.borrowerID), asset: .money(loan.principal))],
+            proposedLoan: loan
+        )
+        let proposed = try GameRules.proposeDeal(in: state, deal: deal, proposerID: loan.lenderID)
+        return try GameRules.acceptDeal(in: proposed, dealID: deal.id, playerID: loan.borrowerID)
+    }
+
+    func testLenderLikesLendingWithInterestOncePerRound() throws {
+        let (state, ids) = makeState(roles: [.lender, .saver])
+
+        var result = try lend(PlayerLoan(lenderID: ids[0], borrowerID: ids[1], principal: 100, interestPercentage: 10, goPayment: 50), in: state)
+        XCTAssertEqual(happiness(ids[0], in: result), LifeRoleValues.lenderLoanGiven)
+        result = try lend(PlayerLoan(lenderID: ids[0], borrowerID: ids[1], principal: 200, interestPercentage: 20, goPayment: 50), in: result)
+        XCTAssertEqual(happiness(ids[0], in: result), LifeRoleValues.lenderLoanGiven)
+
+        let interestFree = try lend(PlayerLoan(lenderID: ids[0], borrowerID: ids[1], principal: 500, goPayment: 50), in: state)
+        XCTAssertEqual(happiness(ids[0], in: interestFree), 0)
+    }
+
+    func testLenderLikesTwoPaymentsPerRoundAndBeingPaidOff() throws {
+        let (state, ids) = makeState(roles: [.lender, .saver])
+        let loan = PlayerLoan(lenderID: ids[0], borrowerID: ids[1], principal: 100, interestPercentage: 20, goPayment: 10)
+
+        var result = try lend(loan, in: state)
+        for _ in 0..<3 {
+            result = try GameRules.payPlayerLoan(in: result, playerID: ids[1], loanID: loan.id, amount: 10)
+        }
+        XCTAssertEqual(happiness(ids[0], from: .role(.lenderPaymentReceived), in: result), 2)
+
+        result = try GameRules.payPlayerLoan(in: result, playerID: ids[1], loanID: loan.id, amount: 90)
+        XCTAssertEqual(happiness(ids[0], from: .role(.lenderPaymentReceived), in: result), 2)
+        XCTAssertEqual(happiness(ids[0], from: .role(.lenderLoanRepaid), in: result), LifeRoleValues.lenderLoanRepaid)
+    }
+
+    func testLenderDislikesForgivingAndLikesTakingCollateral() throws {
+        var (state, ids) = makeState(roles: [.lender, .saver])
+        state.properties = [property(owner: ids[1])]
+        GameRules.adjustHappiness(of: ids[0], by: 10, reason: .bankruptcy, in: &state)
+
+        let forgiven = PlayerLoan(lenderID: ids[0], borrowerID: ids[1], principal: 50, goPayment: 10)
+        let forgiving = try GameRules.forgivePlayerLoan(in: try lend(forgiven, in: state), playerID: ids[0], loanID: forgiven.id)
+        XCTAssertEqual(happiness(ids[0], in: forgiving), 10 + LifeRoleValues.lenderLoanLost)
+
+        var broke = state
+        broke.players[1].balance = 0
+        let secured = PlayerLoan(
+            lenderID: ids[0],
+            borrowerID: ids[1],
+            principal: 50,
+            interestPercentage: 100,
+            dueRound: 1,
+            collateral: LoanCollateral(propertyID: state.properties[0].id, shares: Property.totalShares)
+        )
+        let due = try finishRound(try lend(secured, in: broke))
+        XCTAssertEqual(due.properties[0].ownerID, ids[0])
+        XCTAssertEqual(happiness(ids[0], from: .role(.lenderCollateralTaken), in: due), LifeRoleValues.lenderCollateralTaken)
+    }
+
+    // MARK: Rival
+
+    func testRivalWantsMoreNetWorthThanItsTarget() throws {
+        var (state, ids) = makeState(roles: [.rival, .saver])
+        state.monopolife?.profiles[ids[0]]?.rivalTargetID = ids[1]
+        GameRules.adjustHappiness(of: ids[0], by: 5, reason: .bankruptcy, in: &state)
+
+        state.players[0].balance = 2000
+        XCTAssertEqual(happiness(ids[0], in: try finishRound(state)), 5 + LifeRoleValues.rivalAhead)
+
+        state.players[0].balance = 1000
+        XCTAssertEqual(happiness(ids[0], in: try finishRound(state)), 5 + LifeRoleValues.rivalBehind)
+
+        state.players[0].balance = 1500
+        XCTAssertEqual(happiness(ids[0], in: try finishRound(state)), 5)
+    }
+
+    func testRivalLikesItsTargetsRentAuctionsAndSetbacks() throws {
+        var (state, ids) = makeState(roles: [.rival, .saver, .saver])
+        state.monopolife?.profiles[ids[0]]?.rivalTargetID = ids[1]
+        state.properties = [property(owner: ids[0]), property("B"), property("C", owner: ids[1])]
+
+        var result = try GameRules.collectRent(in: state, from: ids[1], propertyID: state.properties[0].id).state
+        result = try GameRules.collectRent(in: result, from: ids[2], propertyID: state.properties[0].id).state
+        XCTAssertEqual(happiness(ids[0], from: .role(.rivalRentFromTarget), in: result), LifeRoleValues.rivalRentFromTarget)
+
+        result = try GameRules.resolveAuction(
+            in: result,
+            propertyID: state.properties[1].id,
+            bids: [AuctionBid(playerID: ids[1], amount: 50), AuctionBid(playerID: ids[0], amount: 60)]
+        )
+        XCTAssertEqual(happiness(ids[0], from: .role(.rivalAuctionWon), in: result), LifeRoleValues.rivalAuctionWon)
+
+        result = try GameRules.goToJail(in: result, playerID: ids[1])
+        result = try GameRules.mortgageProperty(in: result, propertyID: state.properties[2].id, playerID: ids[1])
+        result = try GameRules.goToJail(in: result, playerID: ids[2])
+        XCTAssertEqual(happiness(ids[0], from: .role(.rivalTargetSetback), in: result), 2 * LifeRoleValues.rivalTargetSetback)
+
+        result = try GameRules.declareBankruptcy(in: result, playerID: ids[1], creditor: .bank)
+        XCTAssertEqual(happiness(ids[0], from: .role(.rivalTargetBankrupt), in: result), LifeRoleValues.rivalTargetBankrupt)
+    }
+
+    // MARK: Minimalist
+
+    func testMinimalistLikesGivingMoneyAwayUpToThreePointsPerRound() throws {
+        let (state, ids) = makeState(roles: [.minimalist, .saver])
+
+        var result = try GameRules.transferMoney(in: state, from: ids[0], to: ids[1], amount: 50)
+        XCTAssertEqual(happiness(ids[0], in: result), 0)
+        result = try GameRules.transferMoney(in: result, from: ids[0], to: ids[1], amount: 150)
+        XCTAssertEqual(happiness(ids[0], in: result), 2)
+        result = try GameRules.transferMoney(in: result, from: ids[0], to: ids[1], amount: 500)
+        XCTAssertEqual(happiness(ids[0], in: result), LifeRoleValues.minimalistGiftPointsCap)
+
+        result = try finishRound(result)
+        XCTAssertEqual(result.monopolife?.profiles[ids[0]]?.moneyGivenThisRound, 0)
+        let nextRound = try GameRules.transferMoney(in: result, from: ids[0], to: ids[1], amount: 100)
+        XCTAssertEqual(happiness(ids[0], from: .role(.minimalistGift), in: nextRound), LifeRoleValues.minimalistGiftPointsCap + 1)
+    }
+
+    func testMinimalistLikesASimpleLife() throws {
+        var (state, ids) = makeState(roles: [.minimalist])
+        state.properties = [property("A", owner: ids[0]), property("B", owner: ids[0]), property("C")]
+
+        XCTAssertEqual(happiness(ids[0], in: try finishRound(state)), LifeRoleValues.minimalistSimpleLife)
+
+        var cluttered = state
+        cluttered.properties[2].ownership = [PropertyShare(playerID: ids[0], shares: 1)]
+        XCTAssertEqual(happiness(ids[0], in: try finishRound(cluttered)), 0)
+
+        var withCar = state
+        withCar.monopolife?.profiles[ids[0]]?.possessions = [.car]
+        XCTAssertEqual(happiness(ids[0], in: try finishRound(withCar)), 0)
+    }
+
+    func testMinimalistDislikesGettingPossessions() throws {
+        var (state, ids) = makeState(roles: [.minimalist])
+        GameRules.adjustHappiness(of: ids[0], by: 10, reason: .bankruptcy, in: &state)
+
+        var result = try draw("buy-car", by: ids[0], in: state)
+        result = try GameRules.resolveLifeCardDecision(in: result, playerID: ids[0], accept: true)
+
+        XCTAssertEqual(happiness(ids[0], in: result), 10 + LifeRoleValues.minimalistPossession)
+        XCTAssertEqual(result.monopolife?.profiles[ids[0]]?.possessions, [.car])
+    }
+
     // MARK: Share coverage, board events and host cards
 
     /// A street held 30% by the first player and 70% by the second, who has no cash.
@@ -691,14 +906,14 @@ final class MonopolifeRulesTests: XCTestCase {
         XCTAssertEqual(LifeCards.all.count, 30)
         XCTAssertEqual(Set(LifeCards.all.map(\.id)).count, 30)
         for card in LifeCards.all {
-            XCTAssertEqual(Set(card.happiness.keys), Set(LifeRole.allCases), card.id)
+            XCTAssertEqual(Set(card.happiness.keys), Set(LifeRole.allCases.filter { $0 != .chameleon }), card.id)
         }
     }
 
     /// MONOPOLIFE_RULES 3.2: what each role can get from the whole deck (decisions
     /// only count when positive, since they can be passed) stays within ±2.
     func testDeckIsBalancedAcrossRoles() {
-        let totals = LifeRole.allCases.map { role in
+        let totals = LifeRole.allCases.filter { $0 != .chameleon }.map { role in
             LifeCards.all.reduce(0) { total, card in
                 let value = card.happiness(for: role)
                 return total + (card.kind == .decision ? max(0, value) : value)
@@ -708,7 +923,7 @@ final class MonopolifeRulesTests: XCTestCase {
     }
 
     func testDeckHasBadLuckCards() {
-        let badForEveryone = LifeCards.all.filter { card in LifeRole.allCases.allSatisfy { card.happiness(for: $0) <= 0 } }
+        let badForEveryone = LifeCards.all.filter { card in card.happiness.values.allSatisfy { $0 <= 0 } }
         XCTAssertGreaterThanOrEqual(badForEveryone.count, 8)
     }
 

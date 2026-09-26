@@ -123,7 +123,7 @@ struct RulesView: View {
 
     private var rolesCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("Los \(LifeRole.allCases.count) roles", systemImage: "theatermasks")
+            Label("Los \(LifeRole.playable.count) roles", systemImage: "theatermasks")
                 .font(.app(.headline))
             Text("Te toca uno al azar en la ruleta. Nadie más sabe cuál es hasta el final.")
                 .font(.app(.subheadline))
@@ -136,9 +136,19 @@ struct RulesView: View {
                         Text(definition.emoji)
                             .font(.app(.title2))
                         VStack(alignment: .leading, spacing: 0) {
-                            Text(definition.name)
-                                .font(.app(.headline))
-                                .foregroundStyle(role.color)
+                            HStack(spacing: 6) {
+                                Text(definition.name)
+                                    .font(.app(.headline))
+                                    .foregroundStyle(role.color)
+                                if role.isComingSoon {
+                                    Text("Próximamente")
+                                        .font(.app(.caption2, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(role.color, in: Capsule())
+                                }
+                            }
                             Text(definition.summary)
                                 .font(.app(.caption))
                                 .foregroundStyle(.secondary)
@@ -156,6 +166,7 @@ struct RulesView: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(role.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .opacity(role.isComingSoon ? 0.55 : 1)
             }
         }
         .padding(16)

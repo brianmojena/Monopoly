@@ -40,6 +40,33 @@ enum LifeRoleValues {
     /// Properties the Globetrotter can hold before buying another one bothers them.
     static let globetrotterPropertiesWithoutRoots = 2
 
+    static let chameleonDisguiseRounds = 3
+    static let chameleonNewDisguise = 2
+
+    static let lenderLoanGiven = 3
+    static let lenderMinimumLoan = 100
+    /// Only loans with interest count, so lending back and forth costs the borrower.
+    static let lenderMinimumInterest = 10
+    static let lenderScoredLoansPerRound = 1
+    static let lenderPaymentReceived = 1
+    static let lenderScoredPaymentsPerRound = 2
+    static let lenderLoanRepaid = 3
+    static let lenderCollateralTaken = 5
+    static let lenderLoanLost = -3
+
+    static let rivalAhead = 3
+    static let rivalBehind = -1
+    static let rivalRentFromTarget = 3
+    static let rivalAuctionWon = 3
+    static let rivalTargetSetback = 1
+    static let rivalTargetBankrupt = 8
+
+    static let minimalistGiftStep = 100
+    static let minimalistGiftPointsCap = 3
+    static let minimalistSimpleLife = 2
+    static let minimalistMaximumProperties = 2
+    static let minimalistPossession = -3
+
     /// MONOPOLIFE_RULES section 3.4: paying rent makes every role happy, more the
     /// more luxurious the place (board side 1–4 plus its level) and by role.
     static let rentVisitLuxuryPerPoint: [LifeRole: Int] = [
@@ -47,7 +74,10 @@ enum LifeRoleValues {
         .globetrotter: 2,
         .social: 3,
         .entrepreneur: 4,
-        .saver: 4
+        .saver: 4,
+        .lender: 4,
+        .rival: 3,
+        .minimalist: 4
     ]
     static let rentVisitMinimum = 1
 
@@ -72,6 +102,9 @@ struct LifeRoleDefinition {
 extension LifeRole {
     /// The rent-paying like every role shares, with this role's rate.
     var rentVisitLike: String {
+        guard self != .chameleon else {
+            return "Pagar renta: te hace feliz según tu personalidad actual."
+        }
         let perPoint = LifeRoleValues.rentVisitLuxuryPerPoint[self] ?? 1
         return "Pagar renta: +1 por cada \(perPoint) de lujo (lado del tablero 1–4 + nivel de la propiedad), mínimo +\(LifeRoleValues.rentVisitMinimum)."
     }
@@ -144,6 +177,63 @@ extension LifeRole {
                 ],
                 dislike: "Comprar una propiedad al banco (compra, subasta o compra compartida) cuando ya tienes acciones en 2 o más: −2."
             )
+        case .chameleon:
+            return LifeRoleDefinition(
+                role: self,
+                name: "Camaleón",
+                emoji: "🦎",
+                summary: "Cambia de personalidad cada pocas rondas.",
+                likes: [
+                    "Empiezas con la personalidad de otro rol al azar y cada \(LifeRoleValues.chameleonDisguiseRounds) rondas cambias a otra distinta. Te hace feliz lo que le gusta a esa personalidad, y las Tarjetas de Vida te afectan como a ella.",
+                    "Cada cambio de personalidad: +\(LifeRoleValues.chameleonNewDisguise).",
+                    rentVisitLike
+                ],
+                dislike: "Lo que no le gusta a tu personalidad actual."
+            )
+        case .lender:
+            return LifeRoleDefinition(
+                role: self,
+                name: "Prestamista",
+                emoji: "🦈",
+                summary: "Le gusta ser el banco de los demás.",
+                likes: [
+                    "Prestarle $\(LifeRoleValues.lenderMinimumLoan) o más a otro jugador con al menos \(LifeRoleValues.lenderMinimumInterest)% de interés: +3 (máx 1 por ronda).",
+                    "Cada pago que recibes de un préstamo (cuota en Salida, % de rentas, plazo o pago anticipado): +1 (máx 2 por ronda).",
+                    "Que te terminen de pagar un préstamo: +3.",
+                    "Quedarte con la garantía de un préstamo sin pagar: +5.",
+                    rentVisitLike
+                ],
+                dislike: "Perdonar una deuda, o que tu deudor quiebre sin que te quedes con una garantía: −3."
+            )
+        case .rival:
+            return LifeRoleDefinition(
+                role: self,
+                name: "Rival",
+                emoji: "🎯",
+                summary: "Tiene un objetivo secreto y quiere ganarle.",
+                likes: [
+                    "Al terminar la ronda con más patrimonio que tu objetivo: +3.",
+                    "Que tu objetivo te pague renta: +3.",
+                    "Ganarle una subasta a tu objetivo (si él también pujó): +3.",
+                    "Que tu objetivo vaya a la cárcel o hipoteque una propiedad: +1.",
+                    "Que tu objetivo quiebre: +8.",
+                    rentVisitLike
+                ],
+                dislike: "Terminar la ronda con menos patrimonio que tu objetivo: −1."
+            )
+        case .minimalist:
+            return LifeRoleDefinition(
+                role: self,
+                name: "Minimalista",
+                emoji: "🧘",
+                summary: "Le gusta vivir con poco y compartir lo que tiene.",
+                likes: [
+                    "Regalarle dinero a otro jugador (transferencia): +1 por cada $\(LifeRoleValues.minimalistGiftStep) regalados en la ronda (máx +\(LifeRoleValues.minimalistGiftPointsCap)).",
+                    "Terminar la ronda con acciones en \(LifeRoleValues.minimalistMaximumProperties) propiedades o menos y sin posesiones: +\(LifeRoleValues.minimalistSimpleLife).",
+                    rentVisitLike
+                ],
+                dislike: "Conseguir una posesión (carro, televisor o food truck): −3."
+            )
         }
     }
 }
@@ -162,6 +252,12 @@ extension LifeRoleEffect {
         case .globetrotterSalary, .globetrotterTrip, .globetrotterStamp, .globetrotterRevisit,
              .globetrotterAllStamps, .globetrotterPropertyBought:
             return .globetrotter
+        case .lenderLoanGiven, .lenderPaymentReceived, .lenderLoanRepaid, .lenderCollateralTaken, .lenderLoanLost:
+            return .lender
+        case .rivalAhead, .rivalBehind, .rivalRentFromTarget, .rivalAuctionWon, .rivalTargetSetback, .rivalTargetBankrupt:
+            return .rival
+        case .minimalistGift, .minimalistSimpleLife, .minimalistPossession:
+            return .minimalist
         }
     }
 
@@ -205,6 +301,34 @@ extension LifeRoleEffect {
             return "¡Pasaporte completo!"
         case .globetrotterPropertyBought:
             return "Echaste raíces comprando"
+        case .lenderLoanGiven:
+            return "Prestaste dinero"
+        case .lenderPaymentReceived:
+            return "Te pagaron una cuota"
+        case .lenderLoanRepaid:
+            return "Te pagaron un préstamo completo"
+        case .lenderCollateralTaken:
+            return "Te quedaste con una garantía"
+        case .lenderLoanLost:
+            return "Perdiste un préstamo"
+        case .rivalAhead:
+            return "Vas por delante de tu objetivo"
+        case .rivalBehind:
+            return "Tu objetivo va por delante"
+        case .rivalRentFromTarget:
+            return "Tu objetivo te pagó renta"
+        case .rivalAuctionWon:
+            return "Le ganaste una subasta a tu objetivo"
+        case .rivalTargetSetback:
+            return "A tu objetivo le fue mal"
+        case .rivalTargetBankrupt:
+            return "Tu objetivo quebró"
+        case .minimalistGift:
+            return "Regalaste dinero"
+        case .minimalistSimpleLife:
+            return "Vida simple"
+        case .minimalistPossession:
+            return "Acumulaste cosas"
         }
     }
 }

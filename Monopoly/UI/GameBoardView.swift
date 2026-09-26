@@ -146,8 +146,12 @@ struct GameBoardView: View {
         }
         .monopolifeBanners(model: model)
         .sheet(isPresented: $isShowingRole) {
-            if let role = model.localProfile?.role {
-                RoleSheet(role: role)
+            if let profile = model.localProfile {
+                RoleSheet(
+                    role: profile.role,
+                    disguise: profile.disguise,
+                    targetName: profile.rivalTargetID.flatMap { model.gameState?.playerName($0) }
+                )
             }
         }
         .sheet(item: $model.presentedLifeCard) { draw in
