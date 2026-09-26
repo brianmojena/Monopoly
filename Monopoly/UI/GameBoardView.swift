@@ -23,6 +23,8 @@ struct GameBoardView: View {
 
                         balanceHeader(state)
 
+                        myPropertyCardsStrip(state)
+
                         if let pending = model.localPendingLifeCard, model.presentedLifeCard == nil {
                             pendingLifeCardBanner(pending)
                         }
@@ -296,6 +298,57 @@ struct GameBoardView: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(Lux.hairline, lineWidth: 1)
+                }
+            }
+        }
+    }
+
+    // MARK: Property cards
+
+    /// The local player's title cards in board order, like holding them in hand.
+    @ViewBuilder
+    private func myPropertyCardsStrip(_ state: GameState) -> some View {
+        if let localPlayerID = model.localPlayerID {
+            let owned = state.properties.enumerated().filter { $0.element.shares(of: localPlayerID) > 0 }
+
+            if !owned.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("MIS PROPIEDADES · \(owned.count)")
+                        .font(.app(.caption, weight: .semibold))
+                        .tracking(1.6)
+                        .foregroundStyle(Lux.textSecondary)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 12) {
+                            ForEach(owned, id: \.element.id) { entry in
+                                NavigationLink {
+                                    PropertyDetailView(propertyID: entry.element.id, model: model)
+                                } label: {
+                                    PropertyTitleCard(property: entry.element, number: entry.offset + 1)
+                                }
+                                .buttonStyle(.plain)
+                                // Laid over the card rather than inside its link, so the two taps don't clash.
+                                // A mortgaged property earns no rent.
+                                .overlay(alignment: .topTrailing) {
+                                    if !entry.element.isMortgaged {
+                                        NavigationLink {
+                                            CollectWithQRView(model: model, rentPropertyID: entry.element.id)
+                                        } label: {
+                                            CollectRentChip()
+                                        }
+                                        .buttonStyle(.plain)
+                                        .padding(.top, PropertyTitleCard.faceTop)
+                                    }
+                                }
+                            }
+                        }
+                        .scrollTargetLayout()
+                        .padding(.vertical, 8)
+                    }
+                    .scrollTargetBehavior(.viewAligned)
+                    .contentMargins(.horizontal, 16, for: .scrollContent)
+                    .padding(.horizontal, -16)
+                    .frame(height: PropertyTitleCard.size.height + 16)
                 }
             }
         }

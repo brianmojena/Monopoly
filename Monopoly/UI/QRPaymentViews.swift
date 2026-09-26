@@ -20,10 +20,17 @@ struct CollectWithQRView: View {
         var id: String { rawValue }
     }
 
-    @State private var kind: Kind = .transfer
+    @State private var kind: Kind
     @State private var amountText = ""
     @State private var propertyID: UUID?
     @State private var receivedAmount: Int?
+
+    /// With `rentPropertyID`, opens straight on that property's rent QR.
+    init(model: GameSessionModel, rentPropertyID: UUID? = nil) {
+        self.model = model
+        _kind = State(initialValue: rentPropertyID == nil ? .transfer : .rent)
+        _propertyID = State(initialValue: rentPropertyID)
+    }
 
     var body: some View {
         Group {
