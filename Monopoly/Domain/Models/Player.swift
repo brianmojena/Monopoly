@@ -8,6 +8,13 @@ struct Player: Identifiable, Codable, Equatable {
     var status: PlayerStatus
     var creditCardLoans: [CreditCardLoan]
     var creditHistory: CreditHistory
+    /// Which turn in jail the player is on (0 on the turn they went in); nil when free
+    /// (GAME_RULES section 5).
+    var jailTurn: Int?
+
+    var isInJail: Bool {
+        jailTurn != nil
+    }
 
     var creditCardDebt: Int {
         creditCardLoans.reduce(0) { $0 + $1.remainingDebt }
@@ -20,7 +27,8 @@ struct Player: Identifiable, Codable, Equatable {
         propertyIDs: [UUID] = [],
         status: PlayerStatus = .active,
         creditCardLoans: [CreditCardLoan] = [],
-        creditHistory: CreditHistory = CreditHistory()
+        creditHistory: CreditHistory = CreditHistory(),
+        jailTurn: Int? = nil
     ) {
         self.id = id
         self.name = name
@@ -29,6 +37,7 @@ struct Player: Identifiable, Codable, Equatable {
         self.status = status
         self.creditCardLoans = creditCardLoans
         self.creditHistory = creditHistory
+        self.jailTurn = jailTurn
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -39,6 +48,7 @@ struct Player: Identifiable, Codable, Equatable {
         case status
         case creditCardLoans
         case creditHistory
+        case jailTurn
     }
 
     init(from decoder: Decoder) throws {
@@ -50,6 +60,7 @@ struct Player: Identifiable, Codable, Equatable {
         status = try container.decode(PlayerStatus.self, forKey: .status)
         creditCardLoans = try container.decode([CreditCardLoan].self, forKey: .creditCardLoans)
         creditHistory = try container.decodeIfPresent(CreditHistory.self, forKey: .creditHistory) ?? CreditHistory()
+        jailTurn = try container.decodeIfPresent(Int.self, forKey: .jailTurn)
     }
 }
 

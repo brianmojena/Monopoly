@@ -54,9 +54,17 @@ final class BoardEventsTests: XCTestCase {
 
     // MARK: Catalog
 
-    func testCatalogHasAtLeastTwelveDistinctEvents() {
-        XCTAssertGreaterThanOrEqual(BoardEventCatalog.all.count, 12)
+    func testCatalogHasTwentyNineDistinctEvents() {
+        XCTAssertEqual(BoardEventCatalog.all.count, 29)
         XCTAssertEqual(Set(BoardEventCatalog.all.map(\.id)).count, BoardEventCatalog.all.count)
+    }
+
+    func testEveryRentChangeHasARoundLimit() {
+        for event in BoardEventCatalog.all {
+            if case let .rent(_, _, rounds) = event.effect {
+                XCTAssertGreaterThan(rounds, 0, event.id)
+            }
+        }
     }
 
     func testSidesFollowTheBoard() {
@@ -127,7 +135,7 @@ final class BoardEventsTests: XCTestCase {
         XCTAssertEqual(try rent(of: 0, in: state), 0)
     }
 
-    func testTemporaryEffectsExpireAndPermanentOnesStay() throws {
+    func testEveryRentEffectExpiresAfterItsRounds() throws {
         var state = makeState(interval: 100)
         GameRules.happen(try event("blackout"), on: .side(1), afterRound: 1, in: &state)
         GameRules.happen(try event("subway"), on: .side(1), afterRound: 1, in: &state)
@@ -142,6 +150,14 @@ final class BoardEventsTests: XCTestCase {
         XCTAssertEqual(state.round, 3)
         XCTAssertEqual(try rent(of: 0, in: state), 150)
         XCTAssertEqual(state.boardEvents?.rentEffects.map(\.eventID), ["subway"])
+
+        // The subway's 5 rounds after round 1 end with round 6.
+        for _ in 3...6 {
+            state = try finishRound(state)
+        }
+        XCTAssertEqual(state.round, 7)
+        XCTAssertEqual(try rent(of: 0, in: state), 100)
+        XCTAssertEqual(state.boardEvents?.rentEffects, [])
     }
 
     func testRentEffectsShowInTheRentShownToPlayers() throws {
@@ -194,6 +210,39 @@ final class BoardEventsTests: XCTestCase {
         GameRules.happen(try event("fire"), on: targets[0], afterRound: 3, in: &state)
         XCTAssertEqual(state.properties[0].constructionLevel, 1)
         XCTAssertEqual(state.players[1].balance, 1000)
+    }
+
+    func testUrbanRenewalRaisesALevelForFreeBelowTheMaximum() throws {
+        var state = makeState()
+        state.properties[1].constructionLevel = Property.maximumLevel
+        state.properties[3].isMortgaged = true
+        let targets = GameRules.targets(for: try event("urban-renewal"), in: state)
+        XCTAssertEqual(targets, [.property(state.properties[0].id)])
+
+        GameRules.happen(try event("urban-renewal"), on: targets[0], afterRound: 3, in: &state)
+
+        XCTAssertEqual(state.properties[0].constructionLevel, 1)
+        XCTAssertEqual(state.players[1].balance, 1000)
+    }
+
+    func testDividendsPayShareholdersByStake() throws {
+        var properties = [street("A", .brown, owner: luis.id), street("B", .lightBlue, owner: nil)]
+        properties[0].ownership = [PropertyShare(playerID: luis.id, shares: 6), PropertyShare(playerID: ana.id, shares: 4)]
+        var state = makeState(properties: properties)
+
+        GameRules.happen(try event("real-estate-dividends"), on: .side(1), afterRound: 3, in: &state)
+
+        XCTAssertEqual(state.players.map(\.balance), [1020, 1030])
+    }
+
+    func testTaxAuditChargesEveryActivePlayerWhatTheyHaveIntoThePot() throws {
+        var state = makeState(rules: [.freeParkingJackpot])
+        state.players[1].balance = 20
+
+        GameRules.happen(try event("tax-audit"), on: .allPlayers, afterRound: 3, in: &state)
+
+        XCTAssertEqual(state.players.map(\.balance), [950, 0])
+        XCTAssertEqual(state.freeParkingPot, 70)
     }
 
     // MARK: Timing and draws

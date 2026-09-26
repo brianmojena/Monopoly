@@ -78,6 +78,8 @@ enum GameRuleError: Error, Equatable, Codable {
     case shareCoverageNotFound(UUID)
     case playerLoanNotFound(UUID)
     case invalidLoanTerms
+    case alreadyInJail(UUID)
+    case notInJail(UUID)
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -150,6 +152,8 @@ enum GameRuleError: Error, Equatable, Codable {
         case shareCoverageNotFound
         case playerLoanNotFound
         case invalidLoanTerms
+        case alreadyInJail
+        case notInJail
     }
 
     init(from decoder: Decoder) throws {
@@ -280,6 +284,10 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .playerLoanNotFound(try container.decode(UUID.self, forKey: .loanID))
         case .invalidLoanTerms:
             self = .invalidLoanTerms
+        case .alreadyInJail:
+            self = .alreadyInJail(try container.decode(UUID.self, forKey: .playerID))
+        case .notInJail:
+            self = .notInJail(try container.decode(UUID.self, forKey: .playerID))
         }
     }
 
@@ -432,6 +440,12 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(loanID, forKey: .loanID)
         case .invalidLoanTerms:
             try container.encode(Code.invalidLoanTerms, forKey: .code)
+        case let .alreadyInJail(playerID):
+            try container.encode(Code.alreadyInJail, forKey: .code)
+            try container.encode(playerID, forKey: .playerID)
+        case let .notInJail(playerID):
+            try container.encode(Code.notInJail, forKey: .code)
+            try container.encode(playerID, forKey: .playerID)
         }
     }
 }

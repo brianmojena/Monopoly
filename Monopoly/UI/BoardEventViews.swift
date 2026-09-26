@@ -50,14 +50,20 @@ enum BoardEventText {
             if flat != 0 {
                 change.append("\(flat > 0 ? "+" : "−")$\(abs(flat))")
             }
-            let duration = rounds.map { $0 == 1 ? "durante 1 ronda" : "durante \($0) rondas" } ?? "para siempre"
+            let duration = rounds == 1 ? "durante 1 ronda" : "durante \(rounds) rondas"
             return "Renta \(change.joined(separator: " y ")) \(duration)"
         case let .chargeShareholders(perProperty):
             return "$\(perProperty) por cada propiedad con dueño, repartidos entre sus accionistas"
+        case let .payShareholders(perProperty):
+            return "El banco paga $\(perProperty) por cada propiedad con dueño, repartidos entre sus accionistas"
         case let .payEveryPlayer(amount):
             return "Cada jugador cobra $\(amount) del banco"
+        case let .chargeEveryPlayer(amount):
+            return "Cada jugador paga $\(amount) al banco (o lo que tenga)"
         case .levelDown:
             return "La propiedad baja un nivel, sin reembolso"
+        case .levelUp:
+            return "La propiedad sube un nivel gratis"
         }
     }
 
@@ -159,7 +165,8 @@ struct BoardEventSheet: View {
     }
 }
 
-/// The rent changes in play and when the next event comes.
+/// When the next board event comes and which was the last one. Their rent changes
+/// are in `RentChangesCard`.
 struct ActiveBoardEventsCard: View {
     let events: BoardEventsState
     let state: GameState
@@ -183,26 +190,6 @@ struct ActiveBoardEventsCard: View {
                         .foregroundStyle(Lux.textSecondary)
                 }
                 .font(.app(.subheadline))
-            }
-
-            ForEach(events.rentEffects) { effect in
-                if let event = BoardEventCatalog.event(withID: effect.eventID) {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Text(event.emoji)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(event.title) · Renta \(BoardEventText.rentChange(effect))")
-                                .font(.app(.subheadline, weight: .semibold))
-                            Text(affectedText(effect))
-                                .font(.app(.caption))
-                                .foregroundStyle(Lux.textSecondary)
-                                .lineLimit(2)
-                        }
-                        Spacer()
-                        Text(BoardEventText.remaining(effect, round: state.round))
-                            .font(.app(.caption, weight: .semibold))
-                            .foregroundStyle(effect.flat + effect.percent >= 0 ? Lux.up : Lux.down)
-                    }
-                }
             }
         }
     }
@@ -231,15 +218,5 @@ struct ActiveBoardEventsCard: View {
             text = earliest == state.round ? "Desde esta ronda hasta la \(latest)" : "Entre la ronda \(earliest) y la \(latest)"
         }
         return mayNotHappen ? "\(text) o ninguno" : text
-    }
-
-    private func affectedText(_ effect: ActiveRentEffect) -> String {
-        if effect.propertyIDs.count == state.properties.count {
-            return "Todo el tablero"
-        }
-        return state.properties
-            .filter { effect.propertyIDs.contains($0.id) }
-            .map(\.name)
-            .joined(separator: ", ")
     }
 }

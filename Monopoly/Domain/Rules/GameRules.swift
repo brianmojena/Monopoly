@@ -793,6 +793,7 @@ enum GameRules {
         updatedState.players[bankruptPlayerIndex].status = .bankrupt
         updatedState.players[bankruptPlayerIndex].balance = 0
         updatedState.players[bankruptPlayerIndex].creditCardLoans.removeAll()
+        updatedState.players[bankruptPlayerIndex].jailTurn = nil
 
         for propertyIndex in updatedState.properties.indices {
             let shares = updatedState.properties[propertyIndex].shares(of: playerID)
@@ -906,6 +907,7 @@ enum GameRules {
                 updatedState.round += 1
             }
             updatedState.currentPlayerID = state.players[nextIndex].id
+            startJailTurn(of: state.players[nextIndex].id, in: &updatedState)
             return updatedState
         }
         return state

@@ -41,7 +41,7 @@ La diferencia central: **no gana quien tiene más dinero, sino quien tiene más 
 | 🏢 **Emprendedor** — le gusta tener negocios y que la gente caiga en ellos | Al terminar la ronda: +1 por cada propiedad en la que tiene acciones (máx +5). Cada vez que recibe renta de otro jugador: +2. | Hipotecar una propiedad que administra: −3. |
 | 🐷 **Ahorrador** — le gusta ver crecer su cuenta | Al terminar la ronda: +1 por cada $400 en efectivo (máx +5). Cobrar salario sin deuda de tarjeta: +1. | Pedir un préstamo de tarjeta de crédito: −4. |
 | 🎉 **Social** — le gusta negociar y compartir | Cada trato del Mercado ejecutado en el que participa: +3 (máx 2 tratos puntuables por ronda). Cuenta cualquier trato: compra compartida, inversión, oferta abierta, y también cubrir la parte de otro accionista al subir de nivel o recomprarle esas acciones (sección 4.3 de `GAME_RULES.md`). Solo es puntuable si mueve al menos $50 o al menos una acción. | Terminar una ronda sin haber participado en ningún trato ejecutado: −1. |
-| 📈 **Inversionista** — le gusta diversificar y cobrar sin trabajar | Crear una inversión (sección 4.8 de `GAME_RULES.md`) como inversor: +3. Cada vez que cobra el corte de una inversión: +1. Al terminar la ronda: +1 por cada grupo de color distinto en el que tiene acciones (máx +4). | Pagar un impuesto (incluido el evento del tablero "Revalúo de impuestos"): −2. |
+| 📈 **Inversionista** — le gusta diversificar y cobrar sin trabajar | Crear una inversión (sección 4.8 de `GAME_RULES.md`) como inversor: +3. Cada vez que cobra el corte de una inversión: +1. Al terminar la ronda: +1 por cada grupo de color distinto en el que tiene acciones (máx +4). | Pagar un impuesto (incluidos los eventos del tablero Revalúo de impuestos, Auditoría de Hacienda e Impuesto predial): −2. |
 | ✈️ **Trotamundos** — le gusta viajar y conocer, no echar raíces | Cobrar salario en Salida: +2. Pagar un viaje en una casilla de viaje: +2. La primera vez que paga renta en cada grupo de color ("sello"): +3; al completar los 8 sellos: +8 extra. | Comprar una propiedad al banco (compra directa, subasta o compra compartida): −2. |
 
 Aclaraciones:
@@ -49,7 +49,7 @@ Aclaraciones:
 - "Recibe renta" / "paga renta" se refiere a `collectRent` con monto > 0. Un cobro vía inversión cuenta como corte de inversión, no como renta recibida.
 - Los gustos por acción se aplican a quien hace la acción: el accionista que sube de nivel (cualquiera puede, no solo el administrador), el administrador al hipotecar, cada comprador en una compra compartida.
 - Cubrir la parte de un accionista al subir de nivel cuenta como un trato entre quien cubre y el cubierto (siempre mueve acciones, así que es puntuable); recomprar esas acciones también.
-- "Revalúo de impuestos" cuenta como un solo impuesto por evento para cada accionista que pagó algo, aunque tenga acciones en varias propiedades del grupo.
+- Los eventos del tablero que son impuestos cuentan como un solo impuesto por evento para cada jugador que pagó algo, aunque tenga acciones en varias propiedades afectadas.
 - Las rentas de Ultimate Banking (sección 4.2.1 de `GAME_RULES.md`) empiezan en $70, por eso el Consumista cuenta cada $100 y no cada $50: con $50 casi cualquier renta le daba varios puntos.
 
 ## 4. Ruleta de roles
@@ -139,6 +139,6 @@ Suma de lo que cada rol puede sacar del mazo (decisiones solo si son positivas):
 - Un préstamo entre jugadores es un trato del Mercado, así que cuenta para el Social como cualquier otro (puntuable si presta al menos $50). Los pagos del préstamo no tienen efecto de rol, y el disgusto del Ahorrador sigue siendo solo por préstamos de tarjeta.
 - Las house rules siguen siendo configurables igual, con estas notas:
   - **Free Parking Jackpot**: igual que en Classic. Cobrar el bote no tiene efecto de rol (el dinero ya ayuda al Ahorrador en su fin de ronda).
-  - **Eventos del tablero**: igual que en Classic. Solo "Revalúo de impuestos" tiene efecto de rol (Inversionista, tabla 3.3); el resto solo mueve dinero, rentas o niveles.
+  - **Eventos del tablero**: igual que en Classic. Solo los que son impuestos (Revalúo de impuestos, Auditoría de Hacienda e Impuesto predial) tienen efecto de rol (Inversionista, tabla 3.3); el resto solo mueve dinero, rentas o niveles. La renovación urbana no cuenta como subir de nivel.
   - **Cartas del host**: igual que en Classic. La subida de nivel gratis de "Avanza y sube de nivel" no cuenta como subir de nivel para el Consumista, porque nadie la paga.
   - **Niveles secretos**: solo existen en Classic.

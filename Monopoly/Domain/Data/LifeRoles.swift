@@ -110,7 +110,7 @@ extension LifeRole {
                     "Cada vez que cobras el corte de una inversión: +1.",
                     "Al terminar la ronda: +1 por cada grupo de color en el que tienes acciones (máx +4)."
                 ],
-                dislike: "Pagar un impuesto (también el evento Revalúo de impuestos): −2."
+                dislike: "Pagar un impuesto (también los eventos del tablero que son impuestos): −2."
             )
         case .globetrotter:
             return LifeRoleDefinition(

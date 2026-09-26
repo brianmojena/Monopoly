@@ -182,37 +182,3 @@ struct HostCardSheet: View {
         .sensoryFeedback(.warning, trigger: occurrence.sequence)
     }
 }
-
-/// The rent changes host cards left in play.
-struct HostCardEffectsCard: View {
-    let state: GameState
-
-    var body: some View {
-        BankCard(title: "Cartas en juego") {
-            ForEach(state.hostCardRentEffects) { effect in
-                if let card = HostCard(rawValue: effect.eventID) {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Text(card.emoji)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(card.title) · Renta \(BoardEventText.rentChange(effect))")
-                                .font(.app(.subheadline, weight: .semibold))
-                            Text(affectedSides(effect))
-                                .font(.app(.caption))
-                                .foregroundStyle(Lux.textSecondary)
-                                .lineLimit(2)
-                        }
-                        Spacer()
-                        Text(BoardEventText.remaining(effect, round: state.round))
-                            .font(.app(.caption, weight: .semibold))
-                            .foregroundStyle(effect.flat >= 0 ? Lux.up : Lux.down)
-                    }
-                }
-            }
-        }
-    }
-
-    private func affectedSides(_ effect: ActiveRentEffect) -> String {
-        let sides = Set(state.properties.filter { effect.propertyIDs.contains($0.id) }.map(\.colorGroup.boardSide))
-        return sides.sorted().map { BoardEventText.target(.side($0), in: state) }.joined(separator: ", ")
-    }
-}

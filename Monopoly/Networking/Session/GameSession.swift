@@ -616,6 +616,10 @@ final class GameSession {
             return try GameRules.payPlayerLoan(in: state, playerID: playerID, loanID: loanID, amount: amount)
         case let .forgivePlayerLoan(_, loanID):
             return try GameRules.forgivePlayerLoan(in: state, playerID: playerID, loanID: loanID)
+        case .goToJail:
+            return try GameRules.goToJail(in: state, playerID: playerID)
+        case let .leaveJail(_, exit):
+            return try GameRules.leaveJail(in: state, playerID: playerID, exit: exit)
         case .endTurn:
             return try GameRules.endTurn(in: state, playerID: playerID)
         case .skipTurn:

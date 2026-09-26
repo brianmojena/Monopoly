@@ -10,6 +10,8 @@ struct GameBoardView: View {
     @State private var openedProperty: OpenedProperty?
     @State private var propertySheetDetent: PresentationDetent = .large
     @State private var propertyFilter: PropertyFilter = .mine
+    @State private var isConfirmingJail = false
+    @State private var isChoosingJailExit = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 2)
 
@@ -38,12 +40,16 @@ struct GameBoardView: View {
                             actionsGrid(state)
                         }
 
+                        if state.players.contains(where: { $0.status == .active && $0.isInJail }) {
+                            JailCard(state: state, model: model, isChoosingExit: $isChoosingJailExit)
+                        }
+
                         if let boardEvents = state.boardEvents {
                             ActiveBoardEventsCard(events: boardEvents, state: state)
                         }
 
-                        if !state.hostCardRentEffects.isEmpty {
-                            HostCardEffectsCard(state: state)
+                        if !GameRules.activeRentEffects(in: state).isEmpty {
+                            RentChangesCard(state: state)
                         }
 
                         if let profile = model.localProfile {
@@ -118,6 +124,14 @@ struct GameBoardView: View {
         } message: {
             Text("Solo si tu ficha cayó en Free Parking.")
         }
+        .confirmationDialog("¿Vas a la cárcel?", isPresented: $isConfirmingJail, titleVisibility: .visible) {
+            Button("Ir a la cárcel") {
+                model.goToJail()
+            }
+        } message: {
+            Text("Todos verán que estás en la cárcel y cuántos turnos llevas. Sales sacando dobles o pagando $\(GameRules.jailFine).")
+        }
+        .jailExitDialog(isPresented: $isChoosingJailExit, model: model)
         .sheet(item: $amountAction) { action in
             switch action {
             case .tax:
@@ -444,6 +458,8 @@ struct GameBoardView: View {
                     ActionTile(title: "GO", detail: "Cobrar salario", icon: "flag.checkered", tint: .blue, isLocked: !isMyTurn)
                 }
 
+                jailTile(state, isMyTurn: isMyTurn)
+
                 if model.isFreeParkingEnabled {
                     tileButton(isEnabled: isMyTurn && state.freeParkingPot > 0) {
                         isConfirmingFreeParking = true
@@ -525,6 +541,26 @@ struct GameBoardView: View {
                 .padding(.top, 4)
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    private func jailTile(_ state: GameState, isMyTurn: Bool) -> some View {
+        let jailTurn = localPlayer(in: state)?.jailTurn
+        return tileButton(isEnabled: isMyTurn) {
+            if jailTurn == nil {
+                isConfirmingJail = true
+            } else {
+                isChoosingJailExit = true
+            }
+        } label: {
+            ActionTile(
+                title: jailTurn == nil ? "Cárcel" : "Salir de la cárcel",
+                detail: jailTurn.map(JailText.turn) ?? "Ir a la cárcel",
+                icon: jailTurn == nil ? "lock" : "lock.open",
+                tint: .orange,
+                isLocked: !isMyTurn,
+                highlightsDetail: jailTurn != nil
+            )
         }
     }
 

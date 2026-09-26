@@ -57,6 +57,10 @@ extension GameRules {
             return state.properties.filter(\.isOwned).map { .property($0.id) }
         case .leveledProperty:
             return state.properties.filter { $0.isOwned && $0.constructionLevel > 0 }.map { .property($0.id) }
+        case .upgradableProperty:
+            return state.properties
+                .filter { $0.isOwned && !$0.isMortgaged && $0.constructionLevel < Property.maximumLevel }
+                .map { .property($0.id) }
         case .wholeBoard:
             return state.properties.isEmpty ? [] : [.wholeBoard]
         case .allPlayers:
@@ -93,7 +97,7 @@ extension GameRules {
                 propertyIDs: Set(affectedIDs),
                 flat: flat,
                 percent: percent,
-                lastRound: rounds.map { round + $0 }
+                lastRound: round + rounds
             ))
         case let .chargeShareholders(perProperty):
             var collected = 0
@@ -113,13 +117,33 @@ extension GameRules {
                     applyLifeTrigger(.taxPaid(playerID: playerID), in: &state)
                 }
             }
+        case let .payShareholders(perProperty):
+            for property in state.properties where affectedIDs.contains(property.id) && property.isOwned {
+                for portion in split(perProperty, among: property.ownership) {
+                    credit(portion.amount, to: portion.playerID, in: &state)
+                }
+            }
         case let .payEveryPlayer(amount):
             for player in state.players where player.status == .active {
                 credit(amount, to: player.id, in: &state)
             }
+        case let .chargeEveryPlayer(amount):
+            var collected = 0
+            for player in state.players where player.status == .active {
+                let paid = payUpToBank(amount, from: player.id, in: &state)
+                collected += paid
+                if paid > 0, event.countsAsTax {
+                    applyLifeTrigger(.taxPaid(playerID: player.id), in: &state)
+                }
+            }
+            depositInFreeParking(collected, in: &state)
         case .levelDown:
             for index in state.properties.indices where affectedIDs.contains(state.properties[index].id) {
                 state.properties[index].constructionLevel = max(0, state.properties[index].constructionLevel - 1)
+            }
+        case .levelUp:
+            for index in state.properties.indices where affectedIDs.contains(state.properties[index].id) {
+                state.properties[index].constructionLevel = min(Property.maximumLevel, state.properties[index].constructionLevel + 1)
             }
         }
 

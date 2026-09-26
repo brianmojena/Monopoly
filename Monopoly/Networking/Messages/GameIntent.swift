@@ -22,6 +22,8 @@ enum GameIntent: Codable, Equatable {
     case payCreditCard(playerID: UUID, loanID: UUID, amount: Int)
     case payPlayerLoan(playerID: UUID, loanID: UUID, amount: Int)
     case forgivePlayerLoan(playerID: UUID, loanID: UUID)
+    case goToJail(playerID: UUID)
+    case leaveJail(playerID: UUID, exit: JailExit)
     case endTurn(playerID: UUID)
     case skipTurn
     case acknowledgeRole(playerID: UUID)
@@ -48,6 +50,7 @@ enum GameIntent: Codable, Equatable {
         case route
         case coverageID
         case hostCard
+        case jailExit
     }
 
     private enum IntentType: String, Codable {
@@ -72,6 +75,8 @@ enum GameIntent: Codable, Equatable {
         case payCreditCard
         case payPlayerLoan
         case forgivePlayerLoan
+        case goToJail
+        case leaveJail
         case endTurn
         case skipTurn
         case acknowledgeRole
@@ -183,6 +188,13 @@ enum GameIntent: Codable, Equatable {
                 playerID: try container.decode(UUID.self, forKey: .playerID),
                 loanID: try container.decode(UUID.self, forKey: .loanID)
             )
+        case .goToJail:
+            self = .goToJail(playerID: try container.decode(UUID.self, forKey: .playerID))
+        case .leaveJail:
+            self = .leaveJail(
+                playerID: try container.decode(UUID.self, forKey: .playerID),
+                exit: try container.decode(JailExit.self, forKey: .jailExit)
+            )
         case .endTurn:
             self = .endTurn(playerID: try container.decode(UUID.self, forKey: .playerID))
         case .skipTurn:
@@ -290,6 +302,13 @@ enum GameIntent: Codable, Equatable {
             try container.encode(IntentType.forgivePlayerLoan, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(loanID, forKey: .loanID)
+        case let .goToJail(playerID):
+            try container.encode(IntentType.goToJail, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+        case let .leaveJail(playerID, exit):
+            try container.encode(IntentType.leaveJail, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+            try container.encode(exit, forKey: .jailExit)
         case let .endTurn(playerID):
             try container.encode(IntentType.endTurn, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
@@ -319,7 +338,8 @@ extension GameIntent {
     var requiresTurn: Bool {
         switch self {
         case .buyProperty, .resolveAuction, .collectRent, .payTax, .payTravel, .collectFreeParking,
-             .collectSalary, .borrowOnCreditCard, .drawLifeCard, .resolveLifeCardDecision:
+             .collectSalary, .borrowOnCreditCard, .drawLifeCard, .resolveLifeCardDecision,
+             .goToJail, .leaveJail:
             return true
         case .levelUp, .levelDown, .buyBackShares, .mortgageProperty, .unmortgageProperty,
              .declareBankruptcy, .proposeDeal, .acceptDeal, .rejectDeal, .transferMoney, .payCreditCard,

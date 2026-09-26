@@ -500,6 +500,10 @@ final class GameSessionModel: ObservableObject {
             return "Esas acciones ya no se pueden recuperar."
         case .playerLoanNotFound:
             return "Ese préstamo ya no existe."
+        case .alreadyInJail:
+            return "Ya estás en la cárcel."
+        case .notInJail:
+            return "No estás en la cárcel."
         case .invalidLoanTerms:
             return "Revisa los términos del préstamo: necesita al menos cuota en GO, % de rentas o plazo."
         case let .notEnoughShares(_, playerID):
@@ -667,6 +671,24 @@ final class GameSessionModel: ObservableObject {
         }
 
         send(.payPlayerLoan(playerID: localPlayerID, loanID: loanID, amount: amount))
+    }
+
+    func goToJail() {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de ir a la cárcel."
+            return
+        }
+
+        send(.goToJail(playerID: localPlayerID))
+    }
+
+    func leaveJail(_ exit: JailExit) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de salir de la cárcel."
+            return
+        }
+
+        send(.leaveJail(playerID: localPlayerID, exit: exit))
     }
 
     func forgivePlayerLoan(loanID: UUID) {
