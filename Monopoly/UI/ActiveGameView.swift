@@ -24,12 +24,15 @@ struct ActiveGameView: View {
                     } label: {
                         Label("Salir", systemImage: "rectangle.portrait.and.arrow.right")
                     }
+                    // On iOS 26 this is red Liquid Glass; the dialog comes out of the button.
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .confirmationDialog(exitTitle, isPresented: $isConfirmingExit, titleVisibility: .visible) {
+                        exitActions
+                    } message: {
+                        Text(exitMessage)
+                    }
                 }
-            }
-            .confirmationDialog(exitTitle, isPresented: $isConfirmingExit, titleVisibility: .visible) {
-                exitActions
-            } message: {
-                Text(exitMessage)
             }
         }
     }
