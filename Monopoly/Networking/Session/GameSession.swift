@@ -630,8 +630,13 @@ final class GameSession {
         case .acknowledgeRole:
             return try GameRules.acknowledgeRole(in: state, playerID: playerID)
         case .drawLifeCard:
+            return try GameRules.requestLifeCard(in: state, playerID: playerID)
+        case let .dealLifeCard(favorable):
+            guard isHost else {
+                throw GameRuleError.onlyHostCanPlayCards
+            }
             var generator = SystemRandomNumberGenerator()
-            return try GameRules.drawLifeCard(in: state, playerID: playerID, using: &generator)
+            return try GameRules.dealLifeCard(in: state, favorable: favorable, using: &generator)
         case let .resolveLifeCardDecision(_, accept):
             return try GameRules.resolveLifeCardDecision(in: state, playerID: playerID, accept: accept)
         case let .playHostCard(play):

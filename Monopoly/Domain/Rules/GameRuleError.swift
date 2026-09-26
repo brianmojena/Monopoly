@@ -71,6 +71,8 @@ enum GameRuleError: Error, Equatable, Codable {
     case monopolifeOnly
     case lifeCardDecisionPending
     case noPendingLifeCard
+    case lifeCardRequestPending
+    case noLifeCardRequest
     case freeParkingDisabled
     case freeParkingPotEmpty
     case creditCut
@@ -145,6 +147,8 @@ enum GameRuleError: Error, Equatable, Codable {
         case monopolifeOnly
         case lifeCardDecisionPending
         case noPendingLifeCard
+        case lifeCardRequestPending
+        case noLifeCardRequest
         case freeParkingDisabled
         case freeParkingPotEmpty
         case creditCut
@@ -270,6 +274,10 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .lifeCardDecisionPending
         case .noPendingLifeCard:
             self = .noPendingLifeCard
+        case .lifeCardRequestPending:
+            self = .lifeCardRequestPending
+        case .noLifeCardRequest:
+            self = .noLifeCardRequest
         case .freeParkingDisabled:
             self = .freeParkingDisabled
         case .freeParkingPotEmpty:
@@ -423,6 +431,10 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(Code.lifeCardDecisionPending, forKey: .code)
         case .noPendingLifeCard:
             try container.encode(Code.noPendingLifeCard, forKey: .code)
+        case .lifeCardRequestPending:
+            try container.encode(Code.lifeCardRequestPending, forKey: .code)
+        case .noLifeCardRequest:
+            try container.encode(Code.noLifeCardRequest, forKey: .code)
         case .freeParkingDisabled:
             try container.encode(Code.freeParkingDisabled, forKey: .code)
         case .freeParkingPotEmpty:

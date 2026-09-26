@@ -27,6 +27,8 @@ final class GameSessionModel: ObservableObject {
     /// A Life Card another player just drew (the card is public, its effect is not).
     @Published private(set) var lifeCardNotice: LifeCardDraw?
     /// A board event that just happened, announced on every device.
+    /// On the host: the player waiting for the host to deal their Life Card.
+    @Published var lifeCardRequestToDeal: Player?
     @Published var presentedBoardEvent: BoardEventOccurrence?
     @Published var presentedHostCard: HostCardOccurrence?
 
@@ -88,6 +90,19 @@ final class GameSessionModel: ObservableObject {
             monopolife.profiles[$0.id]?.hasAcknowledgedRole == false
         }
         return unacknowledged.filter { $0.id == ownPlayerID } + unacknowledged.filter { $0.id != ownPlayerID }
+    }
+
+    /// Whether this device's player asked for a Life Card the host hasn't dealt yet.
+    var isWaitingForLifeCard: Bool {
+        localPlayerID != nil && gameState?.monopolife?.lifeCardRequest == localPlayerID
+    }
+
+    /// On the host: who is waiting for a Life Card, if anyone.
+    var lifeCardRequester: Player? {
+        guard role == .host, let requestID = gameState?.monopolife?.lifeCardRequest else {
+            return nil
+        }
+        return gameState?.players.first(where: { $0.id == requestID })
     }
 
     var localPendingLifeCard: LifeCardDraw? {
@@ -380,6 +395,10 @@ final class GameSessionModel: ObservableObject {
             return
         }
 
+        if role == .host, monopolife.lifeCardRequest != previous.lifeCardRequest {
+            lifeCardRequestToDeal = lifeCardRequester
+        }
+
         if monopolife.happinessLog.count > previous.happinessLog.count {
             let newEvents = monopolife.happinessLog
                 .suffix(from: previous.happinessLog.count)
@@ -415,6 +434,12 @@ final class GameSessionModel: ObservableObject {
         }
 
         send(.drawLifeCard(playerID: localPlayerID))
+    }
+
+    /// Host only: deals the requested Life Card, random or good for the player.
+    func dealLifeCard(favorable: Bool) {
+        lifeCardRequestToDeal = nil
+        send(.dealLifeCard(favorable: favorable))
     }
 
     func resolveLifeCard(accept: Bool) {
@@ -484,6 +509,10 @@ final class GameSessionModel: ObservableObject {
             return "Primero decide qué hacer con tu Tarjeta de Vida."
         case .noPendingLifeCard:
             return "No tienes ninguna Tarjeta de Vida pendiente."
+        case .lifeCardRequestPending:
+            return "Espera a que el host reparta la Tarjeta de Vida."
+        case .noLifeCardRequest:
+            return "Nadie está esperando una Tarjeta de Vida."
         case .creditCut:
             return "La banca ya no te da crédito: fallaste \(GameRules.missedPaymentsBeforeCreditIsCut) pagos."
         case let .creditCardLoanLimitReached(maximum):

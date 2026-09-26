@@ -338,10 +338,18 @@ extension RuleTopic {
             ]
         ),
         RuleTopic(
+            id: "rivals", icon: "scope", color: .red, title: "Rival secreto",
+            points: [
+                "Además de tu rol, al empezar la app te asigna en secreto un rival: otro jugador al que quieres ganarle. Todos tienen uno, y cada jugador es el rival de otro.",
+                "Tu rival no sabe que lo es. Lo ves en \"Mi rol\" y se revela al final."
+            ] + Rivalry.rules
+        ),
+        RuleTopic(
             id: "happiness", icon: "face.smiling.inverse", color: .green, title: "Felicidad",
             points: [
                 "Empiezas con 0 y nunca baja de 0.",
                 "Sube o baja por lo que haces según tu rol (pagar renta, comprar, negociar, cobrar salario…), al terminar cada ronda y con las Tarjetas de Vida.",
+                "Ir a la cárcel le quita \(-LifeRoleValues.jailed) de felicidad a cualquier rol.",
                 "Pagar renta siempre te hace feliz: más cuanto más lujoso es el lugar (lado del tablero del 1 al 4 más el nivel de la propiedad). Cuánto depende de tu rol.",
                 "Cada vez que cambia ves un aviso, y en \"Mi felicidad\" tienes el historial completo."
             ]
@@ -350,6 +358,7 @@ extension RuleTopic {
             id: "cards", icon: "rectangle.stack.fill", color: .orange, title: "Tarjetas de Vida",
             points: [
                 "No se usan las cartas físicas de Suerte ni de Caja de Comunidad. Al caer en esas casillas, en tu turno, pulsa \"Caí en Suerte / Caja de Comunidad\".",
+                "El host reparte la tarjeta: elige si darte una buena para tu rol o una al azar. Él no ve tu rol ni qué tarjeta te toca.",
                 "El mazo tiene \(LifeCards.all.count) tarjetas. Cada una afecta distinto a cada rol: un carro nuevo encanta a unos y a otros les duele gastar.",
                 "Eventos: se aplican solos. Decisiones: aceptas pagando o pasas; no puedes terminar el turno sin decidir.",
                 "Posesiones: algunas compras te dan un carro, un televisor o un food truck. Después pueden salir tarjetas como \"Se te rompe el carro\" que solo afectan a quien lo tiene.",

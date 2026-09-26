@@ -578,7 +578,7 @@ final class MonopolifeRulesTests: XCTestCase {
 
     // MARK: Chameleon
 
-    func testSetupGivesTheChameleonADisguiseAndTheRivalAnotherPlayerAsTarget() throws {
+    func testSetupGivesTheChameleonADisguise() throws {
         var generator = SeededGenerator(state: 21)
         let ids = LifeRole.playable.map { _ in UUID() }
 
@@ -587,17 +587,11 @@ final class MonopolifeRulesTests: XCTestCase {
         XCTAssertEqual(Set(monopolife.profiles.values.map(\.role)), Set(LifeRole.playable))
         XCTAssertFalse(LifeRole.playable.contains(.minimalist))
         XCTAssertFalse(LifeRole.chameleonDisguises.contains(.minimalist))
-        for (id, profile) in monopolife.profiles {
-            switch profile.role {
-            case .chameleon:
+        for profile in monopolife.profiles.values {
+            if profile.role == .chameleon {
                 XCTAssertTrue(LifeRole.chameleonDisguises.contains(try XCTUnwrap(profile.disguise)))
-            case .rival:
-                let targetID = try XCTUnwrap(profile.rivalTargetID)
-                XCTAssertNotEqual(targetID, id)
-                XCTAssertTrue(ids.contains(targetID))
-            default:
+            } else {
                 XCTAssertNil(profile.disguise)
-                XCTAssertNil(profile.rivalTargetID)
             }
         }
     }
@@ -705,10 +699,29 @@ final class MonopolifeRulesTests: XCTestCase {
         XCTAssertEqual(happiness(ids[0], from: .role(.lenderCollateralTaken), in: due), LifeRoleValues.lenderCollateralTaken)
     }
 
-    // MARK: Rival
+    // MARK: Rivalry
 
-    func testRivalWantsMoreNetWorthThanItsTarget() throws {
-        var (state, ids) = makeState(roles: [.rival, .saver])
+    func testEveryPlayerGetsARivalAndIsExactlyOnePlayersRival() throws {
+        var generator = SeededGenerator(state: 8)
+        let ids = (0..<5).map { _ in UUID() }
+
+        let monopolife = GameRules.makeMonopolifeState(playerIDs: ids, roundLimit: 15, using: &generator)
+
+        let rivals = try ids.map { id in try XCTUnwrap(monopolife.profiles[id]?.rivalTargetID) }
+        XCTAssertEqual(Set(rivals), Set(ids))
+        for (id, rivalID) in zip(ids, rivals) {
+            XCTAssertNotEqual(id, rivalID)
+        }
+        XCTAssertEqual(GameRules.assignRivals(to: [ids[0]], using: &generator), [:])
+    }
+
+    func testSavedRivalRolePlaysOnAsSocial() throws {
+        let profile = try JSONDecoder().decode(LifeProfile.self, from: Data(#"{"role": "rival"}"#.utf8))
+        XCTAssertEqual(profile.role, .social)
+    }
+
+    func testEveryRoleWantsMoreNetWorthThanItsRival() throws {
+        var (state, ids) = makeState(roles: [.globetrotter, .saver])
         state.monopolife?.profiles[ids[0]]?.rivalTargetID = ids[1]
         GameRules.adjustHappiness(of: ids[0], by: 5, reason: .bankruptcy, in: &state)
 
@@ -722,8 +735,8 @@ final class MonopolifeRulesTests: XCTestCase {
         XCTAssertEqual(happiness(ids[0], in: try finishRound(state)), 5)
     }
 
-    func testRivalLikesItsTargetsRentAuctionsAndSetbacks() throws {
-        var (state, ids) = makeState(roles: [.rival, .saver, .saver])
+    func testRivalryLikesTheRivalsRentAuctionsAndSetbacks() throws {
+        var (state, ids) = makeState(roles: [.globetrotter, .saver, .saver])
         state.monopolife?.profiles[ids[0]]?.rivalTargetID = ids[1]
         state.properties = [property(owner: ids[0]), property("B"), property("C", owner: ids[1])]
 
@@ -789,6 +802,32 @@ final class MonopolifeRulesTests: XCTestCase {
 
         XCTAssertEqual(happiness(ids[0], in: result), 10 + LifeRoleValues.minimalistPossession)
         XCTAssertEqual(result.monopolife?.profiles[ids[0]]?.possessions, [.car])
+    }
+
+    // MARK: Jail
+
+    func testGoingToJailCostsEveryRoleTheSame() throws {
+        var (state, ids) = makeState(roles: LifeRole.allCases)
+        for id in ids {
+            GameRules.adjustHappiness(of: id, by: 10, reason: .bankruptcy, in: &state)
+        }
+        state.monopolife?.profiles[ids[LifeRole.allCases.firstIndex(of: .chameleon)!]]?.disguise = .social
+
+        var result = state
+        for id in ids {
+            result = try GameRules.goToJail(in: result, playerID: id)
+        }
+
+        for id in ids {
+            XCTAssertEqual(happiness(id, from: .jail, in: result), LifeRoleValues.jailed)
+        }
+        let leaving = try GameRules.leaveJail(in: result, playerID: ids[0], exit: .doubles)
+        XCTAssertEqual(leaving.monopolife?.happinessLog, result.monopolife?.happinessLog)
+    }
+
+    func testJailCardLeavesThePenaltyToTheJailItself() throws {
+        let card = try XCTUnwrap(LifeCards.card(withID: "go-to-jail"))
+        XCTAssertTrue(card.happiness.values.allSatisfy { $0 == 0 })
     }
 
     // MARK: Share coverage, board events and host cards
@@ -925,6 +964,68 @@ final class MonopolifeRulesTests: XCTestCase {
     func testDeckHasBadLuckCards() {
         let badForEveryone = LifeCards.all.filter { card in card.happiness.values.allSatisfy { $0 <= 0 } }
         XCTAssertGreaterThanOrEqual(badForEveryone.count, 8)
+    }
+
+    // MARK: Life Cards: dealt by the host
+
+    func testRequestedCardWaitsForTheHostToDealIt() throws {
+        let (state, ids) = makeState(roles: [.saver, .consumer])
+        var generator = SeededGenerator(state: 4)
+
+        let requested = try GameRules.requestLifeCard(in: state, playerID: ids[0])
+        XCTAssertEqual(requested.monopolife?.lifeCardRequest, ids[0])
+        XCTAssertNil(requested.monopolife?.lastLifeCardDraw)
+        XCTAssertThrowsError(try GameRules.requestLifeCard(in: requested, playerID: ids[0])) { error in
+            XCTAssertEqual(error as? GameRuleError, .lifeCardRequestPending)
+        }
+        XCTAssertThrowsError(try GameRules.endTurn(in: requested, playerID: ids[0])) { error in
+            XCTAssertEqual(error as? GameRuleError, .lifeCardRequestPending)
+        }
+
+        let dealt = try GameRules.dealLifeCard(in: requested, favorable: false, using: &generator)
+        XCTAssertNil(dealt.monopolife?.lifeCardRequest)
+        XCTAssertEqual(dealt.monopolife?.lastLifeCardDraw?.playerID, ids[0])
+        XCTAssertEqual(dealt.monopolife?.lastLifeCardDraw?.cardID, state.monopolife?.lifeDeck.first)
+        XCTAssertThrowsError(try GameRules.dealLifeCard(in: dealt, favorable: false, using: &generator)) { error in
+            XCTAssertEqual(error as? GameRuleError, .noLifeCardRequest)
+        }
+    }
+
+    func testFavorableCardIsGoodForThePlayersRoleAndLeavesTheDeck() throws {
+        for role in LifeRole.playable {
+            var (state, ids) = makeState(roles: [role])
+            state.monopolife?.profiles[ids[0]]?.disguise = .social
+            var generator = SeededGenerator(state: 12)
+
+            let requested = try GameRules.requestLifeCard(in: state, playerID: ids[0])
+            let dealt = try GameRules.dealLifeCard(in: requested, favorable: true, using: &generator)
+
+            let cardID = try XCTUnwrap(dealt.monopolife?.lastLifeCardDraw?.cardID)
+            let card = try XCTUnwrap(LifeCards.card(withID: cardID))
+            let profile = try XCTUnwrap(state.monopolife?.profiles[ids[0]])
+            XCTAssertGreaterThan(card.happiness(for: profile.activeRole), 0, "\(role)")
+            XCTAssertFalse(dealt.monopolife?.lifeDeck.contains(cardID) ?? true, "\(role)")
+            XCTAssertEqual(dealt.monopolife?.lifeDeck.count, LifeCards.all.count - 1)
+        }
+    }
+
+    func testFavorableCardComesFromTheWholeDeckWhenNoneIsLeft() throws {
+        var (state, ids) = makeState(roles: [.saver])
+        state.monopolife?.lifeDeck = ["sick", "traffic-fine"]
+        var generator = SeededGenerator(state: 3)
+
+        let dealt = try GameRules.drawLifeCard(in: state, playerID: ids[0], favorable: true, using: &generator)
+
+        let cardID = try XCTUnwrap(dealt.monopolife?.lastLifeCardDraw?.cardID)
+        XCTAssertGreaterThan(try XCTUnwrap(LifeCards.card(withID: cardID)).happiness(for: .saver), 0)
+        XCTAssertEqual(dealt.monopolife?.lifeDeck, ["sick", "traffic-fine"])
+    }
+
+    func testDealLifeCardIntentRoundTrips() throws {
+        let intent = GameIntent.dealLifeCard(favorable: true)
+        XCTAssertEqual(try JSONDecoder().decode(GameIntent.self, from: JSONEncoder().encode(intent)), intent)
+        XCTAssertFalse(intent.requiresTurn)
+        XCTAssertTrue(GameIntent.drawLifeCard(playerID: UUID()).requiresTurn)
     }
 
     // MARK: Life Cards: drawing

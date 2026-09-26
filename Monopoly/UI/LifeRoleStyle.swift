@@ -17,8 +17,6 @@ extension LifeRole {
             return Color(red: 0.5, green: 0.7, blue: 0.1)
         case .lender:
             return Color(red: 0.36, green: 0.4, blue: 0.55)
-        case .rival:
-            return Color(red: 0.82, green: 0.16, blue: 0.2)
         case .minimalist:
             return Color(red: 0.62, green: 0.52, blue: 0.4)
         }
@@ -38,6 +36,8 @@ extension HappinessReason {
             return "Saliste a un lugar"
         case let .newDisguise(role):
             return "Ahora eres \(role.definition.emoji) \(role.definition.name)"
+        case .jail:
+            return "Fuiste a la cárcel"
         }
     }
 
@@ -55,6 +55,8 @@ extension HappinessReason {
             return "Salir por la ciudad"
         case .newDisguise:
             return "Cambios de personalidad"
+        case .jail:
+            return "Cárcel"
         }
     }
 }
@@ -72,7 +74,7 @@ struct RoleCardView: View {
     let role: LifeRole
     /// The Chameleon's current personality.
     var disguise: LifeRole?
-    /// Who the Rival is after.
+    /// The player's secret rival.
     var targetName: String?
 
     private var definition: LifeRoleDefinition {
@@ -116,10 +118,7 @@ struct RoleCardView: View {
                 }
 
                 if let targetName {
-                    Label("Tu objetivo: \(targetName)", systemImage: "scope")
-                        .font(.app(.subheadline, weight: .bold))
-                        .foregroundStyle(role.color)
-                        .padding(.top, 4)
+                    rivalSection(targetName)
                 }
 
                 Text("Cada Tarjeta de Vida te afecta distinto según tu rol. Tu rol es secreto: nadie más lo ve hasta el final.")
@@ -136,6 +135,21 @@ struct RoleCardView: View {
                     .stroke(role.color.opacity(0.5), lineWidth: 1.5)
             }
         }
+    }
+
+    private func rivalSection(_ rivalName: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+            Label("Tu rival secreto: \(rivalName)", systemImage: "scope")
+                .font(.app(.subheadline, weight: .bold))
+                .foregroundStyle(Color(red: 0.82, green: 0.16, blue: 0.2))
+            ForEach(Rivalry.rules, id: \.self) { rule in
+                Text("🎯 \(rule)")
+                    .font(.app(.subheadline))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.top, 4)
     }
 
     private func disguiseSection(_ disguise: LifeRole) -> some View {

@@ -27,7 +27,10 @@ enum GameIntent: Codable, Equatable {
     case endTurn(playerID: UUID)
     case skipTurn
     case acknowledgeRole(playerID: UUID)
+    /// Asks for a Life Card; the host deals it with `dealLifeCard`.
     case drawLifeCard(playerID: UUID)
+    /// Host only: deals the requested Life Card, random or good for the player.
+    case dealLifeCard(favorable: Bool)
     case resolveLifeCardDecision(playerID: UUID, accept: Bool)
     /// Host only (GAME_RULES section 8.5).
     case playHostCard(HostCardPlay)
@@ -51,6 +54,7 @@ enum GameIntent: Codable, Equatable {
         case coverageID
         case hostCard
         case jailExit
+        case favorable
     }
 
     private enum IntentType: String, Codable {
@@ -81,6 +85,7 @@ enum GameIntent: Codable, Equatable {
         case skipTurn
         case acknowledgeRole
         case drawLifeCard
+        case dealLifeCard
         case resolveLifeCardDecision
         case playHostCard
     }
@@ -203,6 +208,8 @@ enum GameIntent: Codable, Equatable {
             self = .acknowledgeRole(playerID: try container.decode(UUID.self, forKey: .playerID))
         case .drawLifeCard:
             self = .drawLifeCard(playerID: try container.decode(UUID.self, forKey: .playerID))
+        case .dealLifeCard:
+            self = .dealLifeCard(favorable: try container.decode(Bool.self, forKey: .favorable))
         case .resolveLifeCardDecision:
             self = .resolveLifeCardDecision(
                 playerID: try container.decode(UUID.self, forKey: .playerID),
@@ -320,6 +327,9 @@ enum GameIntent: Codable, Equatable {
         case let .drawLifeCard(playerID):
             try container.encode(IntentType.drawLifeCard, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
+        case let .dealLifeCard(favorable):
+            try container.encode(IntentType.dealLifeCard, forKey: .type)
+            try container.encode(favorable, forKey: .favorable)
         case let .resolveLifeCardDecision(playerID, accept):
             try container.encode(IntentType.resolveLifeCardDecision, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
@@ -343,7 +353,7 @@ extension GameIntent {
             return true
         case .levelUp, .levelDown, .buyBackShares, .mortgageProperty, .unmortgageProperty,
              .declareBankruptcy, .proposeDeal, .acceptDeal, .rejectDeal, .transferMoney, .payCreditCard,
-             .payPlayerLoan, .forgivePlayerLoan, .endTurn, .skipTurn, .acknowledgeRole, .playHostCard:
+             .payPlayerLoan, .forgivePlayerLoan, .endTurn, .skipTurn, .acknowledgeRole, .playHostCard, .dealLifeCard:
             return false
         }
     }

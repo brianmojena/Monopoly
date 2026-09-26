@@ -13,7 +13,6 @@ enum LifeRole: String, Codable, CaseIterable, Equatable, Hashable {
     case globetrotter
     case chameleon
     case lender
-    case rival
     case minimalist
 
     /// Coming soon: its rules are in place, but it isn't dealt yet (MONOPOLIFE_RULES 3.3).
@@ -24,14 +23,19 @@ enum LifeRole: String, Codable, CaseIterable, Equatable, Hashable {
     /// The roles dealt at the start of a game.
     static let playable = allCases.filter { !$0.isComingSoon }
 
-    /// The roles whose likes the Chameleon can take on. The Rival needs a target of
-    /// its own, so it is left out.
+    /// The roles whose likes the Chameleon can take on.
     static let chameleonDisguises: [LifeRole] = [.consumer, .entrepreneur, .saver, .social, .globetrotter, .lender]
+
+    /// Roles that no longer exist and what a saved game plays them as. The Rival became
+    /// a rivalry every player has (MONOPOLIFE_RULES section 3.5).
+    private static let removedRoles: [String: LifeRole] = [
+        "investor": .entrepreneur,
+        "rival": .social
+    ]
 
     init(from decoder: Decoder) throws {
         let rawValue = try decoder.singleValueContainer().decode(String.self)
-        // Games saved while the Investor role existed play on as Entrepreneurs.
-        guard let role = LifeRole(rawValue: rawValue == "investor" ? "entrepreneur" : rawValue) else {
+        guard let role = LifeRole(rawValue: rawValue) ?? Self.removedRoles[rawValue] else {
             throw DecodingError.dataCorrupted(.init(
                 codingPath: decoder.codingPath,
                 debugDescription: "Unknown life role \(rawValue)"
@@ -112,6 +116,8 @@ enum HappinessReason: Codable, Equatable, Hashable {
     case rentVisit
     /// The Chameleon took on a new role's likes.
     case newDisguise(LifeRole)
+    /// Going to jail, the same for every role.
+    case jail
 }
 
 struct HappinessEvent: Codable, Equatable {
@@ -139,7 +145,7 @@ struct LifeProfile: Codable, Equatable {
     var rentContactsThisRound: Set<UUID>
     /// The role whose likes the Chameleon has right now.
     var disguise: LifeRole?
-    /// The player the Rival wants to beat.
+    /// The rival this player wants to beat (MONOPOLIFE_RULES section 3.5).
     var rivalTargetID: UUID?
     var scoredLoansThisRound: Int
     var scoredLoanPaymentsThisRound: Int
@@ -254,6 +260,8 @@ struct MonopolifeState: Codable, Equatable {
     var lastLifeCardDraw: LifeCardDraw?
     /// Seed for draws made during the game, such as the Chameleon's next disguise.
     var randomState: UInt64
+    /// A player who asked for a Life Card and is waiting for the host to deal it.
+    var lifeCardRequest: UUID?
 
     init(
         roundLimit: Int,
@@ -263,7 +271,8 @@ struct MonopolifeState: Codable, Equatable {
         lifeDeck: [String] = [],
         pendingLifeCard: LifeCardDraw? = nil,
         lastLifeCardDraw: LifeCardDraw? = nil,
-        randomState: UInt64 = 0
+        randomState: UInt64 = 0,
+        lifeCardRequest: UUID? = nil
     ) {
         self.roundLimit = roundLimit
         self.profiles = profiles
@@ -273,6 +282,7 @@ struct MonopolifeState: Codable, Equatable {
         self.pendingLifeCard = pendingLifeCard
         self.lastLifeCardDraw = lastLifeCardDraw
         self.randomState = randomState
+        self.lifeCardRequest = lifeCardRequest
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -284,6 +294,7 @@ struct MonopolifeState: Codable, Equatable {
         case pendingLifeCard
         case lastLifeCardDraw
         case randomState
+        case lifeCardRequest
     }
 
     init(from decoder: Decoder) throws {
@@ -296,5 +307,6 @@ struct MonopolifeState: Codable, Equatable {
         pendingLifeCard = try container.decodeIfPresent(LifeCardDraw.self, forKey: .pendingLifeCard)
         lastLifeCardDraw = try container.decodeIfPresent(LifeCardDraw.self, forKey: .lastLifeCardDraw)
         randomState = try container.decodeIfPresent(UInt64.self, forKey: .randomState) ?? 0
+        lifeCardRequest = try container.decodeIfPresent(UUID.self, forKey: .lifeCardRequest)
     }
 }

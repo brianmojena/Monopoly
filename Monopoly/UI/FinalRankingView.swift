@@ -160,15 +160,16 @@ struct FinalRankingView: View {
         .padding(.leading, 34)
     }
 
-    /// Reveals the Chameleon's last personality and the Rival's target.
+    /// Reveals the Chameleon's last personality and each player's rival.
     private func roleDetail(of profile: LifeProfile) -> String? {
+        var details: [String] = []
         if profile.role == .chameleon, let disguise = profile.disguise {
-            return "Terminó como \(disguise.definition.emoji) \(disguise.definition.name)"
+            details.append("Terminó como \(disguise.definition.emoji) \(disguise.definition.name)")
         }
-        if let targetID = profile.rivalTargetID {
-            return "Perseguía a \(state.playerName(targetID))"
+        if let rivalID = profile.rivalTargetID {
+            details.append("🎯 Rival: \(state.playerName(rivalID))")
         }
-        return nil
+        return details.isEmpty ? nil : details.joined(separator: " · ")
     }
 
     private func netWorth(of player: Player) -> Int {

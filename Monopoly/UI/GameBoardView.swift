@@ -36,6 +36,12 @@ struct GameBoardView: View {
                             pendingLifeCardBanner(pending)
                         }
 
+                        if let requester = model.lifeCardRequester {
+                            lifeCardRequestBanner(requester)
+                        } else if model.isWaitingForLifeCard {
+                            waitingForLifeCardBanner
+                        }
+
                         if isLocalPlayerActive(in: state) {
                             actionsGrid(state)
                         }
@@ -123,6 +129,23 @@ struct GameBoardView: View {
             }
         } message: {
             Text("Solo si tu ficha cayó en Free Parking.")
+        }
+        .alert(
+            "Tarjeta de Vida para \(model.lifeCardRequestToDeal?.name ?? "")",
+            isPresented: Binding(
+                get: { model.lifeCardRequestToDeal != nil },
+                set: { if !$0 { model.lifeCardRequestToDeal = nil } }
+            )
+        ) {
+            Button("Darle una tarjeta buena") {
+                model.dealLifeCard(favorable: true)
+            }
+            Button("Tarjeta al azar") {
+                model.dealLifeCard(favorable: false)
+            }
+            Button("Decidir luego", role: .cancel) {}
+        } message: {
+            Text("Una tarjeta buena le da felicidad según su rol secreto. Al azar sale la siguiente del mazo.")
         }
         .confirmationDialog("¿Vas a la cárcel?", isPresented: $isConfirmingJail, titleVisibility: .visible) {
             Button("Ir a la cárcel") {
@@ -481,7 +504,7 @@ struct GameBoardView: View {
                 }
 
                 if model.isMonopolife {
-                    tileButton(isEnabled: isMyTurn && model.localPendingLifeCard == nil) {
+                    tileButton(isEnabled: isMyTurn && model.localPendingLifeCard == nil && !model.isWaitingForLifeCard) {
                         model.drawLifeCard()
                     } label: {
                         ActionTile(title: "Tarjeta de Vida", detail: "Suerte / Comunidad", icon: "suit.spade.fill", tint: .orange, isLocked: !isMyTurn)
@@ -577,6 +600,44 @@ struct GameBoardView: View {
         Button(action: action, label: label)
             .disabled(!isEnabled)
             .opacity(isEnabled ? 1 : 0.4)
+    }
+
+    /// On the host, reopens the choice of how to deal a Life Card.
+    private func lifeCardRequestBanner(_ requester: Player) -> some View {
+        Button {
+            model.lifeCardRequestToDeal = requester
+        } label: {
+            lifeCardBannerLabel("\(requester.name) espera su Tarjeta de Vida: elige cuál repartir", showsChevron: true)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var waitingForLifeCardBanner: some View {
+        lifeCardBannerLabel("Esperando a que el host reparta tu Tarjeta de Vida…", showsChevron: false)
+    }
+
+    private func lifeCardBannerLabel(_ text: String, showsChevron: Bool) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "suit.spade.fill")
+                .foregroundStyle(Lux.gold)
+            Text(text)
+                .font(.app(.subheadline, weight: .semibold))
+            Spacer()
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.app(.caption, weight: .bold))
+                    .foregroundStyle(Lux.textSecondary)
+            } else {
+                ProgressView()
+                    .tint(Lux.gold)
+            }
+        }
+        .padding(16)
+        .background(Lux.gold.opacity(0.1), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Lux.gold.opacity(0.5), lineWidth: 1)
+        }
     }
 
     private func pendingLifeCardBanner(_ pending: LifeCardDraw) -> some View {

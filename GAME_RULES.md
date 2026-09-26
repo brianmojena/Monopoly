@@ -147,7 +147,7 @@ El valor de hipoteca no existe en Ultimate Banking; se mantiene en la mitad del 
 ## 5. Impuestos y casillas especiales
 
 - **Impuesto sobre la Renta / Impuesto de Lujo**: montos fijos definidos en el tablero, se pagan a la banca (el dinero sale del juego, no va a Free Parking salvo house rule activada).
-- **Ir a la Cárcel**: el jugador mueve su ficha físicamente a la cárcel y, en su turno, lo marca en la app con el botón "Cárcel" (por caer en "Ir a la Cárcel", por una carta o por 3 dobles seguidos). Mientras esté preso, todos los dispositivos muestran quién está en la cárcel y en qué turno de cárcel va: el turno en que entra no cuenta, y cada vez que empieza su turno estando preso suma uno (1.er turno, 2.º turno…). Estar preso no impide cobrar renta, negociar ni el resto de acciones.
+- **Ir a la Cárcel**: el jugador mueve su ficha físicamente a la cárcel y, en su turno, lo marca en la app con el botón "Cárcel" (por caer en "Ir a la Cárcel", por una carta o por 3 dobles seguidos). Mientras esté preso, todos los dispositivos muestran quién está en la cárcel y en qué turno de cárcel va: el turno en que entra no cuenta, y cada vez que empieza su turno estando preso suma uno (1.er turno, 2.º turno…). Estar preso no impide cobrar renta, negociar ni el resto de acciones. En Monopolife, ir a la cárcel resta felicidad a cualquier rol por igual (`MONOPOLIFE_RULES.md`, sección 2).
 - **Salir de la Cárcel**: en su turno, el jugador toca la cárcel y elige cómo sale:
   - **Saqué dobles**: sale gratis.
   - **Pagar $100 de fianza**: se paga como impuesto (va al bote de Free Parking si esa regla está activa, sección 8.2; si no, sale del juego).

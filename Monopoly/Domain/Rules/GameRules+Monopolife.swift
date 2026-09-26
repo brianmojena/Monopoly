@@ -52,19 +52,17 @@ extension GameRules {
     ) -> MonopolifeState {
         let roles = assignRoles(to: playerIDs, using: &generator)
         var profiles: [UUID: LifeProfile] = [:]
-        // In player order, so the same seed always gives the same disguises and targets.
+        // In player order, so the same seed always gives the same disguises.
         for playerID in playerIDs {
             guard let role = roles[playerID] else { continue }
             var profile = LifeProfile(role: role)
-            switch role {
-            case .chameleon:
+            if role == .chameleon {
                 profile.disguise = LifeRole.chameleonDisguises.randomElement(using: &generator)
-            case .rival:
-                profile.rivalTargetID = playerIDs.filter { $0 != playerID }.randomElement(using: &generator)
-            default:
-                break
             }
             profiles[playerID] = profile
+        }
+        for (playerID, rivalID) in assignRivals(to: playerIDs, using: &generator) {
+            profiles[playerID]?.rivalTargetID = rivalID
         }
         return MonopolifeState(
             roundLimit: roundLimit,
@@ -72,6 +70,23 @@ extension GameRules {
             lifeDeck: shuffledLifeDeck(using: &generator),
             randomState: generator.next()
         )
+    }
+
+    /// Seats everyone in a random circle and gives each player the next one as their
+    /// rival, so every player has exactly one rival and is exactly one player's rival.
+    static func assignRivals<Generator: RandomNumberGenerator>(
+        to playerIDs: [UUID],
+        using generator: inout Generator
+    ) -> [UUID: UUID] {
+        guard playerIDs.count > 1 else {
+            return [:]
+        }
+        let circle = playerIDs.shuffled(using: &generator)
+        var rivals: [UUID: UUID] = [:]
+        for (index, playerID) in circle.enumerated() {
+            rivals[playerID] = circle[(index + 1) % circle.count]
+        }
+        return rivals
     }
 
     static func shuffledLifeDeck<Generator: RandomNumberGenerator>(using generator: inout Generator) -> [String] {
@@ -120,13 +135,14 @@ extension GameRules {
         to playerID: UUID,
         in state: inout GameState
     ) {
-        guard state.monopolife?.profiles[playerID]?.activeRole == effect.role else {
+        guard let activeRole = state.monopolife?.profiles[playerID]?.activeRole,
+              effect.role == nil || effect.role == activeRole else {
             return
         }
         adjustHappiness(of: playerID, by: delta, reason: .role(effect), in: &state)
     }
 
-    /// Applies a Rival like to every Rival whose target is `targetID`.
+    /// Applies a rivalry like to every player whose rival is `targetID`.
     private static func applyRivalEffect(
         _ effect: LifeRoleEffect,
         _ delta: Int,
@@ -134,7 +150,7 @@ extension GameRules {
         in state: inout GameState
     ) {
         let rivalIDs = (state.monopolife?.profiles ?? [:])
-            .filter { $0.value.role == .rival && $0.value.rivalTargetID == targetID }
+            .filter { $0.value.rivalTargetID == targetID }
             .keys
         for rivalID in rivalIDs {
             applyRoleEffect(effect, delta, to: rivalID, in: &state)
@@ -241,6 +257,7 @@ extension GameRules {
                 applyRoleEffect(.rivalAuctionWon, LifeRoleValues.rivalAuctionWon, to: winnerID, in: &state)
             }
         case let .jailed(playerID):
+            adjustHappiness(of: playerID, by: LifeRoleValues.jailed, reason: .jail, in: &state)
             applyRivalEffect(.rivalTargetSetback, LifeRoleValues.rivalTargetSetback, whenTargetIs: playerID, in: &state)
         case let .wentBankrupt(playerID):
             applyRivalEffect(.rivalTargetBankrupt, LifeRoleValues.rivalTargetBankrupt, whenTargetIs: playerID, in: &state)
@@ -333,15 +350,6 @@ extension GameRules {
                 if !profile.tookPartInDealThisRound, state.round >= LifeRoleValues.socialNoDealsFromRound {
                     applyRoleEffect(.socialNoDeals, LifeRoleValues.socialNoDeals, to: player.id, in: &state)
                 }
-            case .rival:
-                guard let targetID = profile.rivalTargetID else { break }
-                let netWorth = netWorthOrBalance(of: player.id, in: state)
-                let targetNetWorth = netWorthOrBalance(of: targetID, in: state)
-                if netWorth > targetNetWorth {
-                    applyRoleEffect(.rivalAhead, LifeRoleValues.rivalAhead, to: player.id, in: &state)
-                } else if netWorth < targetNetWorth {
-                    applyRoleEffect(.rivalBehind, LifeRoleValues.rivalBehind, to: player.id, in: &state)
-                }
             case .minimalist:
                 let heldProperties = state.properties.filter { $0.shares(of: player.id) > 0 }.count
                 if heldProperties <= LifeRoleValues.minimalistMaximumProperties, profile.possessions.isEmpty {
@@ -349,6 +357,16 @@ extension GameRules {
                 }
             case .saver, .globetrotter, .lender, .chameleon:
                 break
+            }
+
+            if let rivalID = profile.rivalTargetID {
+                let netWorth = netWorthOrBalance(of: player.id, in: state)
+                let rivalNetWorth = netWorthOrBalance(of: rivalID, in: state)
+                if netWorth > rivalNetWorth {
+                    applyRoleEffect(.rivalAhead, LifeRoleValues.rivalAhead, to: player.id, in: &state)
+                } else if netWorth < rivalNetWorth {
+                    applyRoleEffect(.rivalBehind, LifeRoleValues.rivalBehind, to: player.id, in: &state)
+                }
             }
         }
 
@@ -433,11 +451,30 @@ extension GameRules {
 
     // MARK: Life Cards
 
-    static func drawLifeCard<Generator: RandomNumberGenerator>(
+    /// A player asks for a Life Card; the host then deals it with `dealLifeCard`,
+    /// choosing a random one or one that's good for them (MONOPOLIFE_RULES section 5).
+    static func requestLifeCard(in state: GameState, playerID: UUID) throws -> GameState {
+        try requireCanDrawLifeCard(in: state, playerID: playerID)
+        var updatedState = state
+        updatedState.monopolife?.lifeCardRequest = playerID
+        return updatedState
+    }
+
+    /// The host deals the requested Life Card.
+    static func dealLifeCard<Generator: RandomNumberGenerator>(
         in state: GameState,
-        playerID: UUID,
+        favorable: Bool,
         using generator: inout Generator
     ) throws -> GameState {
+        guard let playerID = state.monopolife?.lifeCardRequest else {
+            throw GameRuleError.noLifeCardRequest
+        }
+        var updatedState = state
+        updatedState.monopolife?.lifeCardRequest = nil
+        return try drawLifeCard(in: updatedState, playerID: playerID, favorable: favorable, using: &generator)
+    }
+
+    private static func requireCanDrawLifeCard(in state: GameState, playerID: UUID) throws {
         guard let monopolife = state.monopolife, monopolife.profiles[playerID] != nil else {
             throw GameRuleError.monopolifeOnly
         }
@@ -446,16 +483,55 @@ extension GameRules {
         guard monopolife.pendingLifeCard == nil else {
             throw GameRuleError.lifeCardDecisionPending
         }
+        guard monopolife.lifeCardRequest == nil else {
+            throw GameRuleError.lifeCardRequestPending
+        }
+    }
+
+    /// Whether a card would make this player happier, by their current role.
+    static func isFavorable(_ card: LifeCard, for profile: LifeProfile) -> Bool {
+        card.happiness(for: profile.activeRole) > 0
+    }
+
+    /// Draws the next card of the deck, or with `favorable` a random one that is good
+    /// for the player: from what's left in the deck, or from the whole deck when none
+    /// is left there, which then isn't touched.
+    static func drawLifeCard<Generator: RandomNumberGenerator>(
+        in state: GameState,
+        playerID: UUID,
+        favorable: Bool = false,
+        using generator: inout Generator
+    ) throws -> GameState {
+        try requireCanDrawLifeCard(in: state, playerID: playerID)
+        guard let monopolife = state.monopolife, let profile = monopolife.profiles[playerID] else {
+            throw GameRuleError.monopolifeOnly
+        }
 
         var updatedState = state
         if monopolife.lifeDeck.isEmpty {
             updatedState.monopolife?.lifeDeck = shuffledLifeDeck(using: &generator)
         }
-        guard let cardID = updatedState.monopolife?.lifeDeck.first,
-              let card = LifeCards.card(withID: cardID) else {
-            throw GameRuleError.monopolifeOnly
+        let deck = updatedState.monopolife?.lifeDeck ?? []
+        let card: LifeCard
+        if favorable {
+            let goodInDeck = deck.indices.filter { index in
+                LifeCards.card(withID: deck[index]).map { isFavorable($0, for: profile) } ?? false
+            }
+            if let index = goodInDeck.randomElement(using: &generator), let found = LifeCards.card(withID: deck[index]) {
+                card = found
+                updatedState.monopolife?.lifeDeck.remove(at: index)
+            } else if let found = LifeCards.all.filter({ isFavorable($0, for: profile) }).randomElement(using: &generator) {
+                card = found
+            } else {
+                throw GameRuleError.monopolifeOnly
+            }
+        } else {
+            guard let cardID = deck.first, let found = LifeCards.card(withID: cardID) else {
+                throw GameRuleError.monopolifeOnly
+            }
+            card = found
+            updatedState.monopolife?.lifeDeck.removeFirst()
         }
-        updatedState.monopolife?.lifeDeck.removeFirst()
 
         let sequence = (monopolife.lastLifeCardDraw?.sequence ?? 0) + 1
         var hadEffect = true
@@ -525,6 +601,9 @@ extension GameRules {
     static func requireNoPendingLifeCard(in state: GameState, playerID: UUID) throws {
         if state.monopolife?.pendingLifeCard?.playerID == playerID {
             throw GameRuleError.lifeCardDecisionPending
+        }
+        if state.monopolife?.lifeCardRequest == playerID {
+            throw GameRuleError.lifeCardRequestPending
         }
     }
 

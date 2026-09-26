@@ -76,7 +76,6 @@ enum LifeRoleValues {
         .entrepreneur: 4,
         .saver: 4,
         .lender: 4,
-        .rival: 3,
         .minimalist: 4
     ]
     static let rentVisitMinimum = 1
@@ -85,6 +84,9 @@ enum LifeRoleValues {
         let luxury = boardSide + level
         return max(rentVisitMinimum, luxury / (rentVisitLuxuryPerPoint[role] ?? luxury))
     }
+
+    /// MONOPOLIFE_RULES section 2: going to jail hurts every role the same.
+    static let jailed = -3
 
     /// MONOPOLIFE_RULES section 6.
     static let bankruptcyRescueBalance = 500
@@ -205,22 +207,6 @@ extension LifeRole {
                 ],
                 dislike: "Perdonar una deuda, o que tu deudor quiebre sin que te quedes con una garantía: −3."
             )
-        case .rival:
-            return LifeRoleDefinition(
-                role: self,
-                name: "Rival",
-                emoji: "🎯",
-                summary: "Tiene un objetivo secreto y quiere ganarle.",
-                likes: [
-                    "Al terminar la ronda con más patrimonio que tu objetivo: +3.",
-                    "Que tu objetivo te pague renta: +3.",
-                    "Ganarle una subasta a tu objetivo (si él también pujó): +3.",
-                    "Que tu objetivo vaya a la cárcel o hipoteque una propiedad: +1.",
-                    "Que tu objetivo quiebre: +8.",
-                    rentVisitLike
-                ],
-                dislike: "Terminar la ronda con menos patrimonio que tu objetivo: −1."
-            )
         case .minimalist:
             return LifeRoleDefinition(
                 role: self,
@@ -238,8 +224,20 @@ extension LifeRole {
     }
 }
 
+/// MONOPOLIFE_RULES section 3.5: every player has a secret rival, whatever their role.
+enum Rivalry {
+    static let rules = [
+        "Terminar la ronda con más patrimonio que tu rival: +\(LifeRoleValues.rivalAhead). Con menos: \(LifeRoleValues.rivalBehind).",
+        "Que tu rival te pague renta: +\(LifeRoleValues.rivalRentFromTarget).",
+        "Ganarle una subasta a tu rival (si también pujó): +\(LifeRoleValues.rivalAuctionWon).",
+        "Que tu rival vaya a la cárcel o hipoteque una propiedad: +\(LifeRoleValues.rivalTargetSetback).",
+        "Que tu rival quiebre: +\(LifeRoleValues.rivalTargetBankrupt)."
+    ]
+}
+
 extension LifeRoleEffect {
-    var role: LifeRole {
+    /// The role that has this like or dislike, or nil for the rivalry every player has.
+    var role: LifeRole? {
         switch self {
         case .consumerRentPaid, .consumerLevelUp, .consumerHoardedCash:
             return .consumer
@@ -255,7 +253,7 @@ extension LifeRoleEffect {
         case .lenderLoanGiven, .lenderPaymentReceived, .lenderLoanRepaid, .lenderCollateralTaken, .lenderLoanLost:
             return .lender
         case .rivalAhead, .rivalBehind, .rivalRentFromTarget, .rivalAuctionWon, .rivalTargetSetback, .rivalTargetBankrupt:
-            return .rival
+            return nil
         case .minimalistGift, .minimalistSimpleLife, .minimalistPossession:
             return .minimalist
         }
@@ -312,17 +310,17 @@ extension LifeRoleEffect {
         case .lenderLoanLost:
             return "Perdiste un préstamo"
         case .rivalAhead:
-            return "Vas por delante de tu objetivo"
+            return "Vas por delante de tu rival"
         case .rivalBehind:
-            return "Tu objetivo va por delante"
+            return "Tu rival va por delante"
         case .rivalRentFromTarget:
-            return "Tu objetivo te pagó renta"
+            return "Tu rival te pagó renta"
         case .rivalAuctionWon:
-            return "Le ganaste una subasta a tu objetivo"
+            return "Le ganaste una subasta a tu rival"
         case .rivalTargetSetback:
-            return "A tu objetivo le fue mal"
+            return "A tu rival le fue mal"
         case .rivalTargetBankrupt:
-            return "Tu objetivo quebró"
+            return "Tu rival quebró"
         case .minimalistGift:
             return "Regalaste dinero"
         case .minimalistSimpleLife:
