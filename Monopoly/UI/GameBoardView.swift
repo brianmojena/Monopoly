@@ -401,9 +401,10 @@ struct GameBoardView: View {
                                     PropertyTitleCard(
                                         property: property,
                                         number: entry.offset + 1,
-                                        showsLevel: model.canSeeLevel(of: property)
+                                        showsLevel: model.canSeeLevel(of: property),
+                                        owner: propertyFilter == .all ? property.ownerID.map(state.playerName) : nil,
+                                        isDimmed: propertyFilter == .all && property.isOwned
                                     )
-                                    .opacity(propertyFilter == .all && property.isOwned ? 0.4 : 1)
                                 }
                                 .buttonStyle(TitleCardButtonStyle())
                             }

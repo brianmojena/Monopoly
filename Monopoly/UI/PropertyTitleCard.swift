@@ -11,22 +11,15 @@ struct PropertyTitleCard: View {
     let number: Int
     /// False when the house rules keep this property's level secret from the viewer.
     var showsLevel = true
+    /// The majority shareholder's name, or nil to show no owner.
+    var owner: String?
+    /// Fades the card but not its owner, so a taken property still says whose it is.
+    var isDimmed = false
 
     private let cornerRadius: CGFloat = 9
 
     var body: some View {
-        VStack(spacing: 0) {
-            levelBand
-
-            Rectangle()
-                .fill(Color.black)
-                .frame(height: 2.5)
-            Rectangle()
-                .fill(TitleCardInk.goldGradient)
-                .frame(height: 1.5)
-
-            face
-        }
+        layout(ownerOnly: false)
         .frame(width: Self.size.width, height: Self.size.height)
         .background {
             LeatherBackground()
@@ -41,9 +34,36 @@ struct PropertyTitleCard: View {
                 mortgagedBanner
             }
         }
+        .opacity(isDimmed ? 0.4 : 1)
+        .overlay {
+            // The same layout with only the owner showing, so it stays readable over
+            // the faded card and sits exactly where it would.
+            if isDimmed, owner != nil {
+                layout(ownerOnly: true)
+                    .frame(width: Self.size.width, height: Self.size.height)
+            }
+        }
         .shadow(color: .black.opacity(0.55), radius: 6, y: 3)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
+    }
+
+    private func layout(ownerOnly: Bool) -> some View {
+        VStack(spacing: 0) {
+            Group {
+                levelBand
+
+                Rectangle()
+                    .fill(Color.black)
+                    .frame(height: 2.5)
+                Rectangle()
+                    .fill(TitleCardInk.goldGradient)
+                    .frame(height: 1.5)
+            }
+            .opacity(ownerOnly ? 0 : 1)
+
+            face(ownerOnly: ownerOnly)
+        }
     }
 
     // MARK: Level band
@@ -101,29 +121,58 @@ struct PropertyTitleCard: View {
 
     // MARK: Face
 
-    private var face: some View {
-        VStack(spacing: 0) {
+    private func face(ownerOnly: Bool) -> some View {
+        let showsOwner = ownerOnly || !isDimmed
+
+        return VStack(spacing: 0) {
             // Leaves room for the collect button in the top corner.
             Spacer(minLength: 26)
 
-            numberCoin
+            Group {
+                numberCoin
 
-            Text(property.name.uppercased())
-                .font(.system(size: 15, weight: .bold).width(.condensed))
-                .foregroundStyle(TitleCardInk.goldGradient)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.75)
-                .frame(height: 40)
-                .padding(.horizontal, 8)
-                .padding(.top, 8)
+                Text(property.name.uppercased())
+                    .font(.system(size: 15, weight: .bold).width(.condensed))
+                    .foregroundStyle(TitleCardInk.goldGradient)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                    .frame(height: 40)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 8)
+            }
+            .opacity(ownerOnly ? 0 : 1)
 
-            Spacer(minLength: 6)
+            Spacer(minLength: 4)
+
+            if let owner {
+                ownerTag(owner)
+                    .opacity(showsOwner ? 1 : 0)
+                    .padding(.bottom, 4)
+            }
 
             MonopolyPrice(amount: property.purchasePrice)
-                .padding(.bottom, 14)
+                .opacity(ownerOnly ? 0 : 1)
+                .padding(.bottom, owner == nil ? 14 : 8)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func ownerTag(_ owner: String) -> some View {
+        Label(owner, systemImage: "person.fill")
+            .labelStyle(OwnerLabelStyle())
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(property.colorGroup.swatch.opacity(0.9), in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(TitleCardInk.goldGradient, lineWidth: 1)
+            }
+            .padding(.horizontal, 8)
     }
 
     private var numberCoin: some View {
@@ -162,6 +211,9 @@ struct PropertyTitleCard: View {
             parts.append("nivel \(printedLevel)")
         }
         parts.append("$\(property.purchasePrice)")
+        if let owner {
+            parts.append("de \(owner)")
+        }
         if property.isMortgaged {
             parts.append("hipotecada")
         }
@@ -181,6 +233,16 @@ private enum TitleCardInk {
         startPoint: .top,
         endPoint: .bottom
     )
+}
+
+private struct OwnerLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 3) {
+            configuration.icon
+                .imageScale(.small)
+            configuration.title
+        }
+    }
 }
 
 /// The price with Ultimate Banking's M, which carries two bars across its middle.
@@ -274,7 +336,8 @@ private struct SeededGenerator: RandomNumberGenerator {
     ScrollView(.horizontal) {
         HStack(spacing: 12) {
             PropertyTitleCard(property: PlaceholderProperties.all[13], number: 14)
-            PropertyTitleCard(property: PlaceholderProperties.all[15], number: 16)
+            PropertyTitleCard(property: PlaceholderProperties.all[15], number: 16, owner: "Ana")
+            PropertyTitleCard(property: PlaceholderProperties.all[16], number: 17, owner: "Luis", isDimmed: true)
             PropertyTitleCard(property: PlaceholderProperties.all[18], number: 19)
             PropertyTitleCard(property: PlaceholderProperties.all[21], number: 22)
         }
