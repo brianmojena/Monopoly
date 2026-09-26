@@ -14,6 +14,8 @@ struct GameBoardView: View {
         Group {
             if let state = model.gameState, state.monopolife?.isFinished == true {
                 FinalRankingView(state: state)
+            } else if let state = model.gameState, let result = state.classicResult {
+                ClassicFinalView(state: state, result: result)
             } else if let state = model.gameState {
                 ScrollView {
                     VStack(spacing: 18) {
@@ -206,6 +208,9 @@ struct GameBoardView: View {
 
                 VStack(alignment: .trailing, spacing: 6) {
                     pill("Ronda \(roundValue(state))")
+                    if let goal = state.endConditions.netWorthGoal, state.monopolife == nil, let player {
+                        pill("Meta \(currency(GameRules.netWorthOrBalance(of: player.id, in: state))) / \(currency(goal))", isGold: true)
+                    }
                     if model.isFreeParkingEnabled {
                         pill("Bote \(currency(state.freeParkingPot))", isGold: true)
                     }

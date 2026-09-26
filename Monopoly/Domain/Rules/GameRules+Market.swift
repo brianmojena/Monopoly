@@ -21,6 +21,7 @@ extension GameRules {
             sharedPurchase: deal.sharedPurchase,
             proposedInvestment: deal.proposedInvestment,
             cancelInvestment: deal.cancelInvestment,
+            proposedLoan: deal.proposedLoan,
             acceptedBy: [proposerID]
         )
         try validateStructure(of: proposedDeal, in: state)
@@ -192,6 +193,10 @@ extension GameRules {
             }
             updatedState.properties[propertyIndex] = property
         }
+        let shareDepartures = shareChanges.flatMap { propertyID, changes in
+            changes.filter { $0.count < 0 }.map { (propertyID: propertyID, playerID: $0.playerID) }
+        }
+        try requireCollateralHeld(afterSharesLeft: shareDepartures, newLoan: deal.proposedLoan, in: updatedState)
 
         for (playerID, change) in moneyChanges {
             credit(change, to: playerID, in: &updatedState)
@@ -202,6 +207,20 @@ extension GameRules {
         }
         if let investment = deal.proposedInvestment {
             updatedState.rentInvestments.append(investment)
+        }
+        if let loan = deal.proposedLoan {
+            // Built again so the debt always starts at the principal plus interest.
+            updatedState.playerLoans.append(PlayerLoan(
+                id: loan.id,
+                lenderID: loan.lenderID,
+                borrowerID: loan.borrowerID,
+                principal: loan.principal,
+                interestPercentage: loan.interestPercentage,
+                goPayment: loan.goPayment,
+                rentPercentage: loan.rentPercentage,
+                dueRound: loan.dueRound,
+                collateral: loan.collateral
+            ))
         }
         reindexPropertyIDs(in: &updatedState)
 
@@ -224,6 +243,10 @@ extension GameRules {
                 || deal.proposedInvestment != nil
                 || deal.cancelInvestment != nil else {
             throw GameRuleError.invalidDeal
+        }
+
+        if let loan = deal.proposedLoan {
+            try validateProposedLoan(loan, in: deal, state: state)
         }
 
         guard !(deal.proposedInvestment != nil && deal.cancelInvestment != nil) else {
@@ -366,6 +389,8 @@ extension GameRules {
             || deal.proposedInvestment?.recipientID == deal.proposerID
             || deal.cancelInvestment?.investorID == deal.proposerID
             || deal.cancelInvestment?.recipientID == deal.proposerID
+            || deal.proposedLoan?.lenderID == deal.proposerID
+            || deal.proposedLoan?.borrowerID == deal.proposerID
         guard proposerTakesPart else {
             throw GameRuleError.invalidDeal
         }

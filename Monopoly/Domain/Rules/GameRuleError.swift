@@ -17,7 +17,8 @@ extension GameRuleError {
              .rentInvestmentNotFound,
              .propertyIsMortgaged,
              .propertyAlreadyMortgaged,
-             .propertyIsNotMortgaged:
+             .propertyIsNotMortgaged,
+             .invalidLoanTerms:
             return true
         default:
             return false
@@ -75,6 +76,8 @@ enum GameRuleError: Error, Equatable, Codable {
     case creditCut
     case creditCardLoanLimitReached(Int)
     case shareCoverageNotFound(UUID)
+    case playerLoanNotFound(UUID)
+    case invalidLoanTerms
 
     private enum CodingKeys: String, CodingKey {
         case code
@@ -145,6 +148,8 @@ enum GameRuleError: Error, Equatable, Codable {
         case creditCut
         case creditCardLoanLimitReached
         case shareCoverageNotFound
+        case playerLoanNotFound
+        case invalidLoanTerms
     }
 
     init(from decoder: Decoder) throws {
@@ -271,6 +276,10 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .creditCardLoanLimitReached(try container.decode(Int.self, forKey: .amount))
         case .shareCoverageNotFound:
             self = .shareCoverageNotFound(try container.decode(UUID.self, forKey: .coverageID))
+        case .playerLoanNotFound:
+            self = .playerLoanNotFound(try container.decode(UUID.self, forKey: .loanID))
+        case .invalidLoanTerms:
+            self = .invalidLoanTerms
         }
     }
 
@@ -418,6 +427,11 @@ enum GameRuleError: Error, Equatable, Codable {
         case let .shareCoverageNotFound(coverageID):
             try container.encode(Code.shareCoverageNotFound, forKey: .code)
             try container.encode(coverageID, forKey: .coverageID)
+        case let .playerLoanNotFound(loanID):
+            try container.encode(Code.playerLoanNotFound, forKey: .code)
+            try container.encode(loanID, forKey: .loanID)
+        case .invalidLoanTerms:
+            try container.encode(Code.invalidLoanTerms, forKey: .code)
         }
     }
 }

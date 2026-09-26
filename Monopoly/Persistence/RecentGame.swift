@@ -51,7 +51,7 @@ struct RecentGame: Identifiable {
         switch kind {
         case let .hosted(game):
             playerNames = game.state.players.map(\.name)
-            progress = game.state.monopolife?.isFinished == true ? "Terminada" : "Ronda \(game.state.round)"
+            progress = game.state.isFinished ? "Terminada" : "Ronda \(game.state.round)"
         case let .joined(game):
             playerNames = game.playerNames
             progress = game.round.map { "Ronda \($0)" } ?? "En sala de espera"

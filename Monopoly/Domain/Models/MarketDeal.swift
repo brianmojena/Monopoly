@@ -39,6 +39,7 @@ struct MarketDeal: Identifiable, Codable, Equatable {
     var sharedPurchase: SharedPurchase?
     var proposedInvestment: RentInvestment?
     var cancelInvestment: RentInvestment?
+    var proposedLoan: PlayerLoan?
     var acceptedBy: Set<UUID>
 
     init(
@@ -48,6 +49,7 @@ struct MarketDeal: Identifiable, Codable, Equatable {
         sharedPurchase: SharedPurchase? = nil,
         proposedInvestment: RentInvestment? = nil,
         cancelInvestment: RentInvestment? = nil,
+        proposedLoan: PlayerLoan? = nil,
         acceptedBy: Set<UUID> = []
     ) {
         self.id = id
@@ -56,6 +58,7 @@ struct MarketDeal: Identifiable, Codable, Equatable {
         self.sharedPurchase = sharedPurchase
         self.proposedInvestment = proposedInvestment
         self.cancelInvestment = cancelInvestment
+        self.proposedLoan = proposedLoan
         self.acceptedBy = acceptedBy
     }
 
@@ -81,6 +84,10 @@ struct MarketDeal: Identifiable, Codable, Equatable {
         if let investment = cancelInvestment {
             ids.insert(investment.investorID)
             ids.insert(investment.recipientID)
+        }
+        if let loan = proposedLoan {
+            ids.insert(loan.lenderID)
+            ids.insert(loan.borrowerID)
         }
         return ids
     }

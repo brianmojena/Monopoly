@@ -191,11 +191,20 @@ struct JoinedGameView: View {
                 LabeledContent("Eventos del tablero", value: boardEventsText(lobby))
                 if lobby.gameMode == .classic {
                     LabeledContent("Niveles secretos", value: lobby.hiddenLevelsEnabled ? "Sí" : "No")
+                    LabeledContent("Meta de patrimonio", value: lobby.endConditions.netWorthGoal.map { "$\($0)" } ?? "No")
+                    LabeledContent("Termina con", value: bankruptciesText(lobby))
                 }
             }
 
         }
         .navigationTitle("Sala de espera")
+    }
+
+    private func bankruptciesText(_ lobby: Lobby) -> String {
+        guard let count = lobby.endConditions.bankruptciesToEnd, count < lobby.players.count - 1 else {
+            return "Hasta que quede un jugador"
+        }
+        return count == 1 ? "1 bancarrota" : "\(count) bancarrotas"
     }
 
     private func boardEventsText(_ lobby: Lobby) -> String {

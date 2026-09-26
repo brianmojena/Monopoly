@@ -52,6 +52,21 @@ struct SalaryView: View {
                         Text("Se descuentan al cobrar: \(currency(totalDue)). Si no te alcanza, se cobra lo que tengas, el resto queda pendiente para el siguiente GO y cuenta como un fallo que baja la confianza de la banca. Aplazar una cuota la mueve al final, sin recargo y sin fallo.")
                     }
                 }
+
+                if let state = model.gameState, !playerLoans.isEmpty {
+                    Section {
+                        ForEach(playerLoans) { loan in
+                            LabeledContent(
+                                "A \(state.playerName(loan.lenderID))",
+                                value: currency(loan.goPaymentDue)
+                            )
+                        }
+                    } header: {
+                        Text("Préstamos de jugadores")
+                    } footer: {
+                        Text("Se pagan después de las cuotas de tarjeta. Si no te alcanza, se paga lo que tengas y el resto sigue como deuda.")
+                    }
+                }
             }
             .navigationTitle("Cobrar salario")
 #if os(iOS)
@@ -90,6 +105,14 @@ struct SalaryView: View {
             return []
         }
         return model.gameState?.players.first(where: { $0.id == localPlayerID })?.creditCardLoans ?? []
+    }
+
+    /// Loans from other players that take a payment at this GO.
+    private var playerLoans: [PlayerLoan] {
+        guard let localPlayerID = model.localPlayerID else {
+            return []
+        }
+        return model.gameState?.playerLoans.filter { $0.borrowerID == localPlayerID && $0.goPaymentDue > 0 } ?? []
     }
 
     private var totalDue: Int {

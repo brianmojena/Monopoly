@@ -9,6 +9,7 @@ struct MarketView: View {
                 List {
                     holdingsSection(state: state, localPlayerID: localPlayerID)
                     investmentsSection(state: state, localPlayerID: localPlayerID)
+                    loansSection(state: state, localPlayerID: localPlayerID)
 
                     Section {
                         NavigationLink {
@@ -24,7 +25,7 @@ struct MarketView: View {
                     } header: {
                         Text("Negociar")
                     } footer: {
-                        Text("Un trato puede mover dinero y acciones entre varios jugadores y se ejecuta cuando todos aceptan. Una oferta abierta se la queda el primero que la acepte.")
+                        Text("Un trato puede mover dinero y acciones entre varios jugadores y se ejecuta cuando todos aceptan; también puede ser un préstamo con sus términos. Una oferta abierta se la queda el primero que la acepte.")
                     }
 
                     dealSection(
@@ -100,6 +101,31 @@ struct MarketView: View {
                         }
                     }
                     .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func loansSection(state: GameState, localPlayerID: UUID) -> some View {
+        let loans = state.playerLoans.filter { $0.lenderID == localPlayerID || $0.borrowerID == localPlayerID }
+        if !loans.isEmpty {
+            Section("Préstamos") {
+                ForEach(loans) { loan in
+                    NavigationLink {
+                        PlayerLoanView(loanID: loan.id, model: model)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(loan.lenderID == localPlayerID
+                                 ? "\(state.playerName(loan.borrowerID)) te debe $\(loan.remainingDebt)"
+                                 : "Le debes $\(loan.remainingDebt) a \(state.playerName(loan.lenderID))")
+                                .font(.app(.subheadline, weight: .medium))
+                                .foregroundStyle(loan.isOverdue ? .red : .primary)
+                            Text(state.loanTerms(loan).dropFirst().joined(separator: " · "))
+                                .font(.app(.caption))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
         }
@@ -184,6 +210,13 @@ private struct DealCard: View {
                 if let investment = deal.proposedInvestment {
                     Text("• \(state.describe(investment))")
                 }
+                if let loan = deal.proposedLoan {
+                    Text(state.describe(loan))
+                        .font(.app(.subheadline, weight: .medium))
+                    ForEach(state.loanTerms(loan), id: \.self) { line in
+                        Text("• \(line)")
+                    }
+                }
                 if let investment = deal.cancelInvestment {
                     Text("• Cancelar inversión: \(state.describe(investment))")
                 }
@@ -214,6 +247,9 @@ private struct DealCard: View {
         if deal.proposedInvestment != nil {
             return "Inversión de renta"
         }
+        if deal.proposedLoan != nil {
+            return "Préstamo"
+        }
         if deal.cancelInvestment != nil {
             return "Cancelación de inversión"
         }
@@ -226,6 +262,9 @@ private struct DealCard: View {
         }
         if deal.sharedPurchase != nil {
             return "house.and.flag"
+        }
+        if deal.proposedLoan != nil {
+            return "banknote"
         }
         return deal.proposedInvestment != nil || deal.cancelInvestment != nil
             ? "percent"

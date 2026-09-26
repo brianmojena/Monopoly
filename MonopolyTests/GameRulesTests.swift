@@ -1595,6 +1595,24 @@ final class NetworkingTests: XCTestCase {
         XCTAssertEqual(hostTransport.broadcastMessages.count, 1)
     }
 
+    func testTheHostEndsTheGameAfterTheActionThatMeetsTheGoal() throws {
+        let ana = Player(name: "Ana", balance: 1_500)
+        let luis = Player(name: "Luis", balance: 900)
+        let initialState = GameState(players: [ana, luis], properties: [], endConditions: ClassicEndConditions(netWorthGoal: 2_000))
+        let hostTransport = InMemoryGameTransport(peerID: PeerID("host"))
+        let clientTransport = InMemoryGameTransport(peerID: PeerID("client"))
+        let host = GameSession(transport: hostTransport, role: .host, initialState: initialState)
+        hostTransport.connect(to: clientTransport)
+
+        let intent = NetworkMessage.intent(
+            playerID: luis.id,
+            intent: .transferMoney(payerID: luis.id, recipientID: ana.id, amount: 500)
+        )
+        hostTransport.inject(try JSONEncoder().encode(intent), from: clientTransport.localPeerID)
+
+        XCTAssertEqual(host.gameState?.classicResult?.winnerIDs, [ana.id])
+    }
+
     func testGameSessionHostRejectsInvalidIntentWithoutMutationOrBroadcast() throws {
         let owner = Player(name: "Luis", balance: 200)
         let requester = Player(name: "Ana", balance: 200)

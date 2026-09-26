@@ -20,6 +20,8 @@ enum GameIntent: Codable, Equatable {
     case transferMoney(payerID: UUID, recipientID: UUID, amount: Int)
     case borrowOnCreditCard(playerID: UUID, amount: Int, installments: Int)
     case payCreditCard(playerID: UUID, loanID: UUID, amount: Int)
+    case payPlayerLoan(playerID: UUID, loanID: UUID, amount: Int)
+    case forgivePlayerLoan(playerID: UUID, loanID: UUID)
     case endTurn(playerID: UUID)
     case skipTurn
     case acknowledgeRole(playerID: UUID)
@@ -68,6 +70,8 @@ enum GameIntent: Codable, Equatable {
         case transferMoney
         case borrowOnCreditCard
         case payCreditCard
+        case payPlayerLoan
+        case forgivePlayerLoan
         case endTurn
         case skipTurn
         case acknowledgeRole
@@ -168,6 +172,17 @@ enum GameIntent: Codable, Equatable {
                 loanID: try container.decode(UUID.self, forKey: .loanID),
                 amount: try container.decode(Int.self, forKey: .amount)
             )
+        case .payPlayerLoan:
+            self = .payPlayerLoan(
+                playerID: try container.decode(UUID.self, forKey: .playerID),
+                loanID: try container.decode(UUID.self, forKey: .loanID),
+                amount: try container.decode(Int.self, forKey: .amount)
+            )
+        case .forgivePlayerLoan:
+            self = .forgivePlayerLoan(
+                playerID: try container.decode(UUID.self, forKey: .playerID),
+                loanID: try container.decode(UUID.self, forKey: .loanID)
+            )
         case .endTurn:
             self = .endTurn(playerID: try container.decode(UUID.self, forKey: .playerID))
         case .skipTurn:
@@ -266,6 +281,15 @@ enum GameIntent: Codable, Equatable {
             try container.encode(playerID, forKey: .playerID)
             try container.encode(loanID, forKey: .loanID)
             try container.encode(amount, forKey: .amount)
+        case let .payPlayerLoan(playerID, loanID, amount):
+            try container.encode(IntentType.payPlayerLoan, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+            try container.encode(loanID, forKey: .loanID)
+            try container.encode(amount, forKey: .amount)
+        case let .forgivePlayerLoan(playerID, loanID):
+            try container.encode(IntentType.forgivePlayerLoan, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+            try container.encode(loanID, forKey: .loanID)
         case let .endTurn(playerID):
             try container.encode(IntentType.endTurn, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
@@ -299,7 +323,7 @@ extension GameIntent {
             return true
         case .levelUp, .levelDown, .buyBackShares, .mortgageProperty, .unmortgageProperty,
              .declareBankruptcy, .proposeDeal, .acceptDeal, .rejectDeal, .transferMoney, .payCreditCard,
-             .endTurn, .skipTurn, .acknowledgeRole, .playHostCard:
+             .payPlayerLoan, .forgivePlayerLoan, .endTurn, .skipTurn, .acknowledgeRole, .playHostCard:
             return false
         }
     }

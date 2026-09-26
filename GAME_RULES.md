@@ -127,6 +127,22 @@ El valor de hipoteca no existe en Ultimate Banking; se mantiene en la mitad del 
 - **Bankarrota**: si el inversor o el receptor entra en bancarrota, todas sus inversiones activas (como inversor o como receptor) se cancelan (igual que los tratos pendientes, sección 6).
 - Una inversión no transfiere acciones de la propiedad ni cuenta para el patrimonio o el monopolio de color del inversor; solo redirige parte de una renta futura.
 
+### 4.9 Préstamos entre jugadores
+- Un jugador (**prestamista**) le presta dinero a otro (**deudor**) con los **términos** que acuerden. Se propone como un trato del Mercado (sección 4.6), entre exactamente esos dos jugadores, y se ejecuta cuando los dos aceptan: en ese momento el prestamista paga el monto prestado. Lo puede proponer cualquiera de los dos (ofrecer un préstamo o pedirlo). No puede ir en una oferta abierta ni en el mismo trato que una inversión.
+- **Términos** (el préstamo necesita al menos una forma de devolverse: cuota en GO, % de rentas o plazo):
+  - **Interés**: de 0% a 100% del monto, fijo y cobrado de una vez al crear el préstamo, redondeado hacia arriba (prestas $500 al 20% → te deben $600). La deuda no crece con el tiempo.
+  - **Cuota en GO**: un monto fijo que el deudor paga automáticamente cada vez que cobra el salario de GO, después de las cuotas de su tarjeta de crédito.
+  - **% de rentas**: de 5% a 100% de lo que el deudor cobre de renta (después de los cortes de inversiones, sección 4.8) va al prestamista, en cada cobro, hasta saldar la deuda.
+  - **Plazo**: un número de rondas. Al terminar la última ronda del plazo, el deudor paga lo que quede de la deuda. Si no le alcanza, paga lo que tenga y el préstamo queda **vencido**.
+  - **Garantía** (opcional): acciones de una propiedad del deudor. Mientras el préstamo exista, el deudor no puede darlas en un trato. Si el préstamo vence sin pagarse, el prestamista se queda con esas acciones y la deuda que falte se cancela. Si el deudor pierde acciones de otra forma (ej. cobertura al subir de nivel, sección 4.3), la garantía se reduce a las que le queden.
+- Un préstamo **vencido sin garantía** sigue como deuda, y en cada GO el deudor paga todo lo que quede (lo que alcance tras cobrar el salario), hasta saldarlo.
+- Los pagos nunca dejan el saldo en negativo: si no alcanza, se paga lo que haya y el resto sigue como deuda.
+- **Pago anticipado**: el deudor puede pagar cualquier monto, hasta lo que falta, en cualquier momento.
+- **Perdonar**: el prestamista puede cancelar la deuda en cualquier momento.
+- Varios préstamos del mismo deudor se cobran en el orden en que se aceptaron (el más antiguo primero).
+- **Patrimonio** (sección 7 y crédito de la tarjeta, sección 8.1): la deuda que falta resta al deudor y suma al prestamista.
+- **Bancarrota**: si el deudor quiebra, el prestamista se queda primero con la garantía (si la hay) y el resto de la deuda se pierde; si el prestamista quiebra, los préstamos que dio se cancelan. En ambos casos el préstamo desaparece.
+
 ## 5. Impuestos y casillas especiales
 
 - **Impuesto sobre la Renta / Impuesto de Lujo**: montos fijos definidos en el tablero, se pagan a la banca (el dinero sale del juego, no va a Free Parking salvo house rule activada).
@@ -155,12 +171,18 @@ El valor de hipoteca no existe en Ultimate Banking; se mantiene en la mitad del 
 - Si la deuda es con otro jugador, todos sus activos (acciones de propiedades, dinero restante) pasan a ese jugador.
 - Si la deuda es con la banca, el dinero sale del juego. Sus acciones de propiedades donde había otros accionistas se reparten entre ellos según su %; las propiedades que eran solo suyas vuelven a la banca (disponibles de nuevo a valor base, sin construcciones ni hipoteca).
 - Los tratos pendientes del Mercado en los que participaba se cancelan, incluidas sus inversiones activas (sección 4.8).
+- Sus préstamos entre jugadores se cancelan; como deudor, el prestamista se queda antes con la garantía (sección 4.9).
 - El jugador en bancarrota queda eliminado de la partida.
 
 ## 7. Fin de la partida
 
-- La partida termina cuando solo queda un jugador solvente (regla estándar), o por acuerdo de los jugadores en un límite de tiempo/rondas configurado antes de iniciar.
-- En caso de fin por tiempo, gana quien tenga mayor patrimonio neto (efectivo + valor actual de propiedades no hipotecadas + mitad del valor de construcciones − deuda de tarjeta de crédito).
+- **Patrimonio neto**: efectivo + valor actual de propiedades no hipotecadas + mitad del valor de construcciones − deuda de tarjeta de crédito − lo que debe en préstamos entre jugadores + lo que le deben.
+- En Monopoly Classic el host configura en la sala, antes de empezar, cómo termina la partida. La app la termina sola y muestra el resultado en todos los dispositivos:
+  - **Meta de patrimonio** (opcional, desactivada por defecto): un monto entre $2,000 y $50,000 (por defecto $10,000). En cuanto un jugador activo llega a ese patrimonio neto, la partida termina y gana él. Si varios la alcanzan a la vez (ej. en un mismo trato), gana el de mayor patrimonio; con empate, comparten la victoria.
+  - **Bancarrotas para terminar**: cuántos jugadores tienen que quebrar para que termine la partida, de 1 hasta "hasta que quede uno" (la regla estándar, por defecto). Si se elige un número mayor que los jugadores menos uno, cuenta como "hasta que quede uno". Al llegar a ese número, gana el jugador activo con mayor patrimonio neto; con empate, comparten la victoria.
+- Se comprueba después de cada acción que el host aplica. Con la partida terminada ya no se acepta ninguna acción.
+- La pantalla final muestra el ganador, el motivo y el patrimonio neto de cada jugador.
+- Monopolife termina por rondas y gana quien tenga más felicidad (`MONOPOLIFE_RULES.md`, sección 7); estos ajustes no se usan allí.
 
 ## 8. Reglas opcionales / configurables (house rules)
 
@@ -178,7 +200,7 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 
 ### 8.1 Tarjetas de crédito
 
-- **Patrimonio** (para crédito): efectivo + precio de cada propiedad no hipotecada + suma de lo que costó subir cada nivel ya alcanzado (sección 4.3) − deuda de tarjeta. Las propiedades hipotecadas cuentan 0.
+- **Patrimonio** (para crédito): efectivo + precio de cada propiedad no hipotecada + suma de lo que costó subir cada nivel ya alcanzado (sección 4.3) − deuda de tarjeta − lo que debe en préstamos entre jugadores + lo que le deben (sección 4.9). Las propiedades hipotecadas cuentan 0.
 - **Crédito disponible**: el **límite de confianza** (ver abajo, 50% del patrimonio al empezar) menos la deuda de tarjeta actual. Restar la deuda evita encadenar préstamos, porque el efectivo prestado cuenta como patrimonio.
 - **Confianza de la banca**: cada jugador tiene un historial de crédito que empieza vacío.
   - Cada préstamo que **termina de pagar** (por cuotas en GO o pagos anticipados) sube el límite **20 puntos** del patrimonio (50% → 70% → 90% → 100%). El límite nunca pasa del **100%** del patrimonio.

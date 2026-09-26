@@ -164,7 +164,8 @@ enum GameRules {
                 remaining -= amount
                 applyLifeTrigger(.investmentPayout(investorID: investment.investorID), in: &updatedState)
             }
-            credit(remaining, to: portion.playerID, in: &updatedState)
+            let kept = takeLoanRentCuts(from: remaining, collectedBy: portion.playerID, in: &updatedState)
+            credit(kept, to: portion.playerID, in: &updatedState)
             if remaining > 0 {
                 applyLifeTrigger(.rentReceived(playerID: portion.playerID), in: &updatedState)
             }
@@ -269,6 +270,7 @@ enum GameRules {
 
         updatedState.players[playerIndex] = player
         depositInFreeParking(interestPaid, in: &updatedState)
+        payPlayerLoansAtGo(for: playerID, in: &updatedState)
         applyLifeTrigger(.salaryCollected(playerID: playerID, hadCardDebt: hadCardDebt), in: &updatedState)
         return updatedState
     }
@@ -292,7 +294,7 @@ enum GameRules {
                 let fullValue = property.purchasePrice + paidLevelCosts
                 return total + fullValue * property.shares(of: playerID) / Property.totalShares
             }
-        return player.balance + propertiesValue - player.creditCardDebt
+        return player.balance + propertiesValue - player.creditCardDebt + playerLoanBalance(of: playerID, in: state)
     }
 
     // Bank trust (GAME_RULES section 8.1).
@@ -551,6 +553,7 @@ enum GameRules {
         }
         updatedState.properties[propertyIndex].constructionLevel = plan.targetLevel
         if !plan.coverages.isEmpty {
+            clampLoanCollateral(in: &updatedState)
             reindexPropertyIDs(in: &updatedState)
         }
         applyLifeTrigger(.leveledUp(playerID: playerID), in: &updatedState)
@@ -730,6 +733,7 @@ enum GameRules {
         let bankruptBalance = state.players[bankruptPlayerIndex].balance
 
         var updatedState = state
+        cancelPlayerLoans(ofBankrupt: playerID, in: &updatedState)
         updatedState.players[bankruptPlayerIndex].status = .bankrupt
         updatedState.players[bankruptPlayerIndex].balance = 0
         updatedState.players[bankruptPlayerIndex].creditCardLoans.removeAll()
@@ -815,6 +819,7 @@ enum GameRules {
 
             var updatedState = state
             if currentIndex + offset >= state.players.count {
+                settleDueLoans(afterRound: updatedState.round, in: &updatedState)
                 endOfRound(in: &updatedState)
                 // A Monopolife game ends when its last round does.
                 if let monopolife = updatedState.monopolife, updatedState.round >= monopolife.roundLimit {

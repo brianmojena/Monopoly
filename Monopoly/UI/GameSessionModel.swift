@@ -498,6 +498,10 @@ final class GameSessionModel: ObservableObject {
             return "No te alcanza: hacen falta $\(required) y tienes $\(available)."
         case .shareCoverageNotFound:
             return "Esas acciones ya no se pueden recuperar."
+        case .playerLoanNotFound:
+            return "Ese préstamo ya no existe."
+        case .invalidLoanTerms:
+            return "Revisa los términos del préstamo: necesita al menos cuota en GO, % de rentas o plazo."
         case let .notEnoughShares(_, playerID):
             let name = gameState?.players.first(where: { $0.id == playerID })?.name ?? "El otro jugador"
             return "\(name) ya no tiene esas acciones."
@@ -630,6 +634,24 @@ final class GameSessionModel: ObservableObject {
         }
 
         send(.payCreditCard(playerID: localPlayerID, loanID: loanID, amount: amount))
+    }
+
+    func payPlayerLoan(loanID: UUID, amount: Int) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de pagar un préstamo."
+            return
+        }
+
+        send(.payPlayerLoan(playerID: localPlayerID, loanID: loanID, amount: amount))
+    }
+
+    func forgivePlayerLoan(loanID: UUID) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de perdonar un préstamo."
+            return
+        }
+
+        send(.forgivePlayerLoan(playerID: localPlayerID, loanID: loanID))
     }
 
     func proposeDeal(_ deal: MarketDeal) {

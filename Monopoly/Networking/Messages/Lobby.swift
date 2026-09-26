@@ -27,6 +27,8 @@ struct Lobby: Codable, Equatable {
     var boardEventInterval: Int?
     /// Most rounds between board events when the gap is random; nil for a fixed gap.
     var boardEventMaxInterval: Int?
+    /// Only used in Classic games (GAME_RULES section 7).
+    var endConditions: ClassicEndConditions
 
     init(
         players: [LobbyPlayer] = [],
@@ -36,7 +38,8 @@ struct Lobby: Codable, Equatable {
         gameMode: GameMode = .classic,
         roundLimit: Int = MonopolifeState.defaultRoundLimit,
         boardEventInterval: Int? = nil,
-        boardEventMaxInterval: Int? = nil
+        boardEventMaxInterval: Int? = nil,
+        endConditions: ClassicEndConditions = ClassicEndConditions()
     ) {
         self.players = players
         self.creditCardsEnabled = creditCardsEnabled
@@ -46,6 +49,7 @@ struct Lobby: Codable, Equatable {
         self.roundLimit = roundLimit
         self.boardEventInterval = boardEventInterval
         self.boardEventMaxInterval = boardEventMaxInterval
+        self.endConditions = endConditions
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -57,6 +61,7 @@ struct Lobby: Codable, Equatable {
         case roundLimit
         case boardEventInterval
         case boardEventMaxInterval
+        case endConditions
     }
 
     init(from decoder: Decoder) throws {
@@ -69,6 +74,7 @@ struct Lobby: Codable, Equatable {
         roundLimit = try container.decodeIfPresent(Int.self, forKey: .roundLimit) ?? MonopolifeState.defaultRoundLimit
         boardEventInterval = try container.decodeIfPresent(Int.self, forKey: .boardEventInterval)
         boardEventMaxInterval = try container.decodeIfPresent(Int.self, forKey: .boardEventMaxInterval)
+        endConditions = try container.decodeIfPresent(ClassicEndConditions.self, forKey: .endConditions) ?? ClassicEndConditions()
     }
 
     var canStart: Bool {
@@ -122,7 +128,17 @@ struct Lobby: Codable, Equatable {
                 : nil,
             boardEvents: boardEventInterval.map {
                 BoardEventsState(interval: $0, maxInterval: boardEventMaxInterval, randomState: generator.next())
-            }
+            },
+            endConditions: gameMode == .classic ? startingEndConditions(playerCount: gamePlayers.count) : ClassicEndConditions()
         )
+    }
+
+    /// A bankruptcy count that would need everyone to go broke means "until one is left".
+    private func startingEndConditions(playerCount: Int) -> ClassicEndConditions {
+        var conditions = endConditions
+        if let count = conditions.bankruptciesToEnd, count >= playerCount - 1 {
+            conditions.bankruptciesToEnd = nil
+        }
+        return conditions
     }
 }

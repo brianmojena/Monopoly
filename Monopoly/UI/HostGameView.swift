@@ -100,7 +100,7 @@ private struct HostLobbyView: View {
             } footer: {
                 Text(lobby.gameMode == .monopolife
                     ? "Gana quien tenga más felicidad al terminar la última ronda. Cada jugador recibe un rol secreto con una ruleta, y las cartas de Suerte y Caja de Comunidad se cambian por Tarjetas de Vida."
-                    : "El Monopoly de siempre: gana quien no quiebre.")
+                    : "El Monopoly de siempre. Abajo eliges cómo termina: por bancarrotas o al llegar a un patrimonio.")
             }
 
             Section {
@@ -132,6 +132,10 @@ private struct HostLobbyView: View {
             }
 
             boardEventsSection(lobby)
+
+            if lobby.gameMode == .classic {
+                endConditionsSection(lobby)
+            }
 
             Section {
                 Button("Iniciar partida") {
@@ -225,6 +229,56 @@ private struct HostLobbyView: View {
             case .random:
                 Text("Tras cada evento, el siguiente llega entre \(minimum) y \(maximum) rondas después, sin que nadie sepa cuándo exactamente.")
             }
+        }
+    }
+
+    private func endConditionsSection(_ lobby: Lobby) -> some View {
+        let conditions = lobby.endConditions
+        let lastStanding = max(1, lobby.players.count - 1)
+        let bankruptcies = min(conditions.bankruptciesToEnd ?? lastStanding, lastStanding)
+
+        return Section {
+            Toggle(isOn: Binding(
+                get: { conditions.netWorthGoal != nil },
+                set: { isOn in
+                    model.updateLobby {
+                        $0.endConditions.netWorthGoal = isOn ? ClassicEndConditions.defaultNetWorthGoal : nil
+                    }
+                }
+            )) {
+                Label("Meta de patrimonio", systemImage: "flag.checkered")
+            }
+
+            if let goal = conditions.netWorthGoal {
+                Stepper(value: Binding(
+                    get: { goal },
+                    set: { value in model.updateLobby { $0.endConditions.netWorthGoal = value } }
+                ), in: ClassicEndConditions.netWorthGoalRange, step: ClassicEndConditions.netWorthGoalStep) {
+                    Text("Gana quien llegue a $\(goal)")
+                }
+            }
+
+            Stepper(value: Binding(
+                get: { bankruptcies },
+                set: { value in
+                    model.updateLobby { $0.endConditions.bankruptciesToEnd = value >= lastStanding ? nil : value }
+                }
+            ), in: 1...lastStanding) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Termina con \(bankruptcies) \(bankruptcies == 1 ? "bancarrota" : "bancarrotas")")
+                    if bankruptcies == lastStanding {
+                        Text("Hasta que quede un jugador")
+                            .font(.app(.caption))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        } header: {
+            Text("Fin de la partida")
+        } footer: {
+            Text(conditions.netWorthGoal == nil
+                 ? "Cuando quiebran esos jugadores, gana el que tenga más patrimonio entre los que siguen. El patrimonio es tu efectivo más tus propiedades y niveles, menos tus deudas."
+                 : "Gana el primero que llegue a la meta de patrimonio. Si antes quiebran esos jugadores, gana el que tenga más patrimonio entre los que siguen.")
         }
     }
 

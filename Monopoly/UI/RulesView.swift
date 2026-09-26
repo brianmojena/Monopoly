@@ -242,7 +242,8 @@ extension RuleTopic {
                 "Propón tratos con uno o varios jugadores: dinero, acciones de propiedades o ambas cosas.",
                 "El trato se hace cuando todos los participantes aceptan. Si alguien lo rechaza, se cancela para todos.",
                 "Ofertas abiertas: publicas lo que das y lo que pides, y el primero que acepta se queda con el trato.",
-                "Inversiones: pagas una vez a otro jugador y a cambio te llevas un % de lo que él cobre de renta en una propiedad, hasta que ambos acuerden cancelarla."
+                "Inversiones: pagas una vez a otro jugador y a cambio te llevas un % de lo que él cobre de renta en una propiedad, hasta que ambos acuerden cancelarla.",
+                "Préstamos: prestas (o pides) dinero con los términos que acuerden: interés fijo, una cuota en cada GO, un % de las rentas que cobre y un plazo. Al vencer el plazo se cobra lo que falte; si no alcanza, quien presta se queda con la garantía en acciones, o el préstamo queda vencido y cada GO paga todo lo que pueda. Se puede pagar antes, y quien presta puede perdonar la deuda."
             ]
         ),
         RuleTopic(
@@ -298,7 +299,8 @@ extension RuleTopic {
                 "Si no puedes pagar una deuda ni vendiendo o hipotecando, te declaras en bancarrota.",
                 "Si le debías a otro jugador, él se queda con tu dinero y tus acciones. Si le debías a la banca, tus propiedades vuelven al banco o a sus otros accionistas.",
                 "Quedas eliminado de la partida.",
-                "Gana el último jugador que no quiebre."
+                "El host elige en la sala cuándo termina: al quebrar cierto número de jugadores (por defecto, hasta que quede uno) y, si quiere, una meta de patrimonio.",
+                "Con la meta activa, gana el primero que llegue a ese patrimonio (efectivo + propiedades y niveles − deudas). Si antes quiebran los jugadores elegidos, gana el que tenga más patrimonio entre los que siguen."
             ]
         )
     ]

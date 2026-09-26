@@ -230,7 +230,7 @@ extension GameRules {
     }
 
     static func requireGameNotFinished(in state: GameState) throws {
-        if state.monopolife?.isFinished == true {
+        if state.isFinished {
             throw GameRuleError.gameFinished
         }
     }

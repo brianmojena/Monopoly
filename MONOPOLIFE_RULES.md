@@ -135,7 +135,8 @@ Suma de lo que cada rol puede sacar del mazo (decisiones solo si son positivas):
 
 ## 8. Lo que no cambia
 
-- Precios, rentas, niveles, hipotecas, Mercado, inversiones, tarjetas de crédito, turnos, subastas, impuestos, casillas de viaje y la cobertura de acciones al subir de nivel funcionan exactamente como en `GAME_RULES.md`.
+- Precios, rentas, niveles, hipotecas, Mercado, inversiones, préstamos entre jugadores, tarjetas de crédito, turnos, subastas, impuestos, casillas de viaje y la cobertura de acciones al subir de nivel funcionan exactamente como en `GAME_RULES.md`.
+- Un préstamo entre jugadores es un trato del Mercado, así que cuenta para el Social como cualquier otro (puntuable si presta al menos $50). Los pagos del préstamo no tienen efecto de rol, y el disgusto del Ahorrador sigue siendo solo por préstamos de tarjeta.
 - Las house rules siguen siendo configurables igual, con estas notas:
   - **Free Parking Jackpot**: igual que en Classic. Cobrar el bote no tiene efecto de rol (el dinero ya ayuda al Ahorrador en su fin de ronda).
   - **Eventos del tablero**: igual que en Classic. Solo "Revalúo de impuestos" tiene efecto de rol (Inversionista, tabla 3.3); el resto solo mueve dinero, rentas o niveles.

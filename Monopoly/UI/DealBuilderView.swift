@@ -16,6 +16,7 @@ struct DealBuilderView: View {
     @State private var investmentPropertyID: UUID?
     @State private var investmentAmountText = ""
     @State private var investmentPercentage = 10
+    @State private var loan = DraftLoan()
 
     var body: some View {
         Group {
@@ -28,7 +29,10 @@ struct DealBuilderView: View {
                     }
 
                     if case .deal = mode {
-                        investmentSection(state: state, localPlayerID: localPlayerID)
+                        loanSection(state: state, localPlayerID: localPlayerID)
+                        if !loan.isEnabled {
+                            investmentSection(state: state, localPlayerID: localPlayerID)
+                        }
                     }
 
                     ForEach($lines) { $line in
@@ -168,6 +172,98 @@ struct DealBuilderView: View {
         }
     }
 
+    private func loanSection(state: GameState, localPlayerID: UUID) -> some View {
+        Section {
+            Toggle("Incluir préstamo", isOn: $loan.isEnabled)
+
+            if loan.isEnabled {
+                Picker("Tú", selection: $loan.localPlayerLends) {
+                    Text("Prestas").tag(true)
+                    Text("Pides prestado").tag(false)
+                }
+                .pickerStyle(.segmented)
+
+                Picker(loan.localPlayerLends ? "Le prestas a" : "Te presta", selection: $loan.otherPlayerID) {
+                    Text("Elige jugador").tag(UUID?.none)
+                    ForEach(state.players.filter { $0.status == .active && $0.id != localPlayerID }) { player in
+                        Text(player.name).tag(Optional(player.id))
+                    }
+                }
+
+                TextField("Monto prestado", text: $loan.principalText)
+#if os(iOS)
+                    .keyboardType(.numberPad)
+#endif
+
+                Stepper(value: $loan.interestPercentage, in: PlayerLoan.interestRange, step: 5) {
+                    Text("Interés: \(loan.interestPercentage)%")
+                }
+
+                Toggle("Cuota en cada GO", isOn: $loan.hasGoPayment)
+                if loan.hasGoPayment {
+                    TextField("Cuota", text: $loan.goPaymentText)
+#if os(iOS)
+                        .keyboardType(.numberPad)
+#endif
+                }
+
+                Toggle("% de sus rentas", isOn: $loan.hasRentPercentage)
+                if loan.hasRentPercentage {
+                    Stepper(value: $loan.rentPercentage, in: PlayerLoan.rentPercentageRange, step: 5) {
+                        Text("\(loan.rentPercentage)% de lo que cobre de renta")
+                    }
+                }
+
+                Toggle("Plazo", isOn: $loan.hasTerm)
+                if loan.hasTerm {
+                    Stepper(value: $loan.termRounds, in: 1...30) {
+                        Text("\(loan.termRounds) \(loan.termRounds == 1 ? "ronda" : "rondas") (vence al final de la ronda \(state.round + loan.termRounds))")
+                    }
+
+                    Toggle("Garantía en acciones", isOn: $loan.hasCollateral)
+                    if loan.hasCollateral {
+                        collateralEditor(state: state, localPlayerID: localPlayerID)
+                    }
+                }
+
+                if let draft = loan.makeLoan(localPlayerID: localPlayerID, round: state.round) {
+                    Text("Devolverá $\(draft.totalDebt) en total.")
+                        .font(.app(.subheadline, weight: .semibold))
+                } else {
+                    Text("Elige el jugador, el monto y al menos una forma de devolverlo: cuota en GO, % de rentas o plazo.")
+                        .font(.app(.caption))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Préstamo")
+        } footer: {
+            if loan.isEnabled {
+                Text("El monto se paga al aceptarse el trato. Con plazo, al terminar la última ronda se cobra lo que falte; si no alcanza, quien presta se queda con la garantía o el préstamo queda vencido y cada GO paga todo lo que pueda. Se puede pagar antes, y quien presta puede perdonarlo.")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func collateralEditor(state: GameState, localPlayerID: UUID) -> some View {
+        let borrowerID = loan.localPlayerLends ? loan.otherPlayerID : localPlayerID
+        let properties = borrowerID.map { id in state.properties.filter { $0.shares(of: id) > 0 } } ?? []
+        Picker("Propiedad", selection: $loan.collateralPropertyID) {
+            Text("Elige propiedad").tag(UUID?.none)
+            ForEach(properties) { property in
+                Text(property.name).tag(Optional(property.id))
+            }
+        }
+        if let borrowerID, let property = properties.first(where: { $0.id == loan.collateralPropertyID }) {
+            let free = property.shares(of: borrowerID)
+                - GameRules.pledgedShares(of: borrowerID, in: property.id, state: state)
+            let maximum = max(1, free)
+            Stepper(value: $loan.collateralShares, in: 1...maximum) {
+                Text("\(percentage(min(loan.collateralShares, maximum))) de \(percentage(max(0, free))) libre")
+            }
+        }
+    }
+
     private func investmentProperties(state: GameState) -> [Property] {
         guard let recipientID = investmentRecipientID else {
             return []
@@ -264,11 +360,23 @@ struct DealBuilderView: View {
     private func draftDeal(localPlayerID: UUID) -> MarketDeal? {
         var transfers = buildTransfers(
             localPlayerID: localPlayerID,
-            skippingEmptyLines: investmentEnabled
+            skippingEmptyLines: investmentEnabled || loan.isEnabled
         ) ?? []
         var proposedInvestment: RentInvestment?
+        var proposedLoan: PlayerLoan?
 
-        if investmentEnabled {
+        if loan.isEnabled {
+            guard let round = model.gameState?.round,
+                  let draft = loan.makeLoan(localPlayerID: localPlayerID, round: round) else {
+                return nil
+            }
+            proposedLoan = draft
+            transfers.append(DealTransfer(
+                from: .player(draft.lenderID),
+                to: .player(draft.borrowerID),
+                asset: .money(draft.principal)
+            ))
+        } else if investmentEnabled {
             guard let recipientID = investmentRecipientID,
                   recipientID != localPlayerID,
                   let propertyID = investmentPropertyID,
@@ -296,7 +404,8 @@ struct DealBuilderView: View {
         return MarketDeal(
             proposerID: localPlayerID,
             transfers: transfers,
-            proposedInvestment: proposedInvestment
+            proposedInvestment: proposedInvestment,
+            proposedLoan: proposedLoan
         )
     }
 
@@ -321,5 +430,58 @@ private struct DraftTransfer: Identifiable {
 
     var isEmpty: Bool {
         fromID == nil && toID == nil && amountText.isEmpty && propertyID == nil
+    }
+}
+
+private struct DraftLoan {
+    var isEnabled = false
+    var localPlayerLends = true
+    var otherPlayerID: UUID?
+    var principalText = ""
+    var interestPercentage = 10
+    var hasGoPayment = true
+    var goPaymentText = ""
+    var hasRentPercentage = false
+    var rentPercentage = 20
+    var hasTerm = false
+    var termRounds = 5
+    var hasCollateral = false
+    var collateralPropertyID: UUID?
+    var collateralShares = 1
+
+    /// The loan these choices describe, or nil while something is missing.
+    func makeLoan(localPlayerID: UUID, round: Int) -> PlayerLoan? {
+        guard let otherPlayerID, let principal = Int(principalText), principal > 0 else {
+            return nil
+        }
+        var goPayment: Int?
+        if hasGoPayment {
+            guard let amount = Int(goPaymentText), amount > 0 else {
+                return nil
+            }
+            goPayment = amount
+        }
+        var collateral: LoanCollateral?
+        if hasTerm, hasCollateral {
+            guard let collateralPropertyID else {
+                return nil
+            }
+            collateral = LoanCollateral(propertyID: collateralPropertyID, shares: collateralShares)
+        }
+        let rent = hasRentPercentage ? rentPercentage : nil
+        let dueRound = hasTerm ? round + termRounds : nil
+        guard goPayment != nil || rent != nil || dueRound != nil else {
+            return nil
+        }
+        return PlayerLoan(
+            lenderID: localPlayerLends ? localPlayerID : otherPlayerID,
+            borrowerID: localPlayerLends ? otherPlayerID : localPlayerID,
+            principal: principal,
+            interestPercentage: interestPercentage,
+            goPayment: goPayment,
+            rentPercentage: rent,
+            dueRound: dueRound,
+            collateral: collateral
+        )
     }
 }

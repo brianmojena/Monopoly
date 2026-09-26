@@ -547,6 +547,17 @@ final class GameSession {
         isHost: Bool,
         in state: GameState
     ) throws -> GameState {
+        var updatedState = try applyRule(intent, submittedBy: playerID, isHost: isHost, in: state)
+        GameRules.checkClassicEnd(in: &updatedState)
+        return updatedState
+    }
+
+    private func applyRule(
+        _ intent: GameIntent,
+        submittedBy playerID: UUID,
+        isHost: Bool,
+        in state: GameState
+    ) throws -> GameState {
         try GameRules.requireGameNotFinished(in: state)
         if intent.requiresTurn {
             try GameRules.requireTurn(in: state, playerID: playerID)
@@ -601,6 +612,10 @@ final class GameSession {
             )
         case let .payCreditCard(_, loanID, amount):
             return try GameRules.payCreditCard(in: state, playerID: playerID, loanID: loanID, amount: amount)
+        case let .payPlayerLoan(_, loanID, amount):
+            return try GameRules.payPlayerLoan(in: state, playerID: playerID, loanID: loanID, amount: amount)
+        case let .forgivePlayerLoan(_, loanID):
+            return try GameRules.forgivePlayerLoan(in: state, playerID: playerID, loanID: loanID)
         case .endTurn:
             return try GameRules.endTurn(in: state, playerID: playerID)
         case .skipTurn:
