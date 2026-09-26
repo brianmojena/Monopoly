@@ -26,6 +26,8 @@ struct BoardEvent: Identifiable, Equatable {
     let text: String
     let targetKind: BoardEventTargetKind
     let effect: BoardEventEffect
+    /// Whether paying it counts as paying a tax for Monopolife roles.
+    var countsAsTax = false
 }
 
 // Placeholder values (GAME_RULES section 8.3).
@@ -84,7 +86,8 @@ enum BoardEventCatalog {
         BoardEvent(
             id: "tax-reassessment", emoji: "💸", title: "Revalúo de impuestos",
             text: "Suben los impuestos de un barrio.",
-            targetKind: .colorGroup, effect: .chargeShareholders(perProperty: 30)
+            targetKind: .colorGroup, effect: .chargeShareholders(perProperty: 30),
+            countsAsTax: true
         ),
         BoardEvent(
             id: "university", emoji: "🎓", title: "Abre una universidad",

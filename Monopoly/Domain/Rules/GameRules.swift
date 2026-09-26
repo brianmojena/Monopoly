@@ -554,6 +554,10 @@ enum GameRules {
             reindexPropertyIDs(in: &updatedState)
         }
         applyLifeTrigger(.leveledUp(playerID: playerID), in: &updatedState)
+        // Covering a shareholder trades shares between the two, so it counts as a deal.
+        for coverage in plan.coverages {
+            applyLifeTrigger(.dealSettled(participantIDs: [playerID, coverage.playerID], isScorable: true), in: &updatedState)
+        }
         return updatedState
     }
 
@@ -589,6 +593,7 @@ enum GameRules {
         updatedState.properties[propertyIndex].addShares(coverage.shares, to: playerID)
         updatedState.shareCoverages.remove(at: coverageIndex)
         reindexPropertyIDs(in: &updatedState)
+        applyLifeTrigger(.dealSettled(participantIDs: [playerID, coverage.payerID], isScorable: true), in: &updatedState)
         return updatedState
     }
 

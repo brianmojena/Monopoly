@@ -3,7 +3,7 @@ import Foundation
 // Placeholder values (MONOPOLIFE_RULES section 3.3). Every happiness number a role
 // uses lives here so the balance can be tuned after playtesting without touching rules.
 enum LifeRoleValues {
-    static let consumerRentStep = 50
+    static let consumerRentStep = 100
     static let consumerRentPointsCap = 6
     static let consumerLevelUp = 2
     static let consumerHoardingThreshold = 1500
@@ -31,6 +31,7 @@ enum LifeRoleValues {
     static let investorTax = -2
 
     static let globetrotterSalary = 2
+    static let globetrotterTrip = 2
     static let globetrotterStamp = 3
     static let globetrotterAllStamps = 8
     static let globetrotterPropertyBought = -2
@@ -58,8 +59,8 @@ extension LifeRole {
                 emoji: "🛍️",
                 summary: "Le gusta gastar y vivir en lugares caros.",
                 likes: [
-                    "Pagar renta: +1 por cada $50 pagados (máx +6 por pago).",
-                    "Subir de nivel una propiedad que administras: +2."
+                    "Pagar renta: +1 por cada $100 pagados (máx +6 por pago).",
+                    "Subir de nivel una propiedad en la que tienes acciones: +2."
                 ],
                 dislike: "Terminar la ronda con más de $1,500 en efectivo: −2."
             )
@@ -94,7 +95,7 @@ extension LifeRole {
                 emoji: "🎉",
                 summary: "Le gusta negociar y compartir.",
                 likes: [
-                    "Cada trato del Mercado en el que participas: +3 (máx 2 por ronda). Debe mover al menos $50 o una acción."
+                    "Cada trato en el que participas: +3 (máx 2 por ronda). Debe mover al menos $50 o una acción. También cuenta cubrir la parte de otro accionista al subir de nivel, o recomprarle esas acciones."
                 ],
                 dislike: "Terminar una ronda sin haber participado en ningún trato: −1."
             )
@@ -109,7 +110,7 @@ extension LifeRole {
                     "Cada vez que cobras el corte de una inversión: +1.",
                     "Al terminar la ronda: +1 por cada grupo de color en el que tienes acciones (máx +4)."
                 ],
-                dislike: "Pagar un impuesto: −2."
+                dislike: "Pagar un impuesto (también el evento Revalúo de impuestos): −2."
             )
         case .globetrotter:
             return LifeRoleDefinition(
@@ -119,6 +120,7 @@ extension LifeRole {
                 summary: "Le gusta viajar y conocer, no echar raíces.",
                 likes: [
                     "Cobrar salario en Salida: +2.",
+                    "Pagar un viaje en una casilla de viaje: +2.",
                     "La primera vez que pagas renta en cada grupo de color: +3. Con los 8 colores: +8 extra."
                 ],
                 dislike: "Comprar una propiedad al banco (compra, subasta o compra compartida): −2."
@@ -140,7 +142,7 @@ extension LifeRoleEffect {
             return .social
         case .investorInvestmentCreated, .investorPayout, .investorDiversification, .investorTax:
             return .investor
-        case .globetrotterSalary, .globetrotterStamp, .globetrotterAllStamps, .globetrotterPropertyBought:
+        case .globetrotterSalary, .globetrotterTrip, .globetrotterStamp, .globetrotterAllStamps, .globetrotterPropertyBought:
             return .globetrotter
         }
     }
@@ -179,6 +181,8 @@ extension LifeRoleEffect {
             return "Pagaste impuestos"
         case .globetrotterSalary:
             return "Diste la vuelta al tablero"
+        case .globetrotterTrip:
+            return "Te fuiste de viaje"
         case .globetrotterStamp:
             return "Nuevo sello en tu pasaporte"
         case .globetrotterAllStamps:

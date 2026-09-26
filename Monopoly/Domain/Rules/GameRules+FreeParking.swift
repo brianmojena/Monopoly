@@ -23,6 +23,7 @@ extension GameRules {
         var updatedState = state
         updatedState.players[playerIndex].balance -= route.fare
         depositInFreeParking(route.fare, in: &updatedState)
+        applyLifeTrigger(.travelPaid(playerID: playerID), in: &updatedState)
         return updatedState
     }
 

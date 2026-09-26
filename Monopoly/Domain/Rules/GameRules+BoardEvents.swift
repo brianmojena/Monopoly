@@ -96,12 +96,22 @@ extension GameRules {
             ))
         case let .chargeShareholders(perProperty):
             var collected = 0
+            var payerIDs: [UUID] = []
             for property in state.properties where affectedIDs.contains(property.id) && property.isOwned {
                 for portion in split(perProperty, among: property.ownership) {
-                    collected += payUpToBank(portion.amount, from: portion.playerID, in: &state)
+                    let paid = payUpToBank(portion.amount, from: portion.playerID, in: &state)
+                    collected += paid
+                    if paid > 0, !payerIDs.contains(portion.playerID) {
+                        payerIDs.append(portion.playerID)
+                    }
                 }
             }
             depositInFreeParking(collected, in: &state)
+            if event.countsAsTax {
+                for playerID in payerIDs {
+                    applyLifeTrigger(.taxPaid(playerID: playerID), in: &state)
+                }
+            }
         case let .payEveryPlayer(amount):
             for player in state.players where player.status == .active {
                 credit(amount, to: player.id, in: &state)

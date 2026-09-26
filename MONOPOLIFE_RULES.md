@@ -37,17 +37,20 @@ La diferencia central: **no gana quien tiene más dinero, sino quien tiene más 
 
 | Rol | Gustos (+) | Disgusto (−) |
 |---|---|---|
-| 🛍️ **Consumista** — le gusta gastar y vivir en lugares caros | Pagar renta: +1 por cada $50 pagados (máx +6 por pago). Subir de nivel una propiedad que administra: +2. | Al terminar la ronda con más de $1,500 en efectivo: −2 (el dinero guardado lo aburre). |
+| 🛍️ **Consumista** — le gusta gastar y vivir en lugares caros | Pagar renta: +1 por cada $100 pagados (máx +6 por pago). Subir de nivel una propiedad en la que tiene acciones: +2. | Al terminar la ronda con más de $1,500 en efectivo: −2 (el dinero guardado lo aburre). |
 | 🏢 **Emprendedor** — le gusta tener negocios y que la gente caiga en ellos | Al terminar la ronda: +1 por cada propiedad en la que tiene acciones (máx +5). Cada vez que recibe renta de otro jugador: +2. | Hipotecar una propiedad que administra: −3. |
 | 🐷 **Ahorrador** — le gusta ver crecer su cuenta | Al terminar la ronda: +1 por cada $400 en efectivo (máx +5). Cobrar salario sin deuda de tarjeta: +1. | Pedir un préstamo de tarjeta de crédito: −4. |
-| 🎉 **Social** — le gusta negociar y compartir | Cada trato del Mercado ejecutado en el que participa: +3 (máx 2 tratos puntuables por ronda). Cuenta cualquier trato: compra compartida, inversión, oferta abierta. Solo es puntuable si mueve al menos $50 o al menos una acción. | Terminar una ronda sin haber participado en ningún trato ejecutado: −1. |
-| 📈 **Inversionista** — le gusta diversificar y cobrar sin trabajar | Crear una inversión (sección 4.8 de `GAME_RULES.md`) como inversor: +3. Cada vez que cobra el corte de una inversión: +1. Al terminar la ronda: +1 por cada grupo de color distinto en el que tiene acciones (máx +4). | Pagar un impuesto: −2. |
-| ✈️ **Trotamundos** — le gusta viajar y conocer, no echar raíces | Cobrar salario en Salida: +2. La primera vez que paga renta en cada grupo de color ("sello"): +3; al completar los 8 sellos: +8 extra. | Comprar una propiedad al banco (compra directa, subasta o compra compartida): −2. |
+| 🎉 **Social** — le gusta negociar y compartir | Cada trato del Mercado ejecutado en el que participa: +3 (máx 2 tratos puntuables por ronda). Cuenta cualquier trato: compra compartida, inversión, oferta abierta, y también cubrir la parte de otro accionista al subir de nivel o recomprarle esas acciones (sección 4.3 de `GAME_RULES.md`). Solo es puntuable si mueve al menos $50 o al menos una acción. | Terminar una ronda sin haber participado en ningún trato ejecutado: −1. |
+| 📈 **Inversionista** — le gusta diversificar y cobrar sin trabajar | Crear una inversión (sección 4.8 de `GAME_RULES.md`) como inversor: +3. Cada vez que cobra el corte de una inversión: +1. Al terminar la ronda: +1 por cada grupo de color distinto en el que tiene acciones (máx +4). | Pagar un impuesto (incluido el evento del tablero "Revalúo de impuestos"): −2. |
+| ✈️ **Trotamundos** — le gusta viajar y conocer, no echar raíces | Cobrar salario en Salida: +2. Pagar un viaje en una casilla de viaje: +2. La primera vez que paga renta en cada grupo de color ("sello"): +3; al completar los 8 sellos: +8 extra. | Comprar una propiedad al banco (compra directa, subasta o compra compartida): −2. |
 
 Aclaraciones:
 - "Al terminar la ronda" se evalúa para todos los jugadores cuando el último jugador de la ronda termina su turno (el momento en que `round` se incrementa).
 - "Recibe renta" / "paga renta" se refiere a `collectRent` con monto > 0. Un cobro vía inversión cuenta como corte de inversión, no como renta recibida.
-- Los gustos por acción se aplican a quien hace la acción: el administrador en subir de nivel e hipotecar, cada comprador en una compra compartida.
+- Los gustos por acción se aplican a quien hace la acción: el accionista que sube de nivel (cualquiera puede, no solo el administrador), el administrador al hipotecar, cada comprador en una compra compartida.
+- Cubrir la parte de un accionista al subir de nivel cuenta como un trato entre quien cubre y el cubierto (siempre mueve acciones, así que es puntuable); recomprar esas acciones también.
+- "Revalúo de impuestos" cuenta como un solo impuesto por evento para cada accionista que pagó algo, aunque tenga acciones en varias propiedades del grupo.
+- Las rentas de Ultimate Banking (sección 4.2.1 de `GAME_RULES.md`) empiezan en $70, por eso el Consumista cuenta cada $100 y no cada $50: con $50 casi cualquier renta le daba varios puntos.
 
 ## 4. Ruleta de roles
 
@@ -132,5 +135,9 @@ Suma de lo que cada rol puede sacar del mazo (decisiones solo si son positivas):
 
 ## 8. Lo que no cambia
 
-- Precios, rentas, niveles, hipotecas, Mercado, inversiones, tarjetas de crédito, turnos, subastas e impuestos funcionan exactamente como en `GAME_RULES.md`.
-- Las house rules siguen siendo configurables igual.
+- Precios, rentas, niveles, hipotecas, Mercado, inversiones, tarjetas de crédito, turnos, subastas, impuestos, casillas de viaje y la cobertura de acciones al subir de nivel funcionan exactamente como en `GAME_RULES.md`.
+- Las house rules siguen siendo configurables igual, con estas notas:
+  - **Free Parking Jackpot**: igual que en Classic. Cobrar el bote no tiene efecto de rol (el dinero ya ayuda al Ahorrador en su fin de ronda).
+  - **Eventos del tablero**: igual que en Classic. Solo "Revalúo de impuestos" tiene efecto de rol (Inversionista, tabla 3.3); el resto solo mueve dinero, rentas o niveles.
+  - **Cartas del host**: igual que en Classic. La subida de nivel gratis de "Avanza y sube de nivel" no cuenta como subir de nivel para el Consumista, porque nadie la paga.
+  - **Niveles secretos**: solo existen en Classic.

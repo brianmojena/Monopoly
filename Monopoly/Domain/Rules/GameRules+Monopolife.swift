@@ -12,6 +12,7 @@ enum LifeTrigger: Equatable {
     case taxPaid(playerID: UUID)
     case loanTaken(playerID: UUID)
     case salaryCollected(playerID: UUID, hadCardDebt: Bool)
+    case travelPaid(playerID: UUID)
     case dealSettled(participantIDs: Set<UUID>, isScorable: Bool)
     case investmentCreated(investorID: UUID)
 }
@@ -140,6 +141,8 @@ extension GameRules {
             if !hadCardDebt {
                 applyRoleEffect(.saverSalaryWithoutDebt, LifeRoleValues.saverSalaryWithoutDebt, to: playerID, in: &state)
             }
+        case let .travelPaid(playerID):
+            applyRoleEffect(.globetrotterTrip, LifeRoleValues.globetrotterTrip, to: playerID, in: &state)
         case let .dealSettled(participantIDs, isScorable):
             for playerID in participantIDs where state.monopolife?.profiles[playerID] != nil {
                 state.monopolife?.profiles[playerID]?.tookPartInDealThisRound = true

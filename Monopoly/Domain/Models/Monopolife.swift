@@ -39,6 +39,7 @@ enum LifeRoleEffect: String, Codable, CaseIterable, Equatable, Hashable {
     case investorDiversification
     case investorTax
     case globetrotterSalary
+    case globetrotterTrip
     case globetrotterStamp
     case globetrotterAllStamps
     case globetrotterPropertyBought
