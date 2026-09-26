@@ -5,7 +5,8 @@ import Foundation
 // pure and every device agrees on the result the host broadcasts.
 extension GameRules {
     /// The rent after the board events and host cards affecting `property`:
-    /// percentages first, then flat amounts, never below 0.
+    /// percentages first, then flat amounts. It can end up below 0, and then the
+    /// shareholders pay whoever lands there (GAME_RULES section 4.2).
     static func applyingRentEffects(to rent: Int, of property: Property, in state: GameState) -> Int {
         let effects = rentEffects(on: property.id, in: state)
         guard !effects.isEmpty else {
@@ -13,7 +14,7 @@ extension GameRules {
         }
         let percent = effects.reduce(0) { $0 + $1.percent }
         let flat = effects.reduce(0) { $0 + $1.flat }
-        return max(0, rent * max(0, 100 + percent) / 100 + flat)
+        return rent * max(0, 100 + percent) / 100 + flat
     }
 
     /// Every rent change on `propertyID`, from board events and host cards.

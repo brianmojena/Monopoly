@@ -20,17 +20,10 @@ struct CollectWithQRView: View {
         var id: String { rawValue }
     }
 
-    @State private var kind: Kind
+    @State private var kind: Kind = .transfer
     @State private var amountText = ""
     @State private var propertyID: UUID?
     @State private var receivedAmount: Int?
-
-    /// With `rentPropertyID`, opens straight on that property's rent QR.
-    init(model: GameSessionModel, rentPropertyID: UUID? = nil) {
-        self.model = model
-        _kind = State(initialValue: rentPropertyID == nil ? .transfer : .rent)
-        _propertyID = State(initialValue: rentPropertyID)
-    }
 
     var body: some View {
         Group {
@@ -46,7 +39,7 @@ struct CollectWithQRView: View {
                         switch kind {
                         case .transfer:
                             transferOptions
-                            qrCard(for: .transfer(recipientID: player.id, amount: amount), title: player.name, subtitle: amount.map { "Cobrar $\($0)" } ?? "Monto a elegir por quien paga")
+                            QRPaymentCard(request: .transfer(recipientID: player.id, amount: amount), title: player.name, subtitle: amount.map { "Cobrar $\($0)" } ?? "Monto a elegir por quien paga")
                         case .rent:
                             rentContent(in: state, playerID: player.id)
                         }
@@ -113,15 +106,33 @@ struct CollectWithQRView: View {
             }
             .pickerStyle(.menu)
 
-            qrCard(
-                for: .rent(propertyID: selected.id),
+            QRPaymentCard(
+                request: .rent(propertyID: selected.id),
                 title: selected.name,
-                subtitle: "Renta: \(rentText(for: selected, in: state))"
+                subtitle: "Renta: \(rentAmountText(for: selected, in: state))"
             )
         }
     }
 
-    private func qrCard(for request: QRPaymentRequest, title: String, subtitle: String) -> some View {
+    private var amount: Int? {
+        guard let amount = Int(amountText), amount > 0 else {
+            return nil
+        }
+        return amount
+    }
+
+    private func localPlayer(in state: GameState) -> Player? {
+        state.players.first(where: { $0.id == model.localPlayerID })
+    }
+}
+
+/// A QR for another player to scan and pay, with who collects and how much.
+struct QRPaymentCard: View {
+    let request: QRPaymentRequest
+    let title: String
+    let subtitle: String
+
+    var body: some View {
         VStack(spacing: 14) {
             QRCodeImage(payload: request.payload)
                 .frame(maxWidth: 280)
@@ -144,25 +155,14 @@ struct CollectWithQRView: View {
         .frame(maxWidth: .infinity)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
+}
 
-    private var amount: Int? {
-        guard let amount = Int(amountText), amount > 0 else {
-            return nil
-        }
-        return amount
+private func rentAmountText(for property: Property, in state: GameState) -> String {
+    guard let ownerID = property.ownerID,
+          let rent = try? GameRules.rentAmount(for: property, in: state, ownerID: ownerID) else {
+        return "—"
     }
-
-    private func localPlayer(in state: GameState) -> Player? {
-        state.players.first(where: { $0.id == model.localPlayerID })
-    }
-
-    private func rentText(for property: Property, in state: GameState) -> String {
-        guard let ownerID = property.ownerID,
-              let rent = try? GameRules.rentAmount(for: property, in: state, ownerID: ownerID) else {
-            return "—"
-        }
-        return "$\(rent)"
-    }
+    return rent < 0 ? "−$\(-rent), la pagas tú" : "$\(rent)"
 }
 
 /// A QR code drawn with Core Image, kept crisp at any size.
@@ -352,19 +352,38 @@ struct PayWithQRView: View {
         List {
             switch preview {
             case let .success(.rent(propertyID, propertyName, amount)):
+                // Outside the section, so its footer can show it too.
+                let bankruptcyWarning = model.rentBankruptcyWarning(propertyID: propertyID)
                 Section {
                     LabeledContent("Renta de", value: propertyName)
-                    LabeledContent("A pagar", value: "$\(amount)")
-                    Button {
+                    if amount < 0 {
+                        LabeledContent("Recibes", value: "$\(-amount)")
+                    } else {
+                        LabeledContent("A pagar", value: "$\(amount)")
+                    }
+                    Button(role: bankruptcyWarning == nil ? nil : .destructive) {
                         model.payRent(propertyID: propertyID)
-                        paidMessage = "Pagaste $\(amount) de renta de \(propertyName)"
+                        if amount < 0 {
+                            paidMessage = "Cobraste $\(-amount) de renta negativa de \(propertyName)"
+                        } else {
+                            paidMessage = bankruptcyWarning == nil
+                                ? "Pagaste $\(amount) de renta de \(propertyName)"
+                                : "Entregaste todo por la renta de \(propertyName)"
+                        }
                     } label: {
-                        Text("Pagar $\(amount)")
+                        Text(amount < 0 ? "Cobrar $\(-amount)" : bankruptcyWarning == nil ? "Pagar $\(amount)" : "Pagar y quebrar")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                 } header: {
-                    Text("Pagar renta")
+                    Text(amount < 0 ? "Renta negativa" : "Pagar renta")
+                } footer: {
+                    if let bankruptcyWarning {
+                        Label(bankruptcyWarning, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.red)
+                    } else if amount < 0 {
+                        Text("Los cambios de renta dejaron esta propiedad en negativo: sus dueños te pagan a ti.")
+                    }
                 }
 
             case let .success(.transfer(recipientID, recipientName, fixedAmount)):
@@ -467,7 +486,7 @@ final class QRScannerController: UIViewController, AVCaptureMetadataOutputObject
         case .authorized:
             configure()
         case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { granted in
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 Task { @MainActor [weak self] in
                     granted ? self?.configure() : self?.onFailure?(.permissionDenied)
                 }

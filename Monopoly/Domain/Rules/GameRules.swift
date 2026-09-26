@@ -127,6 +127,9 @@ enum GameRules {
         // Rent is split among all shareholders by their stake; a payer who holds
         // shares only pays the other shareholders' portions.
         let rent = try rentAmount(for: property, in: state, ownerID: ownerID)
+        guard rent >= 0 else {
+            return payNegativeRent(-rent, of: property, to: payerID, in: state)
+        }
         let portions = split(rent, among: property.ownership).filter { $0.playerID != payerID }
         let amountDue = portions.reduce(0) { $0 + $1.amount }
         guard amountDue > 0 else {
@@ -135,11 +138,25 @@ enum GameRules {
 
         let payer = state.players[payerIndex]
         guard payer.balance >= amountDue else {
-            throw GameRuleError.insufficientFunds(
-                playerID: payerID,
-                required: amountDue,
-                available: payer.balance
-            )
+            // Rent beyond everything the payer has bankrupts them on the spot: the
+            // shareholders take it all and the Free Parking pot covers what's missing.
+            let assets = try assetsValue(of: payerID, in: state)
+            guard assets < amountDue else {
+                throw GameRuleError.insufficientFunds(
+                    playerID: payerID,
+                    required: amountDue,
+                    available: payer.balance
+                )
+            }
+            let creditors = portions.map { PropertyShare(playerID: $0.playerID, shares: $0.amount) }
+            // Lenders take their collateral first, so the pot covers what's missing
+            // from what the shareholders actually get.
+            var updatedState = state
+            cancelPlayerLoans(ofBankrupt: payerID, in: &updatedState)
+            let handedOver = try assetsValue(of: payerID, in: updatedState)
+            updatedState = bankrupt(payerID, to: creditors, in: updatedState)
+            payShortfallFromFreeParking(amountDue - handedOver, to: creditors, in: &updatedState)
+            return RentResult(state: updatedState, amount: amountDue, bankruptsPayer: true)
         }
 
         var updatedState = state
@@ -175,6 +192,29 @@ enum GameRules {
             in: &updatedState
         )
         return RentResult(state: updatedState, amount: amountDue)
+    }
+
+    /// A rent below 0 goes the other way: each other shareholder pays their part of it to
+    /// whoever landed there, or what they have if it's less, so it never bankrupts them.
+    /// The result's amount is negative, for what the lander received.
+    private static func payNegativeRent(
+        _ amount: Int,
+        of property: Property,
+        to landerID: UUID,
+        in state: GameState
+    ) -> RentResult {
+        var updatedState = state
+        var received = 0
+        for portion in split(amount, among: property.ownership) where portion.playerID != landerID {
+            guard let index = updatedState.players.firstIndex(where: { $0.id == portion.playerID }) else {
+                continue
+            }
+            let paid = min(portion.amount, max(0, updatedState.players[index].balance))
+            updatedState.players[index].balance -= paid
+            received += paid
+        }
+        credit(received, to: landerID, in: &updatedState)
+        return RentResult(state: updatedState, amount: -received)
     }
 
     static func payTax(
@@ -279,6 +319,15 @@ enum GameRules {
         guard let player = state.players.first(where: { $0.id == playerID }) else {
             throw GameRuleError.playerNotFound(playerID)
         }
+        return try assetsValue(of: playerID, in: state) - player.creditCardDebt + playerLoanBalance(of: playerID, in: state)
+    }
+
+    /// Cash plus the value of the player's shares in unmortgaged properties: everything
+    /// they could hand over, before their credit card debt and loans between players.
+    static func assetsValue(of playerID: UUID, in state: GameState) throws -> Int {
+        guard let player = state.players.first(where: { $0.id == playerID }) else {
+            throw GameRuleError.playerNotFound(playerID)
+        }
 
         let propertiesValue = state.properties
             .filter { !$0.isMortgaged }
@@ -294,7 +343,7 @@ enum GameRules {
                 let fullValue = property.purchasePrice + paidLevelCosts
                 return total + fullValue * property.shares(of: playerID) / Property.totalShares
             }
-        return player.balance + propertiesValue - player.creditCardDebt + playerLoanBalance(of: playerID, in: state)
+        return player.balance + propertiesValue
     }
 
     // Bank trust (GAME_RULES section 8.1).
@@ -710,26 +759,33 @@ enum GameRules {
         playerID: UUID,
         creditor: DebtCreditor
     ) throws -> GameState {
-        guard let bankruptPlayerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
+        guard state.players.contains(where: { $0.id == playerID }) else {
             throw GameRuleError.playerNotFound(playerID)
         }
         try requireActivePlayer(in: state, playerID: playerID)
 
-        let creditorIndex: Int?
         switch creditor {
         case .bank:
-            creditorIndex = nil
+            return bankrupt(playerID, to: [], in: state)
         case let .player(creditorID):
             guard creditorID != playerID else {
                 throw GameRuleError.invalidBankruptcyCreditor(creditorID)
             }
-            guard let index = state.players.firstIndex(where: { $0.id == creditorID }) else {
+            guard state.players.contains(where: { $0.id == creditorID }) else {
                 throw GameRuleError.playerNotFound(creditorID)
             }
             try requireActivePlayer(in: state, playerID: creditorID)
-            creditorIndex = index
+            return bankrupt(playerID, to: [PropertyShare(playerID: creditorID, shares: 1)], in: state)
         }
+    }
 
+    /// Hands a bankrupt player's cash and shares to `creditors`, split by each one's
+    /// weight in `shares`. With no creditors the debt was with the bank: the cash leaves
+    /// the game and the shares go to the property's other shareholders, or back to the bank.
+    private static func bankrupt(_ playerID: UUID, to creditors: [PropertyShare], in state: GameState) -> GameState {
+        guard let bankruptPlayerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
+            return state
+        }
         let bankruptBalance = state.players[bankruptPlayerIndex].balance
 
         var updatedState = state
@@ -745,10 +801,7 @@ enum GameRules {
             }
             updatedState.properties[propertyIndex].removeShares(shares, from: playerID)
 
-            switch creditor {
-            case let .player(creditorID):
-                updatedState.properties[propertyIndex].addShares(shares, to: creditorID)
-            case .bank:
+            if creditors.isEmpty {
                 let remainingShareholders = updatedState.properties[propertyIndex].ownership
                 if remainingShareholders.isEmpty {
                     updatedState.properties[propertyIndex].constructionLevel = 0
@@ -760,11 +813,15 @@ enum GameRules {
                         updatedState.properties[propertyIndex].addShares(portion.amount, to: portion.playerID)
                     }
                 }
+            } else {
+                for portion in split(shares, among: creditors) where portion.amount > 0 {
+                    updatedState.properties[propertyIndex].addShares(portion.amount, to: portion.playerID)
+                }
             }
         }
 
-        if let creditorIndex = creditorIndex {
-            updatedState.players[creditorIndex].balance += bankruptBalance
+        for portion in split(bankruptBalance, among: creditors) {
+            credit(portion.amount, to: portion.playerID, in: &updatedState)
         }
         updatedState.marketDeals.removeAll { $0.participantIDs.contains(playerID) }
         updatedState.rentInvestments.removeAll {
@@ -784,6 +841,23 @@ enum GameRules {
             updatedState = advanceTurn(in: updatedState)
         }
         return updatedState
+    }
+
+    /// Pays creditors what a bankrupt player still owed them out of the Free Parking pot,
+    /// as far as it goes, split by what each was owed.
+    private static func payShortfallFromFreeParking(
+        _ shortfall: Int,
+        to creditors: [PropertyShare],
+        in state: inout GameState
+    ) {
+        let payout = min(shortfall, state.freeParkingPot)
+        guard payout > 0 else {
+            return
+        }
+        state.freeParkingPot -= payout
+        for portion in split(payout, among: creditors) {
+            credit(portion.amount, to: portion.playerID, in: &state)
+        }
     }
 
     // A state without a current player (e.g. built directly in tests) has no turn order,
@@ -837,21 +911,24 @@ enum GameRules {
         return state
     }
 
+    /// The rent with every board event and host card on it; below 0 when they outweigh it.
     static func rentAmount(
         for property: Property,
         in state: GameState,
         ownerID: UUID
     ) throws -> Int {
-        let rent: Int
-        if property.constructionLevel == 0 {
-            rent = property.baseRent
-        } else {
-            guard property.rentByConstructionLevel.indices.contains(property.constructionLevel) else {
-                throw GameRuleError.invalidRentTable(property.id)
-            }
-            rent = property.rentByConstructionLevel[property.constructionLevel]
+        applyingRentEffects(to: try levelRent(for: property), of: property, in: state)
+    }
+
+    /// The rent the property's level charges, before any board event or host card.
+    static func levelRent(for property: Property) throws -> Int {
+        guard property.constructionLevel > 0 else {
+            return property.baseRent
         }
-        return applyingRentEffects(to: rent, of: property, in: state)
+        guard property.rentByConstructionLevel.indices.contains(property.constructionLevel) else {
+            throw GameRuleError.invalidRentTable(property.id)
+        }
+        return property.rentByConstructionLevel[property.constructionLevel]
     }
 
     private static func buildingContext(

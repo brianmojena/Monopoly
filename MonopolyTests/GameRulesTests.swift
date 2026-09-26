@@ -210,11 +210,77 @@ final class GameRulesTests: XCTestCase {
         let payer = Player(name: "Ana", balance: 19)
         let owner = Player(name: "Luis", balance: 50)
         let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 20, ownerID: owner.id)
-        let state = GameState(players: [payer, owner], properties: [property])
+        // Enough to cover the rent by mortgaging, so it doesn't bankrupt the payer.
+        let payerProperty = Property(name: "Payer Property", colorGroup: .lightBlue, purchasePrice: 100, mortgageValue: 50, baseRent: 6, ownerID: payer.id)
+        let state = GameState(players: [payer, owner], properties: [property, payerProperty])
 
         XCTAssertThrowsError(try GameRules.collectRent(in: state, from: payer.id, propertyID: property.id)) { error in
             XCTAssertEqual(error as? GameRuleError, .insufficientFunds(playerID: payer.id, required: 20, available: 19))
         }
+    }
+
+    func testRentBeyondPayersAssetsBankruptsThemAndThePotCoversTheRest() throws {
+        let payer = Player(name: "Ana", balance: 300)
+        let owner = Player(name: "Luis", balance: 50)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 1000, ownerID: owner.id)
+        let payerProperty = Property(name: "Payer Property", colorGroup: .lightBlue, purchasePrice: 500, mortgageValue: 250, baseRent: 6, ownerID: payer.id)
+        let state = GameState(
+            players: [payer, owner],
+            properties: [property, payerProperty],
+            activeHouseRules: [.freeParkingJackpot],
+            freeParkingPot: 350
+        )
+
+        let result = try GameRules.collectRent(in: state, from: payer.id, propertyID: property.id)
+
+        XCTAssertTrue(result.bankruptsPayer)
+        XCTAssertEqual(result.amount, 1000)
+        XCTAssertEqual(result.state.players[0].status, .bankrupt)
+        XCTAssertEqual(result.state.players[0].balance, 0)
+        // $300 cash plus the $200 left after the $800 in assets, taken from the pot.
+        XCTAssertEqual(result.state.players[1].balance, 550)
+        XCTAssertEqual(result.state.freeParkingPot, 150)
+        XCTAssertEqual(result.state.properties[1].shares(of: owner.id), Property.totalShares)
+    }
+
+    func testRentBankruptcyTakesOnlyWhatThePotHas() throws {
+        let payer = Player(name: "Ana", balance: 100)
+        let owner = Player(name: "Luis", balance: 0)
+        let property = Property(name: "Test Property", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 1000, ownerID: owner.id)
+        let state = GameState(
+            players: [payer, owner],
+            properties: [property],
+            activeHouseRules: [.freeParkingJackpot],
+            freeParkingPot: 40
+        )
+
+        let result = try GameRules.collectRent(in: state, from: payer.id, propertyID: property.id)
+
+        XCTAssertEqual(result.state.players[1].balance, 140)
+        XCTAssertEqual(result.state.freeParkingPot, 0)
+    }
+
+    func testRentBankruptcySplitsAssetsAmongShareholdersByTheirPortion() throws {
+        let payer = Player(name: "Ana", balance: 100)
+        let luis = Player(name: "Luis", balance: 0)
+        let eva = Player(name: "Eva", balance: 0)
+        let property = Property(
+            name: "Test Property",
+            colorGroup: .brown,
+            purchasePrice: 100,
+            mortgageValue: 50,
+            baseRent: 1000,
+            ownership: [PropertyShare(playerID: luis.id, shares: 7), PropertyShare(playerID: eva.id, shares: 3)]
+        )
+        let payerProperty = Property(name: "Payer Property", colorGroup: .lightBlue, purchasePrice: 100, mortgageValue: 50, baseRent: 6, ownerID: payer.id)
+        let state = GameState(players: [payer, luis, eva], properties: [property, payerProperty])
+
+        let result = try GameRules.collectRent(in: state, from: payer.id, propertyID: property.id)
+
+        XCTAssertEqual(result.state.players[1].balance, 70)
+        XCTAssertEqual(result.state.players[2].balance, 30)
+        XCTAssertEqual(result.state.properties[1].shares(of: luis.id), 7)
+        XCTAssertEqual(result.state.properties[1].shares(of: eva.id), 3)
     }
 
     func testCollectRentDoesNothingForMortgagedProperty() throws {

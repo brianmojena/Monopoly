@@ -48,6 +48,7 @@ Este documento describe las reglas de Monopoly en su edición **Ultimate Banking
 - El nivel de una propiedad **nunca sube solo**: solo sube cuando uno de sus accionistas (cualquiera, no solo el administrador; sección 4.3) paga el costo de subirlo, en cualquier momento (no requiere ser su turno). Caer en la propiedad y pagar renta no la mejora.
 - La renta a cobrar es siempre la del nivel vigente de la propiedad, no la original de compra.
 - Poseer un **color completo (monopolio)** no duplica la renta: las rentas de Ultimate Banking ya parten altas y el doble rompería la progresión de niveles.
+- **Renta negativa**: los eventos del tablero y las cartas del host (secciones 8.3 y 8.5) pueden dejar la renta por debajo de $0. Entonces se paga al revés: los accionistas le pagan esa cantidad a quien cae, repartida por su %. Ejemplo: renta de nivel $130 en un lado con −$200 → los dueños le pagan $70 a quien cae. Un accionista que no tenga suficiente efectivo paga lo que tenga (una renta negativa nunca provoca bancarrota). Sirve de incentivo para subir de nivel las propiedades de un lado castigado.
 
 #### 4.2.1 Tabla de precios y rentas (Ultimate Banking)
 
@@ -174,6 +175,16 @@ El valor de hipoteca no existe en Ultimate Banking; se mantiene en la mitad del 
 - Sus préstamos entre jugadores se cancelan; como deudor, el prestamista se queda antes con la garantía (sección 4.9).
 - El jugador en bancarrota queda eliminado de la partida.
 
+### 6.1 Renta que supera todo lo que tiene
+
+- Si un jugador tiene que pagar una renta y no le alcanza el efectivo, pero **tampoco su patrimonio**: efectivo + valor de sus acciones en propiedades sin hipotecar (precio más niveles pagados, como en la sección 7, sin restar la deuda de tarjeta ni los préstamos entre jugadores), entra en bancarrota **automáticamente al pagar**, sin pasar por "Declararse en bancarrota".
+- Todo su efectivo y todas sus acciones (también las hipotecadas) pasan a los accionistas que cobraban esa renta, repartidos según lo que le tocaba a cada uno de la renta. El resto se resuelve como cualquier bancarrota (tratos, inversiones, deuda de tarjeta).
+- Si debía préstamos entre jugadores con garantía, cada prestamista se lleva primero su garantía, como en cualquier bancarrota.
+- Lo que falta hasta la renta (renta − lo que reciben los accionistas) sale del **bote de Free Parking** hasta donde alcance (sección 8.2), repartido igual. Si el bote no alcanza o la regla no está activa, el resto se pierde.
+- Ejemplo: debe $1000 de renta con un patrimonio de $800 → su dinero y sus acciones pasan al dueño, que además cobra $200 del bote.
+- Si el patrimonio sí alcanza pero el efectivo no, el pago falla como siempre: tiene que hipotecar, bajar de nivel o negociar primero.
+- Antes de pagar, la app avisa de que ese pago lo lleva a la bancarrota.
+
 ## 7. Fin de la partida
 
 - **Patrimonio neto**: efectivo + valor actual de propiedades no hipotecadas + mitad del valor de construcciones − deuda de tarjeta de crédito − lo que debe en préstamos entre jugadores + lo que le deben.
@@ -225,6 +236,7 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
   - El **10% de interés al deshipotecar** (sección 4.4); el valor de hipoteca en sí sale del juego.
   - En Monopolife, lo que una Tarjeta de Vida hace pagar a la banca (no lo que se paga a otros jugadores).
 - **No** van al bote: compras de propiedades (directas, subastas, compartidas), subir de nivel, ni el dinero de un jugador que quiebra con la banca.
+- Sale del bote lo que le falta a un jugador que quiebra pagando una renta, para quien la cobraba (sección 6.1).
 - Al caer en Free Parking, el jugador (en su turno) pulsa "Cobrar el bote" y recibe todo el bote, que vuelve a $0. Con el bote vacío no hay nada que cobrar.
 - Sin la regla activa, todo lo anterior sale del juego como siempre y no hay bote.
 
@@ -239,7 +251,7 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
   - un **grupo de color**;
   - una **propiedad con dueño** (o, para el incendio, una propiedad con nivel mayor que 0; si no hay ninguna, ese evento no puede salir);
   - **todo el tablero** o **todos los jugadores**.
-- **Cambios de renta**: se suman a la renta normal de cada propiedad afectada (la de su nivel). Primero se aplican los porcentajes (todos los activos sumados) y luego los montos fijos; la renta nunca baja de $0. Una propiedad hipotecada sigue sin cobrar renta. Los cambios temporales duran las N rondas siguientes al evento; los permanentes, el resto de la partida. Varios eventos sobre la misma propiedad se acumulan.
+- **Cambios de renta**: se suman a la renta normal de cada propiedad afectada (la de su nivel). Primero se aplican los porcentajes (todos los activos sumados) y luego los montos fijos; si la renta queda por debajo de $0, se paga al revés (sección 4.2). Una propiedad hipotecada sigue sin cobrar renta. Los cambios temporales duran las N rondas siguientes al evento; los permanentes, el resto de la partida. Varios eventos sobre la misma propiedad se acumulan.
 - **Cobros a accionistas**: cada propiedad con dueño del objetivo cuesta el monto indicado, repartido entre sus accionistas por su % (como la sección 4.7). Si un jugador no tiene suficiente efectivo, paga lo que tenga (un evento nunca provoca bancarrota). Lo cobrado va al bote de Free Parking si esa regla está activa (sección 8.2); si no, sale del juego.
 - **Incendio**: la propiedad baja un nivel, sin devolver nada a los accionistas.
 - Eventos iniciales (valores placeholder):
@@ -284,7 +296,7 @@ Cuando sale una de estas cartas físicas en la mesa, **solo el host** la aplica 
 | Avanza y mejora | El host elige un jugador y una propiedad con dueño (de cualquiera). El jugador mueve su ficha ahí en el tablero y la propiedad sube un nivel **gratis**. No vale para propiedades hipotecadas ni en el nivel máximo. |
 
 - En las cartas de renta el host elige el lado y la duración: **permanente** o **N rondas** contando la ronda en curso.
-- Los cambios se suman a la renta del nivel y a los de los eventos del tablero (sección 8.3), con las mismas reglas: la renta nunca baja de $0 y una propiedad hipotecada sigue sin cobrar.
+- Los cambios se suman a la renta del nivel y a los de los eventos del tablero (sección 8.3), con las mismas reglas: la renta puede quedar negativa y pagarse al revés (sección 4.2), y una propiedad hipotecada sigue sin cobrar.
 
 ## 9. Preguntas abiertas / a validar con el usuario
 

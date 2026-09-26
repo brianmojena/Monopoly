@@ -271,7 +271,7 @@ extension RuleTopic {
             points: [
                 "Regla opcional: el host elige en la sala si hay eventos y cada cuántas rondas: un número fijo (de \(BoardEventsState.intervalRange.lowerBound) a \(BoardEventsState.intervalRange.upperBound)) o al azar dentro de un rango, para que nadie sepa cuándo llega el siguiente.",
                 "Al terminar esas rondas ocurre un evento al azar y todos lo ven a la vez. Afecta a un lado del tablero, a un grupo de color, a una propiedad o a todos.",
-                "Los cambios de renta se suman a la renta normal (primero los %, luego los $) y la renta nunca baja de $0. Los ves en el tablero y en cada propiedad.",
+                "Los cambios de renta se suman a la renta normal (primero los %, luego los $). Si la renta queda negativa, se paga al revés: los dueños le pagan a quien cae. Los ves en el tablero y en cada propiedad.",
                 "Un evento nunca te lleva a la bancarrota: si no te alcanza para una reparación, pagas lo que tengas."
             ] + BoardEventCatalog.all.map { "\($0.emoji) \($0.title): \(BoardEventText.effect($0.effect).lowercasedFirst)." }
         ),
@@ -298,6 +298,7 @@ extension RuleTopic {
             points: [
                 "Si no puedes pagar una deuda ni vendiendo o hipotecando, te declaras en bancarrota.",
                 "Si le debías a otro jugador, él se queda con tu dinero y tus acciones. Si le debías a la banca, tus propiedades vuelven al banco o a sus otros accionistas.",
+                "Si una renta supera todo lo que tienes (dinero más el valor de tus acciones), al pagarla quiebras automáticamente: todo pasa a quien la cobraba y el bote de Free Parking pone lo que falta, hasta donde alcance.",
                 "Quedas eliminado de la partida.",
                 "El host elige en la sala cuándo termina: al quebrar cierto número de jugadores (por defecto, hasta que quede uno) y, si quiere, una meta de patrimonio.",
                 "Con la meta activa, gana el primero que llegue a ese patrimonio (efectivo + propiedades y niveles − deudas). Si antes quiebran los jugadores elegidos, gana el que tenga más patrimonio entre los que siguen."

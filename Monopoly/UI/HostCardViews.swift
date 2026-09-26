@@ -107,9 +107,9 @@ struct HostCardsView: View {
         let duration = isPermanent ? "el resto de la partida" : "esta ronda y las siguientes hasta completar \(rounds)"
         if card == .rentShiftToSide {
             let neighbors = BoardEventsState.neighbors(ofSide: side).map(String.init).joined(separator: " y ")
-            return "Sube $\(HostCard.rentChange) el lado \(side) y baja $\(HostCard.rentChange) en los lados \(neighbors), durante \(duration). La renta nunca baja de $0."
+            return "Sube $\(HostCard.rentChange) el lado \(side) y baja $\(HostCard.rentChange) en los lados \(neighbors), durante \(duration). Si la renta queda negativa, los dueños pagan a quien cae."
         }
-        return "Dura \(duration). La renta nunca baja de $0."
+        return "Dura \(duration). Si la renta queda negativa, los dueños pagan a quien cae."
     }
 }
 

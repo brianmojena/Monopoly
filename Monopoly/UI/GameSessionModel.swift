@@ -528,6 +528,30 @@ final class GameSessionModel: ObservableObject {
         send(.collectRent(payerID: localPlayerID, propertyID: propertyID))
     }
 
+    /// When this rent is more than everything the local player has, what paying it will
+    /// do, to warn them first (GAME_RULES section 6.1). Nil when they can pay it.
+    func rentBankruptcyWarning(propertyID: UUID) -> String? {
+        guard let state = gameState,
+              let localPlayerID,
+              let property = state.properties.first(where: { $0.id == propertyID }),
+              let payment = try? GameRules.collectRent(in: state, from: localPlayerID, propertyID: propertyID),
+              payment.bankruptsPayer,
+              let assets = try? GameRules.assetsValue(of: localPlayerID, in: state) else {
+            return nil
+        }
+
+        let creditorNames = property.ownership
+            .filter { $0.playerID != localPlayerID }
+            .map { state.playerName($0.playerID) }
+            .formatted(.list(type: .and))
+        let fromPot = state.freeParkingPot - payment.state.freeParkingPot
+        let potText = fromPot > 0 ? " y el bote de Free Parking pone $\(fromPot) de lo que falta" : ""
+        let outcome = state.monopolife != nil
+            ? "Sigues jugando con $\(LifeRoleValues.bankruptcyRescueBalance), pero pierdes la mitad de tu felicidad."
+            : "Quedas en bancarrota y fuera de la partida."
+        return "La renta es $\(payment.amount) y entre tu dinero y tus acciones tienes $\(assets). Si pagas, todo pasa a \(creditorNames)\(potText). \(outcome)"
+    }
+
     func mortgage(propertyID: UUID) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de hipotecar."

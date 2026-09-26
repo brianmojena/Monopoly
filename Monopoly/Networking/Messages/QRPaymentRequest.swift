@@ -114,7 +114,8 @@ extension QRPaymentRequest {
             }
             do {
                 let amount = try GameRules.collectRent(in: state, from: payerID, propertyID: propertyID).amount
-                guard amount > 0 else {
+                // Below 0 the rent goes the other way, and the scanner collects it.
+                guard amount != 0 else {
                     return .failure(.nothingToPay(name: property.name))
                 }
                 return .success(.rent(propertyID: propertyID, propertyName: property.name, amount: amount))

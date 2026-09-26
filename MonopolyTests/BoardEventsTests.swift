@@ -68,14 +68,39 @@ final class BoardEventsTests: XCTestCase {
 
     // MARK: Rent effects
 
-    func testTornadoTakesTwoHundredOffASideForThreeRoundsNeverBelowZero() throws {
+    func testTornadoTakesTwoHundredOffASideForThreeRounds() throws {
         var state = makeState(properties: [street("A", .brown, rent: 300, owner: luis.id), street("B", .lightBlue, rent: 50, owner: luis.id), street("C", .pink, owner: luis.id)])
         GameRules.happen(try event("tornado"), on: .side(1), afterRound: 3, in: &state)
 
         XCTAssertEqual(try rent(of: 0, in: state), 100)
-        XCTAssertEqual(try rent(of: 1, in: state), 0)
+        // Below 0 the rent goes the other way: the owner pays whoever landed.
+        XCTAssertEqual(try rent(of: 1, in: state), -150)
         XCTAssertEqual(try rent(of: 2, in: state), 100)
         XCTAssertEqual(state.boardEvents?.rentEffects.first?.lastRound, 6)
+    }
+
+    func testNegativeRentIsPaidByTheOwnersToWhoeverLands() throws {
+        var state = makeState(properties: [street("A", .brown, rent: 100, owner: luis.id)])
+        GameRules.happen(try event("tornado"), on: .side(1), afterRound: 3, in: &state)
+
+        let result = try GameRules.collectRent(in: state, from: ana.id, propertyID: state.properties[0].id)
+
+        XCTAssertEqual(result.amount, -100)
+        XCTAssertEqual(result.state.players[0].balance, 1100)
+        XCTAssertEqual(result.state.players[1].balance, 900)
+    }
+
+    func testNegativeRentNeverBankruptsTheOwners() throws {
+        var state = makeState(properties: [street("A", .brown, rent: 100, owner: luis.id)])
+        state.players[1].balance = 30
+        GameRules.happen(try event("tornado"), on: .side(1), afterRound: 3, in: &state)
+
+        let result = try GameRules.collectRent(in: state, from: ana.id, propertyID: state.properties[0].id)
+
+        XCTAssertEqual(result.amount, -30)
+        XCTAssertEqual(result.state.players[0].balance, 1030)
+        XCTAssertEqual(result.state.players[1].balance, 0)
+        XCTAssertEqual(result.state.players[1].status, .active)
     }
 
     func testPercentagesApplyBeforeFlatAmountsAndEffectsStack() throws {

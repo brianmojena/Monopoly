@@ -5,13 +5,12 @@ import SwiftUI
 struct PropertyTitleCard: View {
     static let size = CGSize(width: 128, height: 204)
     private static let bandHeight: CGFloat = 32
-    /// Where the black face starts, below the band and its trim, so buttons laid over
-    /// the card can sit on the face.
-    static let faceTop = bandHeight + 4
 
     let property: Property
     /// The property's place in board order.
     let number: Int
+    /// False when the house rules keep this property's level secret from the viewer.
+    var showsLevel = true
 
     private let cornerRadius: CGFloat = 9
 
@@ -57,7 +56,7 @@ struct PropertyTitleCard: View {
     private var levelBand: some View {
         HStack(spacing: -2) {
             ForEach(1...5, id: \.self) { level in
-                levelDiamond(level, isCurrent: level == printedLevel && !property.isMortgaged)
+                levelDiamond(level, isCurrent: showsLevel && level == printedLevel && !property.isMortgaged)
             }
         }
         .frame(maxWidth: .infinity)
@@ -158,36 +157,15 @@ struct PropertyTitleCard: View {
     }
 
     private var accessibilityText: String {
-        var parts = ["Propiedad \(number)", property.name, "nivel \(printedLevel)", "$\(property.purchasePrice)"]
+        var parts = ["Propiedad \(number)", property.name]
+        if showsLevel {
+            parts.append("nivel \(printedLevel)")
+        }
+        parts.append("$\(property.purchasePrice)")
         if property.isMortgaged {
             parts.append("hipotecada")
         }
         return parts.joined(separator: ", ")
-    }
-}
-
-/// The small gold button laid over a title card's top corner to collect its rent by QR.
-struct CollectRentChip: View {
-    var body: some View {
-        HStack(spacing: 3) {
-            Image(systemName: "qrcode")
-                .font(.system(size: 9, weight: .bold))
-            Text("COBRAR")
-                .font(.system(size: 10, weight: .heavy).width(.condensed))
-                .tracking(0.4)
-        }
-        .foregroundStyle(Color(white: 0.06))
-        .padding(.horizontal, 7)
-        .padding(.vertical, 4)
-        .background(TitleCardInk.goldGradient, in: Capsule())
-        .overlay {
-            Capsule()
-                .stroke(Color.black.opacity(0.35), lineWidth: 0.5)
-        }
-        // A bigger tap area than the chip; it also insets it from the card's edges.
-        .padding(6)
-        .contentShape(Rectangle())
-        .accessibilityLabel("Cobrar renta con QR")
     }
 }
 

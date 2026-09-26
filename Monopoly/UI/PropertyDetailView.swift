@@ -3,7 +3,7 @@ import SwiftUI
 struct PropertyDetailView: View {
     let propertyID: UUID
     @ObservedObject var model: GameSessionModel
-    @State private var isConfirmingSecretRent = false
+    @State private var isConfirmingRent = false
 
     var body: some View {
         Group {
@@ -51,7 +51,7 @@ struct PropertyDetailView: View {
                         } header: {
                             Text("Eventos y cartas que afectan la renta")
                         } footer: {
-                            Text("La renta actual ya los incluye. Nunca baja de $0.")
+                            Text("La renta actual ya los incluye. Si queda negativa, los dueños le pagan esa cantidad a quien cae.")
                         }
                     }
 
@@ -79,12 +79,8 @@ struct PropertyDetailView: View {
                                     .foregroundStyle(.secondary)
                             }
                         } else if property.ownerID == nil {
+                            // Buying outright lives in the toolbar.
                             Section {
-                                Button("Comprar") {
-                                    model.buy(propertyID: property.id)
-                                }
-                                .buttonStyle(.borderedProminent)
-
                                 NavigationLink {
                                     SharedPurchaseView(propertyID: property.id, model: model)
                                 } label: {
@@ -104,27 +100,42 @@ struct PropertyDetailView: View {
                             .disabled(!model.isLocalPlayersTurn)
                         } else if property.ownerID != localPlayerID {
                             Section {
-                                if model.canSeeLevel(of: property) {
-                                    Button("Pagar renta (\(currency(rentDue(for: property, by: localPlayerID, in: state))))") {
+                                let bankruptcyWarning = model.rentBankruptcyWarning(propertyID: property.id)
+                                let due = rentDue(for: property, by: localPlayerID, in: state)
+                                if model.canSeeLevel(of: property), bankruptcyWarning == nil {
+                                    Button("\(rentActionTitle(due)) de renta") {
                                         model.payRent(propertyID: property.id)
                                     }
                                     .buttonStyle(.borderedProminent)
                                 } else {
-                                    // The amount gives the level away, so it only shows
-                                    // once the player actually goes to pay.
-                                    Button("Pagar renta") {
-                                        isConfirmingSecretRent = true
+                                    // A secret level's amount would give it away, so it only shows
+                                    // once the player actually goes to pay; a rent that bankrupts
+                                    // them asks first too.
+                                    Button(model.canSeeLevel(of: property) ? "\(rentActionTitle(due)) de renta" : "Pagar renta") {
+                                        isConfirmingRent = true
                                     }
                                     .buttonStyle(.borderedProminent)
                                     .confirmationDialog(
                                         "Renta de \(property.name)",
-                                        isPresented: $isConfirmingSecretRent,
+                                        isPresented: $isConfirmingRent,
                                         titleVisibility: .visible
                                     ) {
-                                        Button("Pagar \(currency(rentDue(for: property, by: localPlayerID, in: state)))") {
-                                            model.payRent(propertyID: property.id)
+                                        if bankruptcyWarning != nil {
+                                            Button("\(rentActionTitle(due)) y quebrar", role: .destructive) {
+                                                model.payRent(propertyID: property.id)
+                                            }
+                                        } else {
+                                            Button(rentActionTitle(due)) {
+                                                model.payRent(propertyID: property.id)
+                                            }
                                         }
                                         Button("Cancelar", role: .cancel) {}
+                                    } message: {
+                                        if let bankruptcyWarning {
+                                            Text(bankruptcyWarning)
+                                        } else if due < 0 {
+                                            Text("La renta está en negativo: los dueños te pagan a ti.")
+                                        }
                                     }
                                 }
                             } header: {
@@ -136,16 +147,6 @@ struct PropertyDetailView: View {
                                 turnFooter
                             }
                             .disabled(!model.isLocalPlayersTurn)
-
-                            if property.shares(of: localPlayerID) > 0,
-                               !property.isMortgaged,
-                               property.constructionLevel < Property.maximumLevel {
-                                Section {
-                                    levelUpButton(for: property, localPlayerID: localPlayerID, state: state)
-                                } header: {
-                                    Text("Como accionista")
-                                }
-                            }
                         } else {
                             ownPropertyActions(for: property, localPlayerID: localPlayerID, state: state)
                         }
@@ -159,6 +160,18 @@ struct PropertyDetailView: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
+        .toolbar {
+            if canBuy {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Comprar") {
+                        model.buy(propertyID: propertyID)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .tint(.blue)
+                    .disabled(!model.isLocalPlayersTurn)
+                }
+            }
+        }
         .alert(
             "Acción rechazada",
             isPresented: Binding(
@@ -174,57 +187,26 @@ struct PropertyDetailView: View {
         }
     }
 
+    /// Leveling up and down lives with the rent QR, on the property's other tab.
     @ViewBuilder
     private func ownPropertyActions(for property: Property, localPlayerID: UUID, state: GameState) -> some View {
-        Section("Acciones") {
+        Section {
             if property.isMortgaged {
                 Button("Deshipotecar") {
                     model.unmortgage(propertyID: property.id)
                 }
                 .buttonStyle(.borderedProminent)
-            } else {
-                if property.constructionLevel == 0 {
-                    Button("Hipotecar") {
-                        model.mortgage(propertyID: property.id)
-                    }
-                    .buttonStyle(.bordered)
+            } else if property.constructionLevel == 0 {
+                Button("Hipotecar") {
+                    model.mortgage(propertyID: property.id)
                 }
-
-                if property.constructionLevel < Property.maximumLevel {
-                    levelUpButton(for: property, localPlayerID: localPlayerID, state: state)
-                }
-
-                if property.constructionLevel > 0 {
-                    let levelCost = Property.levelUpCost(
-                        purchasePrice: property.purchasePrice,
-                        level: property.constructionLevel
-                    )
-                    Button("Bajar de nivel (devuelve \(currency(levelCost / 2)))") {
-                        model.levelDown(propertyID: property.id)
-                    }
-                    .buttonStyle(.bordered)
-                }
+                .buttonStyle(.bordered)
             }
-        }
-    }
-
-    /// Any shareholder can level up; the plan shows whose part they would cover and
-    /// how many shares they would take for it (GAME_RULES section 4.3).
-    @ViewBuilder
-    private func levelUpButton(for property: Property, localPlayerID: UUID, state: GameState) -> some View {
-        let nextLevel = property.constructionLevel + 1
-        let cost = Property.levelUpCost(purchasePrice: property.purchasePrice, level: nextLevel)
-        Button("Subir de nivel a \(nextLevel) (\(currency(cost)))") {
-            model.levelUp(propertyID: property.id)
-        }
-        .buttonStyle(.borderedProminent)
-
-        if let plan = try? GameRules.levelUpPlan(in: state, propertyID: property.id, playerID: localPlayerID),
-           !plan.coverages.isEmpty {
-            ForEach(plan.coverages, id: \.playerID) { coverage in
-                Text("\(state.playerName(coverage.playerID)) no puede pagar su parte (\(currency(coverage.amount))). La pagas tú y te llevas \(percentage(coverage.shares)) de sus acciones; puede recuperarlas devolviéndote ese dinero.")
-                    .font(.app(.footnote))
-                    .foregroundStyle(.secondary)
+        } header: {
+            Text("Acciones")
+        } footer: {
+            if !property.isMortgaged, property.constructionLevel > 0 {
+                Text("Para hipotecarla, primero baja su nivel a 0 desde Cobrar renta.")
             }
         }
     }
@@ -272,6 +254,16 @@ struct PropertyDetailView: View {
         }
     }
 
+    /// An unowned property, while the local player is still in the game.
+    private var canBuy: Bool {
+        guard let state = model.gameState,
+              let property = state.properties.first(where: { $0.id == propertyID }),
+              let localPlayer = state.players.first(where: { $0.id == model.localPlayerID }) else {
+            return false
+        }
+        return property.ownerID == nil && localPlayer.status == .active
+    }
+
     private var propertyName: String {
         model.gameState?.properties.first(where: { $0.id == propertyID })?.name ?? "Propiedad"
     }
@@ -282,6 +274,11 @@ struct PropertyDetailView: View {
             return "Sin dueño"
         }
         return owner.name
+    }
+
+    /// A negative rent goes the other way: the owners pay whoever lands there.
+    private func rentActionTitle(_ due: Int) -> String {
+        due < 0 ? "Cobrar \(currency(-due))" : "Pagar \(currency(due))"
     }
 
     /// What the payer actually owes after leaving out their own shareholding, taken
@@ -301,6 +298,6 @@ struct PropertyDetailView: View {
     }
 
     private func currency(_ amount: Int) -> String {
-        "$\(amount)"
+        amount < 0 ? "−$\(-amount)" : "$\(amount)"
     }
 }

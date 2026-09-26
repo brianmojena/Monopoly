@@ -7,6 +7,9 @@ struct GameBoardView: View {
     @State private var isShowingRules = false
     @State private var isConfirmingFreeParking = false
     @State private var isShowingHostCards = false
+    @State private var openedProperty: OpenedProperty?
+    @State private var propertySheetDetent: PresentationDetent = .large
+    @State private var propertyFilter: PropertyFilter = .mine
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 2)
 
@@ -25,7 +28,7 @@ struct GameBoardView: View {
 
                         balanceHeader(state)
 
-                        myPropertyCardsStrip(state)
+                        propertyCardsStrip(state)
 
                         if let pending = model.localPendingLifeCard, model.presentedLifeCard == nil {
                             pendingLifeCardBanner(pending)
@@ -47,9 +50,7 @@ struct GameBoardView: View {
                             HappinessSection(model: model, profile: profile, isShowingRole: $isShowingRole)
                         }
 
-                        myPropertiesCard(state)
                         playersCard(state)
-                        propertiesCard(state)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -76,6 +77,10 @@ struct GameBoardView: View {
                     Label("Cómo se juega", systemImage: "questionmark.circle")
                 }
             }
+        }
+        .sheet(item: $openedProperty) { opened in
+            PropertySheet(propertyID: opened.id, model: model)
+                .presentationDetents([.medium, .large], selection: $propertySheetDetent)
         }
         .sheet(isPresented: $isShowingRules) {
             NavigationStack {
@@ -184,6 +189,13 @@ struct GameBoardView: View {
                     }
                     .font(.app(.subheadline, weight: .semibold))
                     .foregroundStyle(Lux.textSecondary)
+
+                    if let player, let netWorth = try? GameRules.netWorth(of: player.id, in: state) {
+                        Text("Patrimonio \(currency(netWorth))")
+                            .font(.app(.caption, weight: .medium))
+                            .monospacedDigit()
+                            .foregroundStyle(Lux.textSecondary)
+                    }
 
                     Text(currency(player?.balance ?? 0))
                         .font(.app(size: 34, weight: .semibold))
@@ -310,41 +322,76 @@ struct GameBoardView: View {
 
     // MARK: Property cards
 
-    /// The local player's title cards in board order, like holding them in hand.
-    @ViewBuilder
-    private func myPropertyCardsStrip(_ state: GameState) -> some View {
-        if let localPlayerID = model.localPlayerID {
-            let owned = state.properties.enumerated().filter { $0.element.shares(of: localPlayerID) > 0 }
+    private enum PropertyFilter: String, CaseIterable, Identifiable {
+        case mine
+        case all
 
-            if !owned.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("MIS PROPIEDADES · \(owned.count)")
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .mine: "Mías"
+            case .all: "Todas"
+            }
+        }
+    }
+
+    /// The property whose sheet is open, after tapping its title card.
+    private struct OpenedProperty: Identifiable {
+        let id: UUID
+    }
+
+    /// Title cards in board order: the local player's, like holding them in hand, or
+    /// everyone else's, with the ones other players already own faded out.
+    @ViewBuilder
+    private func propertyCardsStrip(_ state: GameState) -> some View {
+        if let localPlayerID = model.localPlayerID {
+            let shown = state.properties.enumerated().filter {
+                ($0.element.shares(of: localPlayerID) > 0) == (propertyFilter == .mine)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("PROPIEDADES · \(shown.count)")
                         .font(.app(.caption, weight: .semibold))
                         .tracking(1.6)
                         .foregroundStyle(Lux.textSecondary)
 
+                    Spacer()
+
+                    Picker("Propiedades", selection: $propertyFilter.animation(.snappy)) {
+                        ForEach(PropertyFilter.allCases) { filter in
+                            Text(filter.title).tag(filter)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .fixedSize()
+                }
+
+                if shown.isEmpty {
+                    Text(propertyFilter == .mine
+                         ? "Aún no tienes propiedades. En «Todas» puedes ver las que quedan por comprar."
+                         : "Todas las propiedades son tuyas.")
+                        .font(.app(.footnote))
+                        .foregroundStyle(Lux.textSecondary)
+                        .padding(.vertical, 8)
+                } else {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: 12) {
-                            ForEach(owned, id: \.element.id) { entry in
-                                NavigationLink {
-                                    PropertyDetailView(propertyID: entry.element.id, model: model)
+                            ForEach(shown, id: \.element.id) { entry in
+                                let property = entry.element
+                                Button {
+                                    propertySheetDetent = .large
+                                    openedProperty = OpenedProperty(id: property.id)
                                 } label: {
-                                    PropertyTitleCard(property: entry.element, number: entry.offset + 1)
+                                    PropertyTitleCard(
+                                        property: property,
+                                        number: entry.offset + 1,
+                                        showsLevel: model.canSeeLevel(of: property)
+                                    )
+                                    .opacity(propertyFilter == .all && property.isOwned ? 0.4 : 1)
                                 }
-                                .buttonStyle(.plain)
-                                // Laid over the card rather than inside its link, so the two taps don't clash.
-                                // A mortgaged property earns no rent.
-                                .overlay(alignment: .topTrailing) {
-                                    if !entry.element.isMortgaged {
-                                        NavigationLink {
-                                            CollectWithQRView(model: model, rentPropertyID: entry.element.id)
-                                        } label: {
-                                            CollectRentChip()
-                                        }
-                                        .buttonStyle(.plain)
-                                        .padding(.top, PropertyTitleCard.faceTop)
-                                    }
-                                }
+                                .buttonStyle(TitleCardButtonStyle())
                             }
                         }
                         .scrollTargetLayout()
@@ -354,6 +401,8 @@ struct GameBoardView: View {
                     .contentMargins(.horizontal, 16, for: .scrollContent)
                     .padding(.horizontal, -16)
                     .frame(height: PropertyTitleCard.size.height + 16)
+                    // Starts each list from its first card.
+                    .id(propertyFilter)
                 }
             }
         }
@@ -530,7 +579,7 @@ struct GameBoardView: View {
         }
     }
 
-    // MARK: Players and properties
+    // MARK: Players
 
     private func playersCard(_ state: GameState) -> some View {
         BankCard(title: "Jugadores") {
@@ -603,155 +652,6 @@ struct GameBoardView: View {
         return isCurrent ? "En turno" : "\(player.propertyIDs.count) propiedades"
     }
 
-    /// The local player's properties with their board number, so they can find them
-    /// on the physical board without scanning the full list below.
-    @ViewBuilder
-    private func myPropertiesCard(_ state: GameState) -> some View {
-        if let localPlayerID = model.localPlayerID {
-            let owned = state.properties.enumerated().filter { $0.element.shares(of: localPlayerID) > 0 }
-
-            BankCard(title: "Mis propiedades") {
-                if owned.isEmpty {
-                    Text("Aún no tienes propiedades. Cómpralas en tu turno desde la lista de abajo.")
-                        .font(.app(.footnote))
-                        .foregroundStyle(Lux.textSecondary)
-                } else {
-                    ForEach(Array(owned.enumerated()), id: \.element.element.id) { position, entry in
-                        if position > 0 {
-                            Rectangle()
-                                .fill(Lux.hairline)
-                                .frame(height: 1)
-                        }
-                        myPropertyRow(entry.element, number: entry.offset + 1, playerID: localPlayerID)
-                    }
-                }
-            }
-        }
-    }
-
-    private func myPropertyRow(_ property: Property, number: Int, playerID: UUID) -> some View {
-        let shares = property.shares(of: playerID)
-        let isFullOwner = shares == Property.totalShares
-
-        return NavigationLink {
-            PropertyDetailView(propertyID: property.id, model: model)
-        } label: {
-            HStack(spacing: 12) {
-                Text("\(number)")
-                    .font(.app(.subheadline, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundStyle(property.colorGroup.hasLightSwatch ? .black : .white)
-                    .frame(width: 32, height: 32)
-                    .background(property.colorGroup.swatch, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(property.name)
-                        .font(.app(.subheadline, weight: .semibold))
-                        .lineLimit(1)
-                    Text(isFullOwner ? "100% tuya" : "\(shares * 10)% tuya\(property.ownerID == playerID ? " · la gestionas" : "")")
-                        .font(.app(.caption))
-                        .monospacedDigit()
-                        .foregroundStyle(Lux.textSecondary)
-                }
-
-                Spacer()
-
-                if property.isMortgaged {
-                    Text("Hipotecada")
-                        .font(.app(.caption2, weight: .semibold))
-                        .foregroundStyle(Lux.down)
-                } else if property.constructionLevel > 0 {
-                    Text("Nivel \(property.constructionLevel)")
-                        .font(.app(.caption2, weight: .semibold))
-                        .foregroundStyle(Lux.up)
-                }
-
-                Image(systemName: "chevron.right")
-                    .font(.app(.caption2, weight: .bold))
-                    .foregroundStyle(Lux.textSecondary)
-            }
-            .contentShape(Rectangle())
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Propiedad \(number), \(property.name)")
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func propertiesCard(_ state: GameState) -> some View {
-        BankCard(title: "Propiedades") {
-            ForEach(Array(state.properties.enumerated()), id: \.element.id) { index, property in
-                if index > 0 {
-                    Rectangle()
-                        .fill(Lux.hairline)
-                        .frame(height: 1)
-                }
-                propertyRow(property, number: index + 1, state: state)
-            }
-        }
-    }
-
-    /// `number` is the property's place in board order, to find it on the physical
-    /// board at a glance; the photo only shows in the detail.
-    private func propertyRow(_ property: Property, number: Int, state: GameState) -> some View {
-        HStack(spacing: 12) {
-            NavigationLink {
-                PropertyDetailView(propertyID: property.id, model: model)
-            } label: {
-                HStack(spacing: 12) {
-                    Text("\(number)")
-                        .font(.app(.headline, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(property.colorGroup.hasLightSwatch ? .black : .white)
-                        .frame(width: 40, height: 40)
-                        .background(property.colorGroup.swatch, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .accessibilityLabel("Propiedad \(number)")
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(property.name)
-                            .font(.app(.subheadline, weight: .semibold))
-                        Text(ownerName(for: property, state: state))
-                            .font(.app(.caption))
-                            .foregroundStyle(Lux.textSecondary)
-                            .lineLimit(1)
-                    }
-
-                    Spacer()
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(currency(property.purchasePrice))
-                            .font(.app(.subheadline, weight: .semibold))
-                            .monospacedDigit()
-                        if property.isMortgaged {
-                            Text("Hipotecada")
-                                .font(.app(.caption2))
-                                .foregroundStyle(Lux.down)
-                        } else if property.constructionLevel > 0, model.canSeeLevel(of: property) {
-                            Text("Nivel \(property.constructionLevel)")
-                                .font(.app(.caption2))
-                                .foregroundStyle(Lux.up)
-                        }
-                    }
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if property.ownerID == nil, isLocalPlayerActive(in: state), model.isLocalPlayersTurn {
-                Button {
-                    model.buy(propertyID: property.id)
-                } label: {
-                    Text("Comprar")
-                        .font(.app(.caption, weight: .bold))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(Lux.gold, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
     // MARK: Helpers
 
     private func localPlayer(in state: GameState) -> Player? {
@@ -763,15 +663,6 @@ struct GameBoardView: View {
             return "\(state.round)"
         }
         return "\(state.round)/\(roundLimit)"
-    }
-
-    private func ownerName(for property: Property, state: GameState) -> String {
-        guard property.isOwned else {
-            return "Sin dueño"
-        }
-        return property.ownership.count > 1
-            ? "Accionistas: \(state.ownershipSummary(of: property))"
-            : "Dueño: \(state.ownershipSummary(of: property))"
     }
 
     private func isLocalPlayerActive(in state: GameState) -> Bool {
@@ -867,4 +758,14 @@ private enum AmountAction: String, Identifiable {
 
 extension LifeCardDraw: Identifiable {
     var id: Int { sequence }
+}
+
+/// Presses a title card in the way native buttons do, springing back on release.
+private struct TitleCardButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .brightness(configuration.isPressed ? -0.06 : 0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+    }
 }
