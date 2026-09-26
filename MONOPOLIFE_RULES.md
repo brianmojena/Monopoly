@@ -17,7 +17,7 @@ La diferencia central: **no gana quien tiene más dinero, sino quien tiene más 
 
 - Cada jugador tiene un contador de **puntos de felicidad** (entero, empieza en 0, nunca baja de 0).
 - La felicidad cambia por: los **gustos y disgustos de su rol** y la renta de lujo y el **rival secreto** (sección 3), las **Tarjetas de Vida** (sección 5), la **cárcel** y la **bancarrota** (sección 6).
-- **Cárcel**: ir a la cárcel (cuando el jugador lo marca con el botón "Cárcel", por la casilla, una carta o 3 dobles; sección 5 de `GAME_RULES.md`) resta **−3 a cualquier rol por igual**. Salir de la cárcel no cambia la felicidad. Por eso la tarjeta "Mala racha: a la cárcel" no tiene felicidad propia: el castigo llega al marcar la cárcel.
+- **Cárcel**: ir a la cárcel (cuando el jugador lo marca con el botón "Cárcel", por la casilla, una carta o 3 dobles; sección 5 de `GAME_RULES.md`) resta **−3 a cualquier rol por igual**, y cada turno que empieza estando preso (1.er, 2.º y 3.er turno de cárcel, sección 5 de `GAME_RULES.md`) resta **−2 más**: quedarse los 3 turnos cuesta −9 en total. Salir de la cárcel (con dobles, pagando o al cumplir los 3 turnos) no cambia la felicidad; el turno en que sale con dobles o pagando ya contó si empezó preso. Por eso la tarjeta "Mala racha: a la cárcel" no tiene felicidad propia: el castigo llega al marcar la cárcel.
 - Cada cambio queda en un **historial** (jugador, puntos, motivo, ronda) que el jugador puede consultar y que se usa en la pantalla final para mostrar de dónde salió la felicidad de cada uno.
 - **Visibilidad**: cada jugador solo ve su propia felicidad y su propio historial. La felicidad de los demás se revela al final (ver sección 7). Mostrarla durante la partida delataría los roles.
 

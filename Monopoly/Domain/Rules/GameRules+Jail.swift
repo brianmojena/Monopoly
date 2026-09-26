@@ -52,6 +52,11 @@ extension GameRules {
               let turn = state.players[index].jailTurn else {
             return
         }
-        state.players[index].jailTurn = turn < maximumJailTurns ? turn + 1 : nil
+        guard turn < maximumJailTurns else {
+            state.players[index].jailTurn = nil
+            return
+        }
+        state.players[index].jailTurn = turn + 1
+        adjustHappiness(of: playerID, by: LifeRoleValues.jailTurn, reason: .jailTurn, in: &state)
     }
 }

@@ -38,6 +38,8 @@ extension HappinessReason {
             return "Ahora eres \(role.definition.emoji) \(role.definition.name)"
         case .jail:
             return "Fuiste a la cárcel"
+        case .jailTurn:
+            return "Otro turno en la cárcel"
         }
     }
 
@@ -55,7 +57,7 @@ extension HappinessReason {
             return "Salir por la ciudad"
         case .newDisguise:
             return "Cambios de personalidad"
-        case .jail:
+        case .jail, .jailTurn:
             return "Cárcel"
         }
     }

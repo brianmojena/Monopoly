@@ -349,7 +349,7 @@ extension RuleTopic {
             points: [
                 "Empiezas con 0 y nunca baja de 0.",
                 "Sube o baja por lo que haces según tu rol (pagar renta, comprar, negociar, cobrar salario…), al terminar cada ronda y con las Tarjetas de Vida.",
-                "Ir a la cárcel le quita \(-LifeRoleValues.jailed) de felicidad a cualquier rol.",
+                "Ir a la cárcel le quita \(-LifeRoleValues.jailed) de felicidad a cualquier rol, y cada turno que empiezas en ella, \(-LifeRoleValues.jailTurn) más.",
                 "Pagar renta siempre te hace feliz: más cuanto más lujoso es el lugar (lado del tablero del 1 al 4 más el nivel de la propiedad). Cuánto depende de tu rol.",
                 "Cada vez que cambia ves un aviso, y en \"Mi felicidad\" tienes el historial completo."
             ]

@@ -87,6 +87,8 @@ enum LifeRoleValues {
 
     /// MONOPOLIFE_RULES section 2: going to jail hurts every role the same.
     static let jailed = -3
+    /// Each turn that starts in jail (the 1st, 2nd and 3rd), on top of going there.
+    static let jailTurn = -2
 
     /// MONOPOLIFE_RULES section 6.
     static let bankruptcyRescueBalance = 500

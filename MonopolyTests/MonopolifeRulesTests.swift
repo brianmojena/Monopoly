@@ -825,6 +825,26 @@ final class MonopolifeRulesTests: XCTestCase {
         XCTAssertEqual(leaving.monopolife?.happinessLog, result.monopolife?.happinessLog)
     }
 
+    func testEachTurnStartedInJailCostsTwoMore() throws {
+        var (state, ids) = makeState(roles: [.consumer, .lender])
+        for id in ids {
+            GameRules.adjustHappiness(of: id, by: 20, reason: .bankruptcy, in: &state)
+        }
+        var result = try GameRules.goToJail(in: state, playerID: ids[0])
+        XCTAssertEqual(happiness(ids[0], in: result), 20 + LifeRoleValues.jailed)
+
+        for jailTurn in 1...3 {
+            result = try finishRound(result)
+            XCTAssertEqual(result.players[0].jailTurn, jailTurn)
+            XCTAssertEqual(happiness(ids[0], from: .jailTurn, in: result), jailTurn * LifeRoleValues.jailTurn)
+        }
+
+        result = try finishRound(result)
+        XCTAssertNil(result.players[0].jailTurn)
+        XCTAssertEqual(happiness(ids[0], from: .jailTurn, in: result), 3 * LifeRoleValues.jailTurn)
+        XCTAssertEqual(happiness(ids[1], from: .jailTurn, in: result), 0)
+    }
+
     func testJailCardLeavesThePenaltyToTheJailItself() throws {
         let card = try XCTUnwrap(LifeCards.card(withID: "go-to-jail"))
         XCTAssertTrue(card.happiness.values.allSatisfy { $0 == 0 })

@@ -118,6 +118,8 @@ enum HappinessReason: Codable, Equatable, Hashable {
     case newDisguise(LifeRole)
     /// Going to jail, the same for every role.
     case jail
+    /// Starting another turn in jail.
+    case jailTurn
 }
 
 struct HappinessEvent: Codable, Equatable {
