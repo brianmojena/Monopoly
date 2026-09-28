@@ -522,7 +522,8 @@ final class GameRulesTests: XCTestCase {
 
         let result = try GameRules.levelDown(in: state, propertyID: firstProperty.id, playerID: owner.id)
 
-        XCTAssertEqual(result.players[0].balance, 25)
+        // Level 1 cost 50% of $60 = $30; selling it returns half.
+        XCTAssertEqual(result.players[0].balance, 15)
         XCTAssertEqual(result.properties[0].constructionLevel, 0)
     }
 
@@ -1082,7 +1083,7 @@ final class GameRulesTests: XCTestCase {
         }
     }
 
-    func testDealFailsAtomicallyWhenMoneyIsInsufficientAtSettlement() throws {
+    func testDealIsWithdrawnWithoutSettlingWhenMoneyIsInsufficientAtSettlement() throws {
         let ana = Player(name: "Ana", balance: 100)
         let luis = Player(name: "Luis", balance: 100)
         let property = Property(name: "Street", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10, ownerID: ana.id)
@@ -1094,10 +1095,12 @@ final class GameRulesTests: XCTestCase {
         var proposed = try GameRules.proposeDeal(in: state, deal: deal, proposerID: ana.id)
         proposed.players[1].balance = 79
 
-        XCTAssertThrowsError(try GameRules.acceptDeal(in: proposed, dealID: deal.id, playerID: luis.id)) { error in
-            XCTAssertEqual(error as? GameRuleError, .insufficientFunds(playerID: luis.id, required: 80, available: 79))
-        }
-        XCTAssertEqual(proposed.properties[0].ownerID, ana.id)
+        let result = try GameRules.acceptDeal(in: proposed, dealID: deal.id, playerID: luis.id)
+
+        XCTAssertTrue(result.marketDeals.isEmpty)
+        XCTAssertEqual(result.properties[0].ownerID, ana.id)
+        XCTAssertEqual(result.properties[0].shares(of: ana.id), Property.totalShares)
+        XCTAssertEqual(result.players.map(\.balance), [100, 79])
     }
 
     func testDealWithBankruptPlayerIsRejected() {

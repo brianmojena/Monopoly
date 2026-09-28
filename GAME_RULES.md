@@ -107,7 +107,7 @@ El valor de hipoteca no existe en Ultimate Banking; se mantiene en la mitad del 
 - Reemplaza a los intercambios simples. Un **trato** es una lista de movimientos de dinero o acciones entre cualquier número de jugadores (ej. Ana da 30% de una calle a Luis, Luis paga $200 a Eva y Eva paga $150 a Ana).
 - Quien lo propone lo acepta al proponerlo; el trato se ejecuta **cuando todos los participantes aceptan**. Cualquier participante puede rechazarlo, y eso lo retira para todos.
 - **Ofertas abiertas**: un jugador publica lo que da y lo que pide (ej. "vendo 30% de X por $200") sin elegir contraparte; el primer jugador que la acepta se queda con el trato, que se ejecuta en ese momento.
-- La ejecución es atómica (todo o nada) y se valida con el resultado neto: un jugador puede pagar con dinero que recibe en el mismo trato. Si en ese momento alguien ya no tiene el dinero o las acciones, el trato no se ejecuta y queda pendiente.
+- La ejecución es atómica (todo o nada) y se valida con el resultado neto: un jugador puede pagar con dinero que recibe en el mismo trato. Si en ese momento alguien ya no tiene el dinero o las acciones (o algo del trato cambió y ya no puede cumplirse), el trato no se ejecuta y se retira del Mercado; nadie paga ni recibe nada.
 - Negociar se puede en cualquier momento, no solo en tu turno (salvo proponer una compra compartida).
 - Las propiedades cambian de manos con sus construcciones y su estado de hipoteca.
 
