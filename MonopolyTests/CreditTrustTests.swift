@@ -9,8 +9,8 @@ final class CreditTrustTests: XCTestCase {
         return (state, ana.id)
     }
 
-    private func loan(debt: Int, installments: Int = 1, postponements: Int = 0) -> CreditCardLoan {
-        CreditCardLoan(remainingDebt: debt, installmentsRemaining: installments, postponementsRemaining: postponements)
+    private func loan(principal: Int, installments: Int = 1) -> CreditCardLoan {
+        CreditCardLoan(principal: principal, installmentsRemaining: installments)
     }
 
     // MARK: Limit
@@ -40,19 +40,19 @@ final class CreditTrustTests: XCTestCase {
 
     func testPayingALoanOffEarlyRaisesTrust() throws {
         let (base, ana) = makeState()
-        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 100, installments: 2)
+        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 100)
         let loanID = try XCTUnwrap(state.players[0].creditCardLoans.first?.id)
 
-        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, amount: 50)
+        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, paysOff: false)
         XCTAssertEqual(state.players[0].creditHistory.paidOffLoans, 0)
 
-        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, amount: 60)
+        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, paysOff: true)
         XCTAssertEqual(state.players[0].creditHistory.paidOffLoans, 1)
         XCTAssertTrue(state.players[0].creditCardLoans.isEmpty)
     }
 
     func testPayingALoanOffAtGoRaisesTrust() throws {
-        let (state, ana) = makeState(loans: [loan(debt: 110)])
+        let (state, ana) = makeState(loans: [loan(principal: 100)])
 
         let result = try GameRules.collectSalary(in: state, playerID: ana, amount: 200)
 
@@ -63,24 +63,24 @@ final class CreditTrustTests: XCTestCase {
 
     func testOnlyOneLoanUntilOneIsPaidOff() throws {
         let (base, ana) = makeState()
-        let state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 100, installments: 1)
+        let state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 100)
 
-        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: ana, amount: 50, installments: 1)) { error in
+        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: ana, amount: 50)) { error in
             XCTAssertEqual(error as? GameRuleError, .creditCardLoanLimitReached(1))
         }
     }
 
     func testTwoLoansAtOnceAfterPayingOneOff() throws {
         let (base, ana) = makeState(balance: 2000)
-        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 100, installments: 1)
+        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 100)
         let firstLoan = try XCTUnwrap(state.players[0].creditCardLoans.first?.id)
-        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: firstLoan, amount: 110)
+        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: firstLoan, paysOff: true)
 
-        state = try GameRules.borrowOnCreditCard(in: state, playerID: ana, amount: 100, installments: 1)
-        state = try GameRules.borrowOnCreditCard(in: state, playerID: ana, amount: 100, installments: 1)
+        state = try GameRules.borrowOnCreditCard(in: state, playerID: ana, amount: 100)
+        state = try GameRules.borrowOnCreditCard(in: state, playerID: ana, amount: 100)
         XCTAssertEqual(state.players[0].creditCardLoans.count, 2)
 
-        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: ana, amount: 100, installments: 1)) { error in
+        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: ana, amount: 100)) { error in
             XCTAssertEqual(error as? GameRuleError, .creditCardLoanLimitReached(2))
         }
     }
@@ -88,26 +88,18 @@ final class CreditTrustTests: XCTestCase {
     // MARK: Missed payments
 
     func testShortInstallmentAtGoIsAMissedPayment() throws {
-        let (state, ana) = makeState(balance: 0, loans: [loan(debt: 500)])
+        let (state, ana) = makeState(balance: 0, loans: [loan(principal: 500)])
 
         let result = try GameRules.collectSalary(in: state, playerID: ana, amount: 200)
 
         XCTAssertEqual(result.players[0].creditHistory.missedPayments, 1)
         XCTAssertEqual(result.players[0].balance, 0)
-        XCTAssertEqual(result.players[0].creditCardLoans.first?.remainingDebt, 300)
-    }
-
-    func testPostponingIsNotAMissedPayment() throws {
-        let postponed = loan(debt: 500, installments: 2, postponements: 1)
-        let (state, ana) = makeState(balance: 0, loans: [postponed])
-
-        let result = try GameRules.collectSalary(in: state, playerID: ana, amount: 0, postponedLoanIDs: [postponed.id])
-
-        XCTAssertEqual(result.players[0].creditHistory.missedPayments, 0)
+        XCTAssertEqual(result.players[0].creditCardLoans.first?.overdueDebt, 350)
+        XCTAssertEqual(result.players[0].creditCardLoans.first?.remainingDebt, 350)
     }
 
     func testSeveralShortInstallmentsInOneGoCountOnce() throws {
-        let (state, ana) = makeState(balance: 0, loans: [loan(debt: 500), loan(debt: 500)])
+        let (state, ana) = makeState(balance: 0, loans: [loan(principal: 500), loan(principal: 500)])
 
         let result = try GameRules.collectSalary(in: state, playerID: ana, amount: 100)
 
@@ -115,7 +107,7 @@ final class CreditTrustTests: XCTestCase {
     }
 
     func testCoveredInstallmentIsNotAMissedPayment() throws {
-        let (state, ana) = makeState(balance: 0, loans: [loan(debt: 500, installments: 5)])
+        let (state, ana) = makeState(balance: 0, loans: [loan(principal: 500, installments: 5)])
 
         let result = try GameRules.collectSalary(in: state, playerID: ana, amount: 200)
 
@@ -123,26 +115,26 @@ final class CreditTrustTests: XCTestCase {
     }
 
     func testTwoMissedPaymentsCutCreditButLoansKeepBeingCharged() throws {
-        let (state, ana) = makeState(balance: 0, loans: [loan(debt: 1000)])
+        let (state, ana) = makeState(balance: 0, loans: [loan(principal: 1000)])
 
         var result = try GameRules.collectSalary(in: state, playerID: ana, amount: 100)
         result = try GameRules.collectSalary(in: result, playerID: ana, amount: 100)
 
         XCTAssertEqual(result.players[0].creditHistory.missedPayments, 2)
-        XCTAssertEqual(result.players[0].creditCardLoans.first?.remainingDebt, 800)
+        XCTAssertEqual(result.players[0].creditCardLoans.first?.remainingDebt, 900)
         XCTAssertEqual(try GameRules.availableCredit(for: ana, in: result), 0)
-        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: result, playerID: ana, amount: 1, installments: 1)) { error in
+        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: result, playerID: ana, amount: 1)) { error in
             XCTAssertEqual(error as? GameRuleError, .creditCut)
         }
 
         let (paidOff, paidOffAna) = makeState(history: CreditHistory(paidOffLoans: 3, missedPayments: 2))
-        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: paidOff, playerID: paidOffAna, amount: 1, installments: 1)) { error in
+        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: paidOff, playerID: paidOffAna, amount: 1)) { error in
             XCTAssertEqual(error as? GameRuleError, .creditCut)
         }
     }
 
     func testBankruptcyIsNotAMissedPayment() throws {
-        let (state, ana) = makeState(loans: [loan(debt: 500)])
+        let (state, ana) = makeState(loans: [loan(principal: 500)])
 
         let result = try GameRules.declareBankruptcy(in: state, playerID: ana, creditor: .bank)
 

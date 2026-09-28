@@ -576,13 +576,8 @@ final class GameSession {
             return try GameRules.payTravel(in: state, playerID: playerID, route: route)
         case .collectFreeParking:
             return try GameRules.collectFreeParking(in: state, playerID: playerID)
-        case let .collectSalary(_, amount, postponedLoanIDs):
-            return try GameRules.collectSalary(
-                in: state,
-                playerID: playerID,
-                amount: amount,
-                postponedLoanIDs: postponedLoanIDs
-            )
+        case let .collectSalary(_, amount):
+            return try GameRules.collectSalary(in: state, playerID: playerID, amount: amount)
         case let .levelUp(propertyID, _):
             return try GameRules.levelUp(in: state, propertyID: propertyID, playerID: playerID)
         case let .levelDown(propertyID, _):
@@ -603,19 +598,20 @@ final class GameSession {
             return try GameRules.rejectDeal(in: state, dealID: dealID, playerID: playerID)
         case let .transferMoney(_, recipientID, amount):
             return try GameRules.transferMoney(in: state, from: playerID, to: recipientID, amount: amount)
-        case let .borrowOnCreditCard(_, amount, installments):
-            return try GameRules.borrowOnCreditCard(
-                in: state,
-                playerID: playerID,
-                amount: amount,
-                installments: installments
-            )
-        case let .payCreditCard(_, loanID, amount):
-            return try GameRules.payCreditCard(in: state, playerID: playerID, loanID: loanID, amount: amount)
+        case let .borrowOnCreditCard(_, amount):
+            return try GameRules.borrowOnCreditCard(in: state, playerID: playerID, amount: amount)
+        case let .payCreditCard(_, loanID, paysOff):
+            return try GameRules.payCreditCard(in: state, playerID: playerID, loanID: loanID, paysOff: paysOff)
         case let .payPlayerLoan(_, loanID, amount):
             return try GameRules.payPlayerLoan(in: state, playerID: playerID, loanID: loanID, amount: amount)
         case let .forgivePlayerLoan(_, loanID):
             return try GameRules.forgivePlayerLoan(in: state, playerID: playerID, loanID: loanID)
+        case let .depositSavings(_, amount):
+            return try GameRules.depositInVariableSavings(in: state, playerID: playerID, amount: amount)
+        case let .withdrawSavings(_, amount):
+            return try GameRules.withdrawFromVariableSavings(in: state, playerID: playerID, amount: amount)
+        case let .openFixedDeposit(_, amount, terms):
+            return try GameRules.openFixedDeposit(in: state, playerID: playerID, amount: amount, terms: terms)
         case .goToJail:
             return try GameRules.goToJail(in: state, playerID: playerID)
         case let .leaveJail(_, exit):

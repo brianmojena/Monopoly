@@ -38,6 +38,10 @@ final class GameSessionModel: ObservableObject {
         gameState?.activeHouseRules.contains(.creditCards) == true
     }
 
+    var areSavingsEnabled: Bool {
+        gameState?.activeHouseRules.contains(.savingsAccounts) == true
+    }
+
     var isFreeParkingEnabled: Bool {
         gameState?.activeHouseRules.contains(.freeParkingJackpot) == true
     }
@@ -521,6 +525,12 @@ final class GameSessionModel: ObservableObject {
                 : "Ya tienes \(maximum) préstamos, el máximo a la vez."
         case .freeParkingDisabled:
             return "El bote de Free Parking no está activado en esta partida."
+        case .savingsDisabled:
+            return "Las cuentas de ahorro no están activadas en esta partida."
+        case let .savingsBlockedByDebt(savable):
+            return "No puedes ahorrar dinero que debes: como mucho puedes ahorrar $\(savable)."
+        case .invalidSavingsTerm:
+            return "La cuenta fija dura de \(FixedDeposit.termRange.lowerBound) a \(FixedDeposit.termRange.upperBound) pasos por GO."
         case .freeParkingPotEmpty:
             return "El bote de Free Parking está vacío."
         case let .insufficientFunds(_, required, available):
@@ -657,13 +667,13 @@ final class GameSessionModel: ObservableObject {
         send(.collectFreeParking(playerID: localPlayerID))
     }
 
-    func collectSalary(amount: Int, postponedLoanIDs: Set<UUID> = []) {
+    func collectSalary(amount: Int) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de cobrar salario."
             return
         }
 
-        send(.collectSalary(playerID: localPlayerID, amount: amount, postponedLoanIDs: postponedLoanIDs))
+        send(.collectSalary(playerID: localPlayerID, amount: amount))
     }
 
     func transfer(to recipientID: UUID, amount: Int) {
@@ -675,22 +685,22 @@ final class GameSessionModel: ObservableObject {
         send(.transferMoney(payerID: localPlayerID, recipientID: recipientID, amount: amount))
     }
 
-    func borrowOnCreditCard(amount: Int, installments: Int) {
+    func borrowOnCreditCard(amount: Int) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de pedir un préstamo."
             return
         }
 
-        send(.borrowOnCreditCard(playerID: localPlayerID, amount: amount, installments: installments))
+        send(.borrowOnCreditCard(playerID: localPlayerID, amount: amount))
     }
 
-    func payCreditCard(loanID: UUID, amount: Int) {
+    func payCreditCard(loanID: UUID, paysOff: Bool) {
         guard let localPlayerID else {
             alertMessage = "Selecciona tu jugador antes de pagar la tarjeta."
             return
         }
 
-        send(.payCreditCard(playerID: localPlayerID, loanID: loanID, amount: amount))
+        send(.payCreditCard(playerID: localPlayerID, loanID: loanID, paysOff: paysOff))
     }
 
     func payPlayerLoan(loanID: UUID, amount: Int) {
@@ -700,6 +710,33 @@ final class GameSessionModel: ObservableObject {
         }
 
         send(.payPlayerLoan(playerID: localPlayerID, loanID: loanID, amount: amount))
+    }
+
+    func depositSavings(amount: Int) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de usar tus ahorros."
+            return
+        }
+
+        send(.depositSavings(playerID: localPlayerID, amount: amount))
+    }
+
+    func withdrawSavings(amount: Int) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de usar tus ahorros."
+            return
+        }
+
+        send(.withdrawSavings(playerID: localPlayerID, amount: amount))
+    }
+
+    func openFixedDeposit(amount: Int, terms: Int) {
+        guard let localPlayerID else {
+            alertMessage = "Selecciona tu jugador antes de usar tus ahorros."
+            return
+        }
+
+        send(.openFixedDeposit(playerID: localPlayerID, amount: amount, terms: terms))
     }
 
     func goToJail() {

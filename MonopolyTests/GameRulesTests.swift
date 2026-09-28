@@ -768,7 +768,7 @@ final class GameRulesTests: XCTestCase {
     }
 
     func testNetWorthCountsCashUnmortgagedPropertiesAndBuildingsMinusDebt() throws {
-        let loan = CreditCardLoan(remainingDebt: 110, installmentsRemaining: 1, postponementsRemaining: 4)
+        let loan = CreditCardLoan(principal: 100)
         let player = Player(name: "Ana", balance: 500, creditCardLoans: [loan])
         let built = Property(name: "Built", colorGroup: .brown, purchasePrice: 100, mortgageValue: 50, baseRent: 10, constructionLevel: 2, ownerID: player.id)
         let mortgaged = Property(name: "Mortgaged", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 4, ownerID: player.id, isMortgaged: true)
@@ -777,35 +777,27 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(try GameRules.netWorth(of: player.id, in: state), 500 + 100 + 50 + 75 - 110)
     }
 
-    func testBorrowOnCreditCardCreatesLoanWithInterestInstallmentsAndPostponements() throws {
+    func testCreditCardInterestRisesFivePointsPerInstallmentAndJumpsToFortyOnTheLast() {
+        XCTAssertEqual((0...6).map { GameRules.creditCardInterestPercentage(installment: $0) }, [10, 10, 15, 20, 25, 40, 40])
+    }
+
+    func testBorrowOnCreditCardCreatesALoanOfFiveInstallments() throws {
         let player = Player(name: "Ana", balance: 1000)
         let state = GameState(players: [player], properties: [], activeHouseRules: [.creditCards])
 
-        let result = try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 500, installments: 4)
+        let result = try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 500)
 
         XCTAssertEqual(result.players[0].balance, 1500)
         XCTAssertEqual(result.players[0].creditCardLoans.count, 1)
         XCTAssertEqual(result.players[0].creditCardLoans[0].remainingDebt, 550)
-        XCTAssertEqual(result.players[0].creditCardLoans[0].installmentsRemaining, 4)
-        XCTAssertEqual(result.players[0].creditCardLoans[0].postponementsRemaining, 1)
-    }
-
-    func testBorrowOnCreditCardRejectsInstallmentsOutsideOneToFive() {
-        let player = Player(name: "Ana", balance: 1000)
-        let state = GameState(players: [player], properties: [], activeHouseRules: [.creditCards])
-
-        for installments in [0, 6] {
-            XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 100, installments: installments)) { error in
-                XCTAssertEqual(error as? GameRuleError, .invalidInstallments(installments))
-            }
-        }
+        XCTAssertEqual(result.players[0].creditCardLoans[0].installmentsRemaining, GameRules.creditCardInstallments)
     }
 
     func testBorrowOnCreditCardFailsAboveHalfOfNetWorth() {
         let player = Player(name: "Ana", balance: 1000)
         let state = GameState(players: [player], properties: [], activeHouseRules: [.creditCards])
 
-        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 501, installments: 1)) { error in
+        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 501)) { error in
             XCTAssertEqual(error as? GameRuleError, .creditLimitExceeded(requested: 501, available: 500))
         }
     }
@@ -814,7 +806,7 @@ final class GameRulesTests: XCTestCase {
         let player = Player(name: "Ana", balance: 1000)
         let state = GameState(players: [player], properties: [], activeHouseRules: [.creditCards])
 
-        let afterLoan = try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 500, installments: 5)
+        let afterLoan = try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 500)
 
         XCTAssertEqual(try GameRules.availableCredit(for: player.id, in: afterLoan), 0)
     }
@@ -823,109 +815,92 @@ final class GameRulesTests: XCTestCase {
         let player = Player(name: "Ana", balance: 1000)
         let state = GameState(players: [player], properties: [])
 
-        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 100, installments: 1)) { error in
+        XCTAssertThrowsError(try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 100)) { error in
             XCTAssertEqual(error as? GameRuleError, .creditCardsDisabled)
         }
     }
 
-    func testPayCreditCardReducesLoanDebtAndCash() throws {
-        let loan = CreditCardLoan(remainingDebt: 550, installmentsRemaining: 2, postponementsRemaining: 3)
+    func testPayCreditCardInstallmentPaysTheNextInstallment() throws {
+        let loan = CreditCardLoan(principal: 500)
         let player = Player(name: "Ana", balance: 300, creditCardLoans: [loan])
         let state = GameState(players: [player], properties: [])
 
-        let result = try GameRules.payCreditCard(in: state, playerID: player.id, loanID: loan.id, amount: 200)
+        let result = try GameRules.payCreditCard(in: state, playerID: player.id, loanID: loan.id, paysOff: false)
 
-        XCTAssertEqual(result.players[0].balance, 100)
-        XCTAssertEqual(result.players[0].creditCardLoans[0].remainingDebt, 350)
-        XCTAssertEqual(GameRules.creditCardInstallmentDue(for: result.players[0].creditCardLoans[0]), 175)
+        XCTAssertEqual(result.players[0].balance, 190)
+        XCTAssertEqual(result.players[0].creditCardLoans[0].principalRemaining, 400)
+        XCTAssertEqual(result.players[0].creditCardLoans[0].installmentsRemaining, 4)
+        XCTAssertEqual(result.players[0].creditCardLoans[0].remainingDebt, 440)
     }
 
     func testPayCreditCardInFullRemovesTheLoan() throws {
-        let loan = CreditCardLoan(remainingDebt: 100, installmentsRemaining: 2, postponementsRemaining: 3)
+        let loan = CreditCardLoan(principal: 100, installmentsRemaining: 2)
         let player = Player(name: "Ana", balance: 300, creditCardLoans: [loan])
         let state = GameState(players: [player], properties: [])
 
-        let result = try GameRules.payCreditCard(in: state, playerID: player.id, loanID: loan.id, amount: 100)
+        let result = try GameRules.payCreditCard(in: state, playerID: player.id, loanID: loan.id, paysOff: true)
 
+        XCTAssertEqual(result.players[0].balance, 190)
         XCTAssertTrue(result.players[0].creditCardLoans.isEmpty)
     }
 
-    func testPayCreditCardFailsWhenPayingMoreThanTheLoan() {
-        let loan = CreditCardLoan(remainingDebt: 100, installmentsRemaining: 1, postponementsRemaining: 4)
+    func testPayCreditCardInFullFailsWithoutEnoughCash() {
+        let loan = CreditCardLoan(principal: 1000)
         let player = Player(name: "Ana", balance: 300, creditCardLoans: [loan])
         let state = GameState(players: [player], properties: [])
 
-        XCTAssertThrowsError(try GameRules.payCreditCard(in: state, playerID: player.id, loanID: loan.id, amount: 101)) { error in
-            XCTAssertEqual(error as? GameRuleError, .invalidAmount(101))
+        XCTAssertThrowsError(try GameRules.payCreditCard(in: state, playerID: player.id, loanID: loan.id, paysOff: true)) { error in
+            XCTAssertEqual(error as? GameRuleError, .insufficientFunds(playerID: player.id, required: 1100, available: 300))
         }
     }
 
-    func testCollectSalaryChargesOneInstallmentPerLoan() throws {
-        let fourInstallments = CreditCardLoan(remainingDebt: 1100, installmentsRemaining: 4, postponementsRemaining: 1)
-        let threeInstallments = CreditCardLoan(remainingDebt: 1000, installmentsRemaining: 3, postponementsRemaining: 2)
-        let player = Player(name: "Ana", balance: 1000, creditCardLoans: [fourInstallments, threeInstallments])
+    func testCollectSalaryChargesOneInstallmentPerLoanAtItsOwnRate() throws {
+        let fresh = CreditCardLoan(principal: 1000)
+        let older = CreditCardLoan(principal: 600, installmentsRemaining: 3, currentInstallment: 3)
+        let player = Player(name: "Ana", balance: 1000, creditCardLoans: [fresh, older])
         let state = GameState(players: [player], properties: [])
 
         let result = try GameRules.collectSalary(in: state, playerID: player.id, amount: 200)
 
-        XCTAssertEqual(result.players[0].balance, 1200 - 275 - 334)
-        XCTAssertEqual(result.players[0].creditCardLoans[0].remainingDebt, 825)
-        XCTAssertEqual(result.players[0].creditCardLoans[0].installmentsRemaining, 3)
-        XCTAssertEqual(result.players[0].creditCardLoans[1].remainingDebt, 666)
+        XCTAssertEqual(result.players[0].balance, 1200 - 220 - 240)
+        XCTAssertEqual(result.players[0].creditCardLoans[0].principalRemaining, 800)
+        XCTAssertEqual(result.players[0].creditCardLoans[0].currentInstallment, 2)
+        XCTAssertEqual(result.players[0].creditCardLoans[1].principalRemaining, 400)
         XCTAssertEqual(result.players[0].creditCardLoans[1].installmentsRemaining, 2)
     }
 
-    func testCollectSalaryPaysOffLoanOverItsInstallments() throws {
+    func testCollectSalaryPaysOffLoanOverItsFiveInstallments() throws {
         let player = Player(name: "Ana", balance: 1000)
         var state = GameState(players: [player], properties: [], activeHouseRules: [.creditCards])
-        state = try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 300, installments: 3)
+        state = try GameRules.borrowOnCreditCard(in: state, playerID: player.id, amount: 500)
 
-        for _ in 0..<3 {
+        for _ in 0..<5 {
             state = try GameRules.collectSalary(in: state, playerID: player.id, amount: 0)
         }
 
         XCTAssertTrue(state.players[0].creditCardLoans.isEmpty)
-        XCTAssertEqual(state.players[0].balance, 1300 - 330)
+        XCTAssertEqual(state.players[0].balance, 1500 - 500 - (10 + 15 + 20 + 25 + 40))
     }
 
-    func testCollectSalaryPostponesInstallmentWithoutCharging() throws {
-        let loan = CreditCardLoan(remainingDebt: 1100, installmentsRemaining: 4, postponementsRemaining: 1)
-        let player = Player(name: "Ana", balance: 100, creditCardLoans: [loan])
-        let state = GameState(players: [player], properties: [])
-
-        let result = try GameRules.collectSalary(in: state, playerID: player.id, amount: 200, postponedLoanIDs: [loan.id])
-
-        XCTAssertEqual(result.players[0].balance, 300)
-        XCTAssertEqual(result.players[0].creditCardLoans[0].remainingDebt, 1100)
-        XCTAssertEqual(result.players[0].creditCardLoans[0].installmentsRemaining, 4)
-        XCTAssertEqual(result.players[0].creditCardLoans[0].postponementsRemaining, 0)
-    }
-
-    func testCollectSalaryFailsWhenNoPostponementsAreLeft() {
-        let loan = CreditCardLoan(remainingDebt: 1100, installmentsRemaining: 5, postponementsRemaining: 0)
-        let player = Player(name: "Ana", balance: 100, creditCardLoans: [loan])
-        let state = GameState(players: [player], properties: [])
-
-        XCTAssertThrowsError(try GameRules.collectSalary(in: state, playerID: player.id, amount: 200, postponedLoanIDs: [loan.id])) { error in
-            XCTAssertEqual(error as? GameRuleError, .noPostponementsLeft(loan.id))
-        }
-    }
-
-    func testCollectSalaryChargesOnlyAvailableCashAndKeepsLastInstallmentOpen() throws {
-        let loan = CreditCardLoan(remainingDebt: 500, installmentsRemaining: 1, postponementsRemaining: 0)
+    func testCollectSalaryChargesOnlyAvailableCashAndKeepsTheRestOverdue() throws {
+        let loan = CreditCardLoan(principal: 500, installmentsRemaining: 1, currentInstallment: 5)
         let player = Player(name: "Ana", balance: 0, creditCardLoans: [loan])
         let state = GameState(players: [player], properties: [])
 
-        let result = try GameRules.collectSalary(in: state, playerID: player.id, amount: 200)
+        var result = try GameRules.collectSalary(in: state, playerID: player.id, amount: 200)
 
         XCTAssertEqual(result.players[0].balance, 0)
-        XCTAssertEqual(result.players[0].creditCardLoans[0].remainingDebt, 300)
-        XCTAssertEqual(result.players[0].creditCardLoans[0].installmentsRemaining, 1)
-        XCTAssertEqual(GameRules.creditCardInstallmentDue(for: result.players[0].creditCardLoans[0]), 300)
+        XCTAssertEqual(result.players[0].creditCardLoans[0].remainingDebt, 500)
+        XCTAssertEqual(result.players[0].creditCardLoans[0].installmentsRemaining, 0)
+        XCTAssertEqual(GameRules.creditCardInstallmentDue(for: result.players[0].creditCardLoans[0]), 500)
+
+        result = try GameRules.collectSalary(in: result, playerID: player.id, amount: 600)
+        XCTAssertTrue(result.players[0].creditCardLoans.isEmpty)
+        XCTAssertEqual(result.players[0].balance, 100)
     }
 
     func testDeclareBankruptcyClearsCreditCardLoans() throws {
-        let loan = CreditCardLoan(remainingDebt: 500, installmentsRemaining: 2, postponementsRemaining: 3)
+        let loan = CreditCardLoan(principal: 500, installmentsRemaining: 2)
         let player = Player(name: "Ana", balance: 10, creditCardLoans: [loan])
         let state = GameState(players: [player], properties: [])
 
@@ -1588,9 +1563,10 @@ final class NetworkingTests: XCTestCase {
                 bids: [AuctionBid(playerID: playerID, amount: 100)]
             ),
             .transferMoney(payerID: playerID, recipientID: otherPlayerID, amount: 50),
-            .borrowOnCreditCard(playerID: playerID, amount: 300, installments: 4),
-            .payCreditCard(playerID: playerID, loanID: UUID(), amount: 100),
-            .collectSalary(playerID: playerID, amount: 200, postponedLoanIDs: [UUID()]),
+            .borrowOnCreditCard(playerID: playerID, amount: 300),
+            .payCreditCard(playerID: playerID, loanID: UUID(), paysOff: true),
+            .payCreditCard(playerID: playerID, loanID: UUID(), paysOff: false),
+            .collectSalary(playerID: playerID, amount: 200),
             .endTurn(playerID: playerID),
             .skipTurn
         ]
@@ -1610,7 +1586,7 @@ final class NetworkingTests: XCTestCase {
                 id: playerID,
                 name: "Ana",
                 balance: 100,
-                creditCardLoans: [CreditCardLoan(remainingDebt: 220, installmentsRemaining: 2, postponementsRemaining: 3)]
+                creditCardLoans: [CreditCardLoan(principal: 200, installmentsRemaining: 2, currentInstallment: 4, overdueDebt: 30, overdueInterest: 5)]
             )],
             properties: [Property(id: propertyID, name: "Property", colorGroup: .brown, purchasePrice: 60, mortgageValue: 30, baseRent: 10)],
             activeHouseRules: [.creditCards]
@@ -1624,8 +1600,6 @@ final class NetworkingTests: XCTestCase {
             .intentRejected(.insufficientFunds(playerID: playerID, required: 200, available: 100)),
             .intentRejected(.transferParticipantsMustDiffer),
             .intentRejected(.creditLimitExceeded(requested: 600, available: 500)),
-            .intentRejected(.invalidInstallments(6)),
-            .intentRejected(.noPostponementsLeft(UUID())),
             .intentRejected(.notPlayersTurn(currentPlayerID: playerID)),
             .intentRejected(.onlyHostCanSkipTurn),
             .intentRejected(.notEnoughShares(propertyID: propertyID, playerID: playerID)),
@@ -2010,7 +1984,7 @@ final class GameStoreTests: XCTestCase {
         let ana = Player(
             name: "Ana",
             balance: 900,
-            creditCardLoans: [CreditCardLoan(remainingDebt: 330, installmentsRemaining: 3, postponementsRemaining: 2)]
+            creditCardLoans: [CreditCardLoan(principal: 300, installmentsRemaining: 3, currentInstallment: 3)]
         )
         let luis = Player(name: "Luis", balance: 1500)
         let state = GameState(

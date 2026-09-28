@@ -15,10 +15,6 @@ extension LifeRole {
             return Color(red: 0.08, green: 0.6, blue: 0.66)
         case .chameleon:
             return Color(red: 0.5, green: 0.7, blue: 0.1)
-        case .lender:
-            return Color(red: 0.36, green: 0.4, blue: 0.55)
-        case .minimalist:
-            return Color(red: 0.62, green: 0.52, blue: 0.4)
         }
     }
 }
@@ -76,7 +72,7 @@ struct RoleCardView: View {
     let role: LifeRole
     /// The Chameleon's current personality.
     var disguise: LifeRole?
-    /// The player's secret rival.
+    /// The player's rival.
     var targetName: String?
 
     private var definition: LifeRoleDefinition {
@@ -142,7 +138,7 @@ struct RoleCardView: View {
     private func rivalSection(_ rivalName: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Divider()
-            Label("Tu rival secreto: \(rivalName)", systemImage: "scope")
+            Label("Tu rival: \(rivalName)", systemImage: "scope")
                 .font(.app(.subheadline, weight: .bold))
                 .foregroundStyle(Color(red: 0.82, green: 0.16, blue: 0.2))
             ForEach(Rivalry.rules, id: \.self) { rule in

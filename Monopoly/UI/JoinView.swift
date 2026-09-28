@@ -186,8 +186,10 @@ struct JoinedGameView: View {
                 if lobby.gameMode == .monopolife {
                     LabeledContent("Rondas", value: "\(lobby.roundLimit)")
                 }
+                LabeledContent("Saldo inicial", value: startingBalanceText(lobby))
                 LabeledContent("Tarjetas de crédito", value: lobby.creditCardsEnabled ? "Sí" : "No")
                 LabeledContent("Bote de Free Parking", value: lobby.freeParkingEnabled ? "Sí" : "No")
+                LabeledContent("Cuentas de ahorro", value: lobby.savingsEnabled ? "Sí" : "No")
                 LabeledContent("Eventos del tablero", value: boardEventsText(lobby))
                 if lobby.gameMode == .classic {
                     LabeledContent("Niveles secretos", value: lobby.hiddenLevelsEnabled ? "Sí" : "No")
@@ -205,6 +207,14 @@ struct JoinedGameView: View {
             return "Hasta que quede un jugador"
         }
         return count == 1 ? "1 bancarrota" : "\(count) bancarrotas"
+    }
+
+    private func startingBalanceText(_ lobby: Lobby) -> String {
+        let base = lobby.baseStartingBalance(classicDefault: GameSessionModel.placeholderInitialBalance)
+        guard lobby.startingBalanceSpread > 0 else {
+            return "$\(base)"
+        }
+        return "$\(base) + $\(lobby.startingBalanceSpread) al azar"
     }
 
     private func boardEventsText(_ lobby: Lobby) -> String {

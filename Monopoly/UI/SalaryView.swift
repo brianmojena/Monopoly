@@ -16,7 +16,6 @@ struct SalaryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var option = SalaryOption.passed
     @State private var amountText = ""
-    @State private var postponedLoanIDs = Set<UUID>()
 
     var body: some View {
         NavigationStack {
@@ -49,7 +48,7 @@ struct SalaryView: View {
                     } header: {
                         Text("Cuotas de tarjeta")
                     } footer: {
-                        Text("Se descuentan al cobrar: \(currency(totalDue)). Si no te alcanza, se cobra lo que tengas, el resto queda pendiente para el siguiente GO y cuenta como un fallo que baja la confianza de la banca. Aplazar una cuota la mueve al final, sin recargo y sin fallo.")
+                        Text("Se descuentan al cobrar: \(currency(totalDue)). Si no te alcanza, se cobra lo que tengas, el resto queda atrasado para el siguiente GO y cuenta como un fallo que baja la confianza de la banca.")
                     }
                 }
 
@@ -89,15 +88,12 @@ struct SalaryView: View {
     }
 
     private func installmentRow(_ loan: CreditCardLoan, number: Int) -> some View {
-        Toggle(isOn: postponeBinding(for: loan.id)) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Préstamo \(number): cuota de \(currency(GameRules.creditCardInstallmentDue(for: loan)))")
-                Text(postponementsDescription(loan.postponementsRemaining))
-                    .font(.app(.caption))
-                    .foregroundStyle(.secondary)
-            }
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Préstamo \(number): cuota de \(currency(GameRules.creditCardInstallmentDue(for: loan)))")
+            Text(CreditCardView.installmentDescription(loan))
+                .font(.app(.caption))
+                .foregroundStyle(.secondary)
         }
-        .disabled(loan.postponementsRemaining == 0)
     }
 
     private var loans: [CreditCardLoan] {
@@ -116,33 +112,7 @@ struct SalaryView: View {
     }
 
     private var totalDue: Int {
-        loans
-            .filter { !postponedLoanIDs.contains($0.id) }
-            .reduce(0) { $0 + GameRules.creditCardInstallmentDue(for: $1) }
-    }
-
-    private func postponeBinding(for loanID: UUID) -> Binding<Bool> {
-        Binding(
-            get: { postponedLoanIDs.contains(loanID) },
-            set: { isPostponed in
-                if isPostponed {
-                    postponedLoanIDs.insert(loanID)
-                } else {
-                    postponedLoanIDs.remove(loanID)
-                }
-            }
-        )
-    }
-
-    private func postponementsDescription(_ count: Int) -> String {
-        switch count {
-        case 0:
-            return "Aplazar · no te quedan aplazamientos"
-        case 1:
-            return "Aplazar · te queda 1 aplazamiento"
-        default:
-            return "Aplazar · te quedan \(count) aplazamientos"
-        }
+        loans.reduce(0) { $0 + GameRules.creditCardInstallmentDue(for: $1) }
     }
 
     private var amount: Int? {
@@ -163,8 +133,7 @@ struct SalaryView: View {
         guard let amount else {
             return
         }
-        let validPostponements = postponedLoanIDs.intersection(loans.map(\.id))
-        model.collectSalary(amount: amount, postponedLoanIDs: validPostponements)
+        model.collectSalary(amount: amount)
         dismiss()
     }
 

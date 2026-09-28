@@ -4,9 +4,7 @@ struct CreditCardView: View {
     @ObservedObject var model: GameSessionModel
 
     @State private var loanText = ""
-    @State private var installments = 1
     @State private var selectedLoanID: UUID?
-    @State private var paymentText = ""
 
     var body: some View {
         Group {
@@ -68,18 +66,11 @@ struct CreditCardView: View {
         return Section {
             amountField(text: $loanText)
 
-            Picker("Plazos", selection: $installments) {
-                ForEach(1...GameRules.maxCreditCardInstallments, id: \.self) { count in
-                    Text("\(count)").tag(count)
-                }
-            }
-            .pickerStyle(.segmented)
-
             Button("Pedir préstamo") {
                 guard let amount = amount(from: loanText) else {
                     return
                 }
-                model.borrowOnCreditCard(amount: amount, installments: installments)
+                model.borrowOnCreditCard(amount: amount)
                 loanText = ""
             }
             .buttonStyle(.borderedProminent)
@@ -105,18 +96,29 @@ struct CreditCardView: View {
     }
 
     private func loanFooter(_ history: CreditHistory) -> String {
-        let postponements = GameRules.maxCreditCardInstallments - installments
-        let postponementsText = postponements == 1 ? "1 aplazamiento" : "\(postponements) aplazamientos"
+        let rates = Self.interestSchedule
         guard let amount = amount(from: loanText) else {
-            return "Hasta el \(GameRules.creditLimitPercentage(for: history))% de tu patrimonio (efectivo + propiedades no hipotecadas + construcciones − deuda), menos lo que ya debes. 10% de interés. Con \(installments) plazo(s) tienes \(postponementsText)."
+            return "Hasta el \(GameRules.creditLimitPercentage(for: history))% de tu patrimonio (efectivo + propiedades no hipotecadas + construcciones − deuda), menos lo que ya debes. Se paga en \(GameRules.creditCardInstallments) plazos, uno en cada GO, con interés \(rates)."
         }
-        let debt = GameRules.creditCardDebt(forLoan: amount)
-        let firstInstallment = GameRules.creditCardInstallmentDue(for: CreditCardLoan(
-            remainingDebt: debt,
-            installmentsRemaining: installments,
-            postponementsRemaining: postponements
-        ))
-        return "Recibes \(currency(amount)) y debes \(currency(debt)) (10% de interés) en \(installments) cuota(s) de \(currency(firstInstallment)), una en cada GO. Tienes \(postponementsText)."
+        let firstInstallment = GameRules.creditCardInstallmentDue(for: CreditCardLoan(principal: amount))
+        return "Recibes \(currency(amount)) y lo pagas en \(GameRules.creditCardInstallments) plazos, uno en cada GO. El interés sube con cada GO: \(rates). La primera cuota es de \(currency(firstInstallment)). Cuanto antes pagues, menos interés."
+    }
+
+    /// "10% → 15% → 20% → 25% → 40%"
+    static var interestSchedule: String {
+        GameRules.creditCardInterestPercentages.map { "\($0)%" }.joined(separator: " → ")
+    }
+
+    static func installmentDescription(_ loan: CreditCardLoan) -> String {
+        let rate = GameRules.creditCardInterestPercentage(installment: loan.currentInstallment)
+        let installment = min(loan.currentInstallment, GameRules.creditCardInstallments)
+        var text = loan.installmentsRemaining > 0
+            ? "Plazo \(installment) de \(GameRules.creditCardInstallments) · \(rate)% de interés · \(loan.installmentsRemaining) cuota(s) por pagar"
+            : "Sin cuotas por pagar"
+        if loan.overdueDebt > 0 {
+            text += " · $\(loan.overdueDebt) atrasado"
+        }
+        return text
     }
 
     private func loansSection(_ loans: [CreditCardLoan]) -> some View {
@@ -130,9 +132,9 @@ struct CreditCardView: View {
                         Text(currency(loan.remainingDebt))
                             .font(.app(.body, weight: .semibold))
                     }
-                    Text("\(loan.installmentsRemaining) cuota(s) restante(s) de \(currency(GameRules.creditCardInstallmentDue(for: loan)))")
+                    Text("Próxima cuota: \(currency(GameRules.creditCardInstallmentDue(for: loan)))")
                         .font(.app(.subheadline))
-                    Text("Aplazamientos disponibles: \(loan.postponementsRemaining)")
+                    Text(Self.installmentDescription(loan))
                         .font(.app(.caption))
                         .foregroundStyle(.secondary)
                 }
@@ -156,26 +158,23 @@ struct CreditCardView: View {
                 }
             }
 
-            amountField(text: $paymentText)
-
-            Button("Pagar") {
-                guard let amount = amount(from: paymentText) else {
-                    return
+            let installmentDue = GameRules.creditCardInstallmentDue(for: loan)
+            if installmentDue < loan.remainingDebt {
+                Button("Pagar una cuota (\(currency(installmentDue)))") {
+                    model.payCreditCard(loanID: loan.id, paysOff: false)
                 }
-                model.payCreditCard(loanID: loan.id, amount: amount)
-                paymentText = ""
+                .buttonStyle(.borderedProminent)
+                .disabled(player.balance < installmentDue)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(amount(from: paymentText).map { $0 > loan.remainingDebt } ?? true)
 
             Button("Liquidar préstamo (\(currency(loan.remainingDebt)))") {
-                model.payCreditCard(loanID: loan.id, amount: loan.remainingDebt)
+                model.payCreditCard(loanID: loan.id, paysOff: true)
             }
             .disabled(player.balance < loan.remainingDebt)
         } header: {
             Text("Adelantar pago")
         } footer: {
-            Text("Un pago adelantado reduce las cuotas que quedan del préstamo. En cada GO se cobra una cuota de cada préstamo; puedes aplazarla al cobrar el salario si te quedan aplazamientos.")
+            Text("Pagar una cuota ahora cobra el interés del plazo en curso y el préstamo termina antes. Liquidar paga todo lo que falta con el interés del plazo en curso. El interés sube con cada GO: \(Self.interestSchedule).")
         }
     }
 

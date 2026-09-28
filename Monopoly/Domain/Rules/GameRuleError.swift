@@ -51,9 +51,7 @@ enum GameRuleError: Error, Equatable, Codable {
     case transferParticipantsMustDiffer
     case creditCardsDisabled
     case creditLimitExceeded(requested: Int, available: Int)
-    case invalidInstallments(Int)
     case creditCardLoanNotFound(UUID)
-    case noPostponementsLeft(UUID)
     case notPlayersTurn(currentPlayerID: UUID)
     case onlyHostCanSkipTurn
     case onlyHostCanPlayCards
@@ -77,6 +75,9 @@ enum GameRuleError: Error, Equatable, Codable {
     case freeParkingPotEmpty
     case creditCut
     case creditCardLoanLimitReached(Int)
+    case savingsDisabled
+    case savingsBlockedByDebt(savable: Int)
+    case invalidSavingsTerm(Int)
     case shareCoverageNotFound(UUID)
     case playerLoanNotFound(UUID)
     case invalidLoanTerms
@@ -94,7 +95,6 @@ enum GameRuleError: Error, Equatable, Codable {
         case amount
         case creditorID
         case requested
-        case installments
         case loanID
         case dealID
         case recipientID
@@ -127,9 +127,7 @@ enum GameRuleError: Error, Equatable, Codable {
         case transferParticipantsMustDiffer
         case creditCardsDisabled
         case creditLimitExceeded
-        case invalidInstallments
         case creditCardLoanNotFound
-        case noPostponementsLeft
         case notPlayersTurn
         case onlyHostCanSkipTurn
         case onlyHostCanPlayCards
@@ -153,6 +151,9 @@ enum GameRuleError: Error, Equatable, Codable {
         case freeParkingPotEmpty
         case creditCut
         case creditCardLoanLimitReached
+        case savingsDisabled
+        case savingsBlockedByDebt
+        case invalidSavingsTerm
         case shareCoverageNotFound
         case playerLoanNotFound
         case invalidLoanTerms
@@ -226,12 +227,8 @@ enum GameRuleError: Error, Equatable, Codable {
                 requested: try container.decode(Int.self, forKey: .requested),
                 available: try container.decode(Int.self, forKey: .available)
             )
-        case .invalidInstallments:
-            self = .invalidInstallments(try container.decode(Int.self, forKey: .installments))
         case .creditCardLoanNotFound:
             self = .creditCardLoanNotFound(try container.decode(UUID.self, forKey: .loanID))
-        case .noPostponementsLeft:
-            self = .noPostponementsLeft(try container.decode(UUID.self, forKey: .loanID))
         case .notPlayersTurn:
             self = .notPlayersTurn(currentPlayerID: try container.decode(UUID.self, forKey: .playerID))
         case .onlyHostCanSkipTurn:
@@ -286,6 +283,12 @@ enum GameRuleError: Error, Equatable, Codable {
             self = .creditCut
         case .creditCardLoanLimitReached:
             self = .creditCardLoanLimitReached(try container.decode(Int.self, forKey: .amount))
+        case .savingsDisabled:
+            self = .savingsDisabled
+        case .savingsBlockedByDebt:
+            self = .savingsBlockedByDebt(savable: try container.decode(Int.self, forKey: .amount))
+        case .invalidSavingsTerm:
+            self = .invalidSavingsTerm(try container.decode(Int.self, forKey: .amount))
         case .shareCoverageNotFound:
             self = .shareCoverageNotFound(try container.decode(UUID.self, forKey: .coverageID))
         case .playerLoanNotFound:
@@ -376,14 +379,8 @@ enum GameRuleError: Error, Equatable, Codable {
             try container.encode(Code.creditLimitExceeded, forKey: .code)
             try container.encode(requested, forKey: .requested)
             try container.encode(available, forKey: .available)
-        case let .invalidInstallments(installments):
-            try container.encode(Code.invalidInstallments, forKey: .code)
-            try container.encode(installments, forKey: .installments)
         case let .creditCardLoanNotFound(loanID):
             try container.encode(Code.creditCardLoanNotFound, forKey: .code)
-            try container.encode(loanID, forKey: .loanID)
-        case let .noPostponementsLeft(loanID):
-            try container.encode(Code.noPostponementsLeft, forKey: .code)
             try container.encode(loanID, forKey: .loanID)
         case let .notPlayersTurn(currentPlayerID):
             try container.encode(Code.notPlayersTurn, forKey: .code)
@@ -444,6 +441,14 @@ enum GameRuleError: Error, Equatable, Codable {
         case let .creditCardLoanLimitReached(maximum):
             try container.encode(Code.creditCardLoanLimitReached, forKey: .code)
             try container.encode(maximum, forKey: .amount)
+        case .savingsDisabled:
+            try container.encode(Code.savingsDisabled, forKey: .code)
+        case let .savingsBlockedByDebt(savable):
+            try container.encode(Code.savingsBlockedByDebt, forKey: .code)
+            try container.encode(savable, forKey: .amount)
+        case let .invalidSavingsTerm(terms):
+            try container.encode(Code.invalidSavingsTerm, forKey: .code)
+            try container.encode(terms, forKey: .amount)
         case let .shareCoverageNotFound(coverageID):
             try container.encode(Code.shareCoverageNotFound, forKey: .code)
             try container.encode(coverageID, forKey: .coverageID)

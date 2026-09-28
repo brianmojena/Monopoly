@@ -543,6 +543,14 @@ struct GameBoardView: View {
                     }
                 }
 
+                if model.areSavingsEnabled {
+                    NavigationLink {
+                        SavingsView(model: model)
+                    } label: {
+                        ActionTile(title: "Ahorros", detail: savingsDetail, icon: "banknote", tint: .green)
+                    }
+                }
+
                 if model.role == .host {
                     Button {
                         isShowingHostCards = true
@@ -758,6 +766,13 @@ struct GameBoardView: View {
 
     private func localPlayer(in state: GameState) -> Player? {
         state.players.first(where: { $0.id == model.localPlayerID })
+    }
+
+    private var savingsDetail: String {
+        guard let state = model.gameState, let savings = localPlayer(in: state)?.savings, !savings.isEmpty else {
+            return "Variable y fija"
+        }
+        return currency(savings.total)
     }
 
     private func roundValue(_ state: GameState) -> String {

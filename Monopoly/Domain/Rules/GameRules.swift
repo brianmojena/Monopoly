@@ -37,6 +37,7 @@ enum GameRules {
         updatedState.marketDeals.removeAll { $0.sharedPurchase?.propertyID == propertyID }
         reindexPropertyIDs(in: &updatedState)
         applyLifeTrigger(.propertyBought(playerID: playerID), in: &updatedState)
+        applyLifeTrigger(.moneySpent(playerID: playerID, amount: property.purchasePrice), in: &updatedState)
         return updatedState
     }
 
@@ -96,6 +97,7 @@ enum GameRules {
         updatedState.marketDeals.removeAll { $0.sharedPurchase?.propertyID == propertyID }
         reindexPropertyIDs(in: &updatedState)
         applyLifeTrigger(.propertyBought(playerID: winningBid.playerID), in: &updatedState)
+        applyLifeTrigger(.moneySpent(playerID: winningBid.playerID, amount: winningBid.amount), in: &updatedState)
         applyLifeTrigger(
             .auctionWon(winnerID: winningBid.playerID, bidderIDs: Set(bids.map(\.playerID))),
             in: &updatedState
@@ -144,8 +146,9 @@ enum GameRules {
         guard payer.balance >= amountDue else {
             // Rent beyond everything the payer has bankrupts them on the spot: the
             // shareholders take it all and the Free Parking pot covers what's missing.
-            let assets = try assetsValue(of: payerID, in: state)
-            guard assets < amountDue else {
+            // Fixed deposits can't be drawn on to pay, but they are handed over.
+            let reachableAssets = try assetsValue(of: payerID, in: state) - payer.savings.fixedTotal
+            guard reachableAssets < amountDue else {
                 throw GameRuleError.insufficientFunds(
                     playerID: payerID,
                     required: amountDue,
@@ -187,7 +190,7 @@ enum GameRules {
             let kept = takeLoanRentCuts(from: remaining, collectedBy: portion.playerID, in: &updatedState)
             credit(kept, to: portion.playerID, in: &updatedState)
             if remaining > 0 {
-                applyLifeTrigger(.rentReceived(playerID: portion.playerID, payerID: payerID), in: &updatedState)
+                applyLifeTrigger(.rentReceived(playerID: portion.playerID, payerID: payerID, amount: remaining), in: &updatedState)
             }
         }
         applyLifeTrigger(
@@ -199,6 +202,7 @@ enum GameRules {
             ),
             in: &updatedState
         )
+        applyLifeTrigger(.moneySpent(playerID: payerID, amount: amountDue), in: &updatedState)
         return RentResult(state: updatedState, amount: amountDue)
     }
 
@@ -256,8 +260,7 @@ enum GameRules {
     static func collectSalary(
         in state: GameState,
         playerID: UUID,
-        amount: Int,
-        postponedLoanIDs: Set<UUID> = []
+        amount: Int
     ) throws -> GameState {
         guard let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
             throw GameRuleError.playerNotFound(playerID)
@@ -267,17 +270,8 @@ enum GameRules {
             throw GameRuleError.invalidAmount(amount)
         }
 
-        let loans = state.players[playerIndex].creditCardLoans
-        for loanID in postponedLoanIDs {
-            guard let loan = loans.first(where: { $0.id == loanID }) else {
-                throw GameRuleError.creditCardLoanNotFound(loanID)
-            }
-            guard loan.postponementsRemaining > 0 else {
-                throw GameRuleError.noPostponementsLeft(loanID)
-            }
-        }
-
         var updatedState = state
+        paySavingsAtGo(for: playerID, in: &updatedState)
         var player = updatedState.players[playerIndex]
         let hadCardDebt = player.creditCardDebt > 0
         var interestPaid = 0
@@ -285,33 +279,21 @@ enum GameRules {
         player.balance += amount
 
         for index in player.creditCardLoans.indices {
-            if postponedLoanIDs.contains(player.creditCardLoans[index].id) {
-                player.creditCardLoans[index].postponementsRemaining -= 1
-                continue
-            }
-
             let due = creditCardInstallmentDue(for: player.creditCardLoans[index])
-            let payment = min(due, player.balance)
-            if payment < due {
+            let charge = chargeCreditCardInstallment(of: &player.creditCardLoans[index], upTo: player.balance)
+            if charge.paid < due {
                 missedAnInstallment = true
             }
-            let interest = interestPortion(of: payment, for: player.creditCardLoans[index])
-            player.balance -= payment
-            player.creditCardLoans[index].remainingDebt -= payment
-            player.creditCardLoans[index].remainingInterest -= interest
-            interestPaid += interest
-            // The last installment stays open until paid, so an unpaid remainder is due
-            // in full at the next GO instead of disappearing from the schedule.
-            if player.creditCardLoans[index].installmentsRemaining > 1 {
-                player.creditCardLoans[index].installmentsRemaining -= 1
-            }
+            player.balance -= charge.paid
+            interestPaid += charge.interest
+            player.creditCardLoans[index].currentInstallment += 1
         }
         // Several short installments in the same GO count as one missed payment.
         if missedAnInstallment {
             player.creditHistory.missedPayments += 1
         }
-        player.creditHistory.paidOffLoans += player.creditCardLoans.filter { $0.remainingDebt <= 0 }.count
-        player.creditCardLoans.removeAll { $0.remainingDebt <= 0 }
+        player.creditHistory.paidOffLoans += player.creditCardLoans.filter(\.isPaidOff).count
+        player.creditCardLoans.removeAll(where: \.isPaidOff)
 
         updatedState.players[playerIndex] = player
         depositInFreeParking(interestPaid, in: &updatedState)
@@ -327,8 +309,8 @@ enum GameRules {
         return try assetsValue(of: playerID, in: state) - player.creditCardDebt + playerLoanBalance(of: playerID, in: state)
     }
 
-    /// Cash plus the value of the player's shares in unmortgaged properties: everything
-    /// they could hand over, before their credit card debt and loans between players.
+    /// Cash, savings and the value of the player's shares in unmortgaged properties:
+    /// everything they could hand over, before their credit card debt and loans between players.
     static func assetsValue(of playerID: UUID, in state: GameState) throws -> Int {
         guard let player = state.players.first(where: { $0.id == playerID }) else {
             throw GameRuleError.playerNotFound(playerID)
@@ -348,7 +330,7 @@ enum GameRules {
                 let fullValue = property.purchasePrice + paidLevelCosts
                 return total + fullValue * property.shares(of: playerID) / Property.totalShares
             }
-        return player.balance + propertiesValue
+        return player.balance + player.savings.total + propertiesValue
     }
 
     // Bank trust (GAME_RULES section 8.1).
@@ -387,25 +369,61 @@ enum GameRules {
         return max(0, limit - player.creditCardDebt)
     }
 
-    static func creditCardDebt(forLoan amount: Int) -> Int {
-        amount * 11 / 10
+    static let creditCardInstallments = 5
+    /// Interest of each installment in progress: 10% for the first, up 5 points per GO, and 40% for the last.
+    static let creditCardInterestPercentages = [10, 15, 20, 25, 40]
+
+    static func creditCardInterestPercentage(installment: Int) -> Int {
+        let index = min(max(installment, 1), creditCardInterestPercentages.count) - 1
+        return creditCardInterestPercentages[index]
     }
 
-    static let maxCreditCardInstallments = 5
-
-    // Rounded up so the installments always cover the whole debt.
-    static func creditCardInstallmentDue(for loan: CreditCardLoan) -> Int {
-        guard loan.installmentsRemaining > 1 else {
-            return loan.remainingDebt
+    // Rounded up, like the installments.
+    static func creditCardInterest(on principal: Int, installment: Int) -> Int {
+        guard principal > 0 else {
+            return 0
         }
-        return (loan.remainingDebt + loan.installmentsRemaining - 1) / loan.installmentsRemaining
+        return (principal * creditCardInterestPercentage(installment: installment) + 99) / 100
+    }
+
+    // Rounded up so the installments always cover the whole amount.
+    static func creditCardInstallmentPrincipal(for loan: CreditCardLoan) -> Int {
+        guard loan.installmentsRemaining > 0 else {
+            return 0
+        }
+        return (loan.principalRemaining + loan.installmentsRemaining - 1) / loan.installmentsRemaining
+    }
+
+    /// What the next GO charges for the loan: the overdue debt plus the next installment
+    /// with the interest of the installment in progress.
+    static func creditCardInstallmentDue(for loan: CreditCardLoan) -> Int {
+        let principal = creditCardInstallmentPrincipal(for: loan)
+        return loan.overdueDebt + principal + creditCardInterest(on: principal, installment: loan.currentInstallment)
+    }
+
+    /// Charges the next installment, collecting at most `available`. The unpaid part stays
+    /// overdue, and the interest collected is in the same proportion as the payment.
+    private static func chargeCreditCardInstallment(
+        of loan: inout CreditCardLoan,
+        upTo available: Int
+    ) -> (paid: Int, interest: Int) {
+        let principal = creditCardInstallmentPrincipal(for: loan)
+        let interestDue = loan.overdueInterest + creditCardInterest(on: principal, installment: loan.currentInstallment)
+        let due = creditCardInstallmentDue(for: loan)
+        let paid = min(due, max(0, available))
+        let interest = due > 0 ? paid * interestDue / due : 0
+
+        loan.principalRemaining -= principal
+        loan.installmentsRemaining = max(0, loan.installmentsRemaining - 1)
+        loan.overdueDebt = due - paid
+        loan.overdueInterest = interestDue - interest
+        return (paid, interest)
     }
 
     static func borrowOnCreditCard(
         in state: GameState,
         playerID: UUID,
-        amount: Int,
-        installments: Int
+        amount: Int
     ) throws -> GameState {
         guard state.activeHouseRules.contains(.creditCards) else {
             throw GameRuleError.creditCardsDisabled
@@ -416,9 +434,6 @@ enum GameRules {
         try requireActivePlayer(in: state, playerID: playerID)
         guard amount > 0 else {
             throw GameRuleError.invalidAmount(amount)
-        }
-        guard (1...maxCreditCardInstallments).contains(installments) else {
-            throw GameRuleError.invalidInstallments(installments)
         }
         let history = state.players[playerIndex].creditHistory
         guard !isCreditCut(for: history) else {
@@ -436,13 +451,7 @@ enum GameRules {
 
         var updatedState = state
         updatedState.players[playerIndex].balance += amount
-        let debt = creditCardDebt(forLoan: amount)
-        updatedState.players[playerIndex].creditCardLoans.append(CreditCardLoan(
-            remainingDebt: debt,
-            installmentsRemaining: installments,
-            postponementsRemaining: maxCreditCardInstallments - installments,
-            remainingInterest: debt - amount
-        ))
+        updatedState.players[playerIndex].creditCardLoans.append(CreditCardLoan(principal: amount))
         applyLifeTrigger(.loanTaken(playerID: playerID), in: &updatedState)
         return updatedState
     }
@@ -451,7 +460,7 @@ enum GameRules {
         in state: GameState,
         playerID: UUID,
         loanID: UUID,
-        amount: Int
+        paysOff: Bool
     ) throws -> GameState {
         guard let playerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
             throw GameRuleError.playerNotFound(playerID)
@@ -462,9 +471,8 @@ enum GameRules {
         guard let loanIndex = player.creditCardLoans.firstIndex(where: { $0.id == loanID }) else {
             throw GameRuleError.creditCardLoanNotFound(loanID)
         }
-        guard amount > 0, amount <= player.creditCardLoans[loanIndex].remainingDebt else {
-            throw GameRuleError.invalidAmount(amount)
-        }
+        var loan = player.creditCardLoans[loanIndex]
+        let amount = paysOff ? loan.remainingDebt : creditCardInstallmentDue(for: loan)
         guard player.balance >= amount else {
             throw GameRuleError.insufficientFunds(
                 playerID: playerID,
@@ -473,15 +481,23 @@ enum GameRules {
             )
         }
 
-        let interest = interestPortion(of: amount, for: player.creditCardLoans[loanIndex])
+        let interest: Int
+        if paysOff {
+            interest = loan.overdueInterest + creditCardInterest(on: loan.principalRemaining, installment: loan.currentInstallment)
+            loan = CreditCardLoan(id: loan.id, principal: 0, installmentsRemaining: 0, currentInstallment: loan.currentInstallment)
+        } else {
+            // Paying ahead does not move the installment in progress, so the loan simply ends sooner.
+            interest = chargeCreditCardInstallment(of: &loan, upTo: amount).interest
+        }
+
         var updatedState = state
         updatedState.players[playerIndex].balance -= amount
-        updatedState.players[playerIndex].creditCardLoans[loanIndex].remainingDebt -= amount
-        updatedState.players[playerIndex].creditCardLoans[loanIndex].remainingInterest -= interest
-        if updatedState.players[playerIndex].creditCardLoans[loanIndex].remainingDebt <= 0 {
+        if loan.isPaidOff {
             updatedState.players[playerIndex].creditHistory.paidOffLoans += 1
+            updatedState.players[playerIndex].creditCardLoans.remove(at: loanIndex)
+        } else {
+            updatedState.players[playerIndex].creditCardLoans[loanIndex] = loan
         }
-        updatedState.players[playerIndex].creditCardLoans.removeAll { $0.remainingDebt <= 0 }
         depositInFreeParking(interest, in: &updatedState)
         return updatedState
     }
@@ -519,7 +535,7 @@ enum GameRules {
         var updatedState = state
         updatedState.players[payerIndex].balance -= amount
         updatedState.players[recipientIndex].balance += amount
-        applyLifeTrigger(.moneyGiven(playerID: payerID, amount: amount), in: &updatedState)
+        applyLifeTrigger(.moneyGiven(playerID: payerID, recipientID: recipientID, amount: amount), in: &updatedState)
         return updatedState
     }
 
@@ -611,7 +627,22 @@ enum GameRules {
             clampLoanCollateral(in: &updatedState)
             reindexPropertyIDs(in: &updatedState)
         }
-        applyLifeTrigger(.leveledUp(playerID: playerID), in: &updatedState)
+        for payment in plan.payments {
+            applyLifeTrigger(.moneySpent(playerID: payment.playerID, amount: payment.amount), in: &updatedState)
+        }
+        let ownPart = plan.payments.first(where: { $0.playerID == playerID })?.amount ?? 0
+        let covered = plan.coverages.reduce(0) { $0 + $1.amount }
+        applyLifeTrigger(
+            .leveledUp(
+                playerID: playerID,
+                managesProperty: updatedState.properties[propertyIndex].ownerID == playerID,
+                paid: ownPart + covered
+            ),
+            in: &updatedState
+        )
+        if covered > 0 {
+            applyLifeTrigger(.moneySpent(playerID: playerID, amount: covered), in: &updatedState)
+        }
         // Covering a shareholder trades shares between the two, so it counts as a deal.
         for coverage in plan.coverages {
             applyLifeTrigger(.dealSettled(participantIDs: [playerID, coverage.playerID], isScorable: true), in: &updatedState)
@@ -680,6 +711,10 @@ enum GameRules {
         var updatedState = state
         payShareholders(resaleValue, of: property, in: &updatedState)
         updatedState.properties[propertyIndex].constructionLevel = targetLevel
+        // What comes back from selling a level no longer counts as spent.
+        for portion in split(resaleValue, among: property.ownership) {
+            applyLifeTrigger(.moneySpent(playerID: portion.playerID, amount: -portion.amount), in: &updatedState)
+        }
         return updatedState
     }
 
@@ -757,7 +792,8 @@ enum GameRules {
                 return total + (buildingsValue + mortgageValue) * property.shares(of: playerID) / Property.totalShares
             }
 
-        return player.balance + liquidationValue >= debt.amount
+        // Fixed deposits are locked, so only the variable account can be drawn on.
+        return player.balance + player.savings.variableBalance + liquidationValue >= debt.amount
     }
 
     static func declareBankruptcy(
@@ -792,12 +828,14 @@ enum GameRules {
         guard let bankruptPlayerIndex = state.players.firstIndex(where: { $0.id == playerID }) else {
             return state
         }
-        let bankruptBalance = state.players[bankruptPlayerIndex].balance
+        // Savings, locked or not, go to the creditors like cash.
+        let bankruptBalance = state.players[bankruptPlayerIndex].balance + state.players[bankruptPlayerIndex].savings.total
 
         var updatedState = state
         cancelPlayerLoans(ofBankrupt: playerID, in: &updatedState)
         updatedState.players[bankruptPlayerIndex].status = .bankrupt
         updatedState.players[bankruptPlayerIndex].balance = 0
+        updatedState.players[bankruptPlayerIndex].savings = Savings()
         updatedState.players[bankruptPlayerIndex].creditCardLoans.removeAll()
         updatedState.players[bankruptPlayerIndex].jailTurn = nil
 

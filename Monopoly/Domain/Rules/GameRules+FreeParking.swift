@@ -24,6 +24,7 @@ extension GameRules {
         updatedState.players[playerIndex].balance -= route.fare
         depositInFreeParking(route.fare, in: &updatedState)
         applyLifeTrigger(.travelPaid(playerID: playerID), in: &updatedState)
+        applyLifeTrigger(.moneySpent(playerID: playerID, amount: route.fare), in: &updatedState)
         return updatedState
     }
 
@@ -52,14 +53,5 @@ extension GameRules {
             return
         }
         state.freeParkingPot += amount
-    }
-
-    // Each payment carries interest in the same proportion as the debt still owed, so
-    // the loan's last payment always carries exactly the interest that is left.
-    static func interestPortion(of payment: Int, for loan: CreditCardLoan) -> Int {
-        guard loan.remainingDebt > 0 else {
-            return 0
-        }
-        return min(payment * loan.remainingInterest / loan.remainingDebt, loan.remainingInterest)
     }
 }

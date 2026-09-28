@@ -228,14 +228,12 @@ extension GameRules {
             .dealSettled(participantIDs: deal.participantIDs, isScorable: isScorableDeal(deal)),
             in: &updatedState
         )
-        for buyer in deal.sharedPurchase?.buyers ?? [] {
-            applyLifeTrigger(.propertyBought(playerID: buyer.playerID), in: &updatedState)
-        }
-        if let loan = deal.proposedLoan {
-            applyLifeTrigger(
-                .loanGiven(lenderID: loan.lenderID, principal: loan.principal, interestPercentage: loan.interestPercentage),
-                in: &updatedState
-            )
+        if let purchase = deal.sharedPurchase,
+           let price = updatedState.properties.first(where: { $0.id == purchase.propertyID })?.purchasePrice {
+            for portion in split(price, among: purchase.buyers) {
+                applyLifeTrigger(.propertyBought(playerID: portion.playerID), in: &updatedState)
+                applyLifeTrigger(.moneySpent(playerID: portion.playerID, amount: portion.amount), in: &updatedState)
+            }
         }
         return updatedState
     }

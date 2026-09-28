@@ -144,6 +144,21 @@ El valor de hipoteca no existe en Ultimate Banking; se mantiene en la mitad del 
 - **Patrimonio** (sección 7 y crédito de la tarjeta, sección 8.1): la deuda que falta resta al deudor y suma al prestamista.
 - **Bancarrota**: si el deudor quiebra, el prestamista se queda primero con la garantía (si la hay) y el resto de la deuda se pierde; si el prestamista quiebra, los préstamos que dio se cancelan. En ambos casos el préstamo desaparece.
 
+### 4.10 Cuentas de ahorro
+- **Regla opcional**, desactivada por defecto. El host la activa en la sala; funciona igual en Monopoly Classic y en Monopolife.
+- **Solo se ahorra lo que no se debe**: lo máximo que se puede meter en cualquier cuenta es el efectivo menos la deuda de tarjeta (sección 8.1) y lo que se debe en préstamos entre jugadores (sección 4.9).
+- **Cuenta variable** (una por jugador, sin plazo): se mete y se saca dinero en cualquier momento, sin esperar turno.
+  - Cada vez que el jugador pasa por GO, la cuenta le paga en efectivo un interés sobre lo que tenga ahorrado en ese momento: **10%** el primer GO, y 10 puntos más en cada GO siguiente (20%, 30%, 40%) hasta un **tope de 50%**.
+  - **Sacar** cualquier monto reinicia el interés a 10%. Meter dinero no lo reinicia.
+  - Un GO con la cuenta vacía no sube el interés (y lo deja en 10%), para que no se pueda esperar con la cuenta vacía y ahorrar directo al 50%.
+- **Cuenta fija**: el jugador elige el monto y el plazo, de **1 a 5** pasos por GO. Puede tener varias a la vez, cada una con su plazo.
+  - No se puede meter ni sacar dinero hasta que termine.
+  - En cada GO paga en efectivo un interés sobre lo depositado: **20%** el primer GO y 15 puntos más en cada uno siguiente (35%, 50%, 65%, 80%). Ej.: $1000 a 5 GOs pagan $200 + $350 + $500 + $650 + $800.
+  - En el último GO del plazo, además del interés, devuelve lo depositado al efectivo.
+- **El interés va siempre al efectivo** (dinero gastable), nunca se suma a la cuenta. Todo el interés y el dinero de cuentas fijas que terminan llega en el GO **después del salario y antes** de las cuotas de tarjeta y de préstamos entre jugadores, así que sirve para cubrirlas. Los montos se redondean hacia abajo.
+- **Patrimonio** (sección 7, crédito de la tarjeta): lo ahorrado en las dos cuentas cuenta como efectivo.
+- **Bancarrota** (sección 6): lo ahorrado en las dos cuentas, fijas incluidas, pasa al acreedor como el efectivo (o sale del juego si el acreedor es la banca). Para decidir si una renta lleva a la bancarrota automática (sección 6.1) no cuentan las cuentas fijas, porque no se pueden sacar para pagar.
+
 ## 5. Impuestos y casillas especiales
 
 - **Impuesto sobre la Renta / Impuesto de Lujo**: montos fijos definidos en el tablero, se pagan a la banca (el dinero sale del juego, no va a Free Parking salvo house rule activada).
@@ -208,25 +223,28 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 | Doble renta antes de construir | Ya es regla oficial en el clásico; aquí se deja explícito como toggle por si la edición Ultimate Banking no la incluye por defecto. |
 | Sin subasta | Si un jugador no compra una propiedad, esta simplemente queda disponible para el siguiente jugador que caiga en ella, sin subasta. |
 | Bono en Casa aleatorio | Activa el evento aleatorio de bono monetario que el dispositivo físico Ultimate Banking entrega ocasionalmente. |
-| Saldo inicial personalizado | Permite definir un monto de dinero inicial distinto al valor por defecto. |
+| Saldo inicial personalizado | El host elige con cuánto dinero empieza cada jugador y si empiezan con una diferencia entre sí. Ver sección 8.6. |
 | Tarjetas de crédito | **Activada por defecto** en la configuración del host (decisión de Brian). Ver sección 8.1. |
 | Niveles secretos | Solo en Monopoly Classic. Ver sección 8.4. |
+| Cuentas de ahorro | Cuenta variable y cuentas fijas que pagan interés en cada GO. Ver sección 4.10. |
 
 ### 8.1 Tarjetas de crédito
 
 - **Patrimonio** (para crédito): efectivo + precio de cada propiedad no hipotecada + suma de lo que costó subir cada nivel ya alcanzado (sección 4.3) − deuda de tarjeta − lo que debe en préstamos entre jugadores + lo que le deben (sección 4.9). Las propiedades hipotecadas cuentan 0.
 - **Crédito disponible**: el **límite de confianza** (ver abajo, 50% del patrimonio al empezar) menos la deuda de tarjeta actual. Restar la deuda evita encadenar préstamos, porque el efectivo prestado cuenta como patrimonio.
 - **Confianza de la banca**: cada jugador tiene un historial de crédito que empieza vacío.
-  - Cada préstamo que **termina de pagar** (por cuotas en GO o pagos anticipados) sube el límite **20 puntos** del patrimonio (50% → 70% → 90% → 100%). El límite nunca pasa del **100%** del patrimonio.
-  - Cada **fallo** baja el límite 20 puntos (50% → 30%). Un fallo es pasar por GO y **no poder cubrir completa** la cuota de un préstamo que no se aplazó (se cobra lo que haya, como siempre, y el resto sigue como deuda). Aplazar una cuota **no** es un fallo, y la bancarrota tampoco suma fallos. Si en un mismo GO quedan cortas las cuotas de varios préstamos, cuenta como un solo fallo.
+  - Cada préstamo que **termina de pagar** (por cuotas en GO, cuotas adelantadas o liquidándolo) sube el límite **20 puntos** del patrimonio (50% → 70% → 90% → 100%). El límite nunca pasa del **100%** del patrimonio.
+  - Cada **fallo** baja el límite 20 puntos (50% → 30%). Un fallo es pasar por GO y **no poder cubrir completa** la cuota de un préstamo (se cobra lo que haya y el resto queda atrasado). La bancarrota no suma fallos. Si en un mismo GO quedan cortas las cuotas de varios préstamos, cuenta como un solo fallo.
   - Con **2 fallos** la banca deja de dar crédito: no se pueden pedir más préstamos en toda la partida. Los préstamos que ya tenga se siguen cobrando igual.
   - El límite no baja de 0% del patrimonio.
-- **Interés**: 10% fijo en el momento de pedir el préstamo (pides $1000 → debes $1100). La deuda no crece con el tiempo.
-- **Plazos**: al pedir un préstamo se eligen de 1 a 5 plazos. La deuda (con el interés) se divide entre esos plazos y en cada GO se cobra una cuota: lo que queda por pagar ÷ cuotas restantes, redondeado hacia arriba.
-- **Aplazamientos**: cada préstamo tiene 5 − plazos elegidos aplazamientos (5 plazos → 0; 4 → 1; 1 → 4). Al cobrar el salario de GO el jugador puede aplazar la cuota de ese préstamo: ese GO no se cobra y la cuota pasa al final. No tiene recargo.
-- **Cobro en GO**: primero se suma el salario y luego se cobra la cuota de cada préstamo no aplazado. Si el efectivo no alcanza, se cobra todo lo que haya y el resto sigue como deuda; en la última cuota, lo que quede se cobra completo en el siguiente GO. El saldo nunca queda negativo.
-- **Varios préstamos**: mientras el jugador no haya terminado de pagar ningún préstamo, solo puede tener **uno** a la vez. Después de terminar de pagar al menos uno, puede tener hasta **dos** a la vez. Cada préstamo tiene sus propios plazos y aplazamientos, y el límite de crédito cuenta la deuda de todos.
-- **Pagos anticipados**: se puede pagar cualquier monto de un préstamo, hasta lo que queda por pagar, en cualquier momento. Reduce las cuotas restantes de ese préstamo.
+- **Plazos**: todos los préstamos se pagan en **5 plazos fijos** (no se eligen), uno por cada GO. El monto pedido se divide en 5 partes; cada cuota es la parte que toca (lo que queda del monto ÷ plazos restantes, redondeado hacia arriba) más su interés.
+- **Interés escalonado**: el interés depende del plazo en curso, es decir, de cuántas veces ha pasado el jugador por GO desde que pidió el préstamo: **1.er plazo 10%**, 2.º 15%, 3.º 20%, 4.º 25% y **5.º (último) 40%**. Se aplica solo a la parte del monto que se paga, redondeado hacia arriba. Antes del primer GO el plazo en curso es el 1.º; cada GO lo avanza uno. Cuanto antes se paga, menos interés.
+- **Cobro en GO**: primero se suma el salario y luego se cobra la cuota de cada préstamo, al interés del plazo en curso. Si el efectivo no alcanza, se cobra todo lo que haya y el resto queda **atrasado** (con su interés ya fijado, no crece) y se cobra completo junto con la cuota del siguiente GO. El saldo nunca queda negativo.
+- **Pagos anticipados**: no se elige cuánto pagar. En cualquier momento se puede:
+  - **Pagar una cuota**: se paga ahora lo que se cobraría en el próximo GO (lo atrasado más la cuota siguiente, al interés del plazo en curso). El plazo en curso no avanza: el siguiente GO cobra la cuota que venga después, así que el préstamo termina antes.
+  - **Liquidar el préstamo**: lo atrasado más todo el monto que falta con el interés del plazo en curso.
+- **Deuda de tarjeta** (patrimonio, crédito disponible): lo que costaría liquidar cada préstamo en ese momento.
+- **Varios préstamos**: mientras el jugador no haya terminado de pagar ningún préstamo, solo puede tener **uno** a la vez. Después de terminar de pagar al menos uno, puede tener hasta **dos** a la vez. Cada préstamo tiene sus propios plazos, y el límite de crédito cuenta la deuda de todos.
 - **Bancarrota**: la deuda de tarjeta se cancela; no pasa al acreedor.
 
 ### 8.2 Free Parking Jackpot
@@ -235,7 +253,7 @@ Estas reglas están **desactivadas por defecto** (siguiendo las reglas oficiales
 - Van al bote, en el momento en que se pagan:
   - Impuestos (sección 5), incluida la fianza de la cárcel, que se paga como impuesto.
   - Tarifas de las casillas de viaje (sección 5).
-  - El **interés** de la tarjeta de crédito (sección 8.1), a medida que se paga: cada pago (cuota en GO o pago anticipado) lleva dentro una parte de interés proporcional a lo que queda por pagar de ese préstamo, y esa parte va al bote. Al terminar de pagar el préstamo, todo su 10% ha ido al bote. Si el jugador quiebra, el interés que no pagó no llega al bote.
+  - El **interés** de la tarjeta de crédito (sección 8.1), a medida que se paga: cada pago (cuota en GO, cuota adelantada o liquidación) lleva dentro el interés de su plazo, y esa parte va al bote. Si una cuota se cobra incompleta, el interés va al bote en proporción a lo cobrado y el resto cuando se pague lo atrasado. Si el jugador quiebra, el interés que no pagó no llega al bote.
   - El **10% de interés al deshipotecar** (sección 4.4); el valor de hipoteca en sí sale del juego.
   - En Monopolife, lo que una Tarjeta de Vida hace pagar a la banca (no lo que se paga a otros jugadores).
 - **No** van al bote: compras de propiedades (directas, subastas, compartidas), subir de nivel, ni el dinero de un jugador que quiebra con la banca.
@@ -318,6 +336,13 @@ Cuando sale una de estas cartas físicas en la mesa, **solo el host** la aplica 
 
 - En las cartas de renta el host elige el lado y la duración: **permanente** o **N rondas** contando la ronda en curso.
 - Los cambios se suman a la renta del nivel y a los de los eventos del tablero (sección 8.3), con las mismas reglas: la renta puede quedar negativa y pagarse al revés (sección 4.2), y una propiedad hipotecada sigue sin cobrar.
+
+### 8.6 Saldo inicial
+
+- En la sala de espera el host elige el **saldo inicial**: de $500 a $10,000, de $100 en $100. Por defecto es $1,500 en Classic y $2,000 en Monopolife (`MONOPOLIFE_RULES.md`); si el host no lo toca, cambiar de modo usa el valor por defecto del nuevo modo.
+- También elige la **diferencia entre jugadores**: **Igual** (por defecto, todos empiezan con el saldo inicial), **$100** o **$200**.
+- Con diferencia, al iniciar la partida la app sortea un orden: el primero empieza con el saldo inicial y cada uno de los siguientes con la diferencia más que el anterior. Ejemplo: saldo inicial $1,600 y diferencia $100 con 4 jugadores → $1,600, $1,700, $1,800 y $1,900, repartidos al azar (no depende del orden de turnos).
+- Los que se unen ven en la sala el saldo inicial y la diferencia elegidos.
 
 ## 9. Preguntas abiertas / a validar con el usuario
 

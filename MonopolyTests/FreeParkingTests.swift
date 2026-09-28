@@ -141,80 +141,136 @@ final class FreeParkingTests: XCTestCase {
 
     // MARK: Credit card interest
 
-    func testBorrowOnCreditCardRecordsTheInterestOfTheLoan() throws {
+    func testBorrowOnCreditCardStartsFiveInstallmentsAtTenPercent() throws {
         let (state, ana, _) = makeState()
 
-        let result = try GameRules.borrowOnCreditCard(in: state, playerID: ana, amount: 500, installments: 2)
+        let result = try GameRules.borrowOnCreditCard(in: state, playerID: ana, amount: 500)
 
         let loan = try XCTUnwrap(result.players[0].creditCardLoans.first)
+        XCTAssertEqual(loan.principalRemaining, 500)
+        XCTAssertEqual(loan.installmentsRemaining, 5)
+        XCTAssertEqual(loan.currentInstallment, 1)
         XCTAssertEqual(loan.remainingDebt, 550)
-        XCTAssertEqual(loan.remainingInterest, 50)
+        XCTAssertEqual(GameRules.creditCardInstallmentDue(for: loan), 110)
         XCTAssertEqual(result.freeParkingPot, 0, "Interest reaches the pot when it is paid, not when borrowing.")
     }
 
-    func testInstallmentsSendTheirShareOfInterestToThePot() throws {
-        let (base, ana, _) = makeState()
-        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 500, installments: 2)
+    func testInterestRisesWithEveryGoAndJumpsToFortyPercentOnTheLastInstallment() throws {
+        let (base, ana, _) = makeState(balance: 2000)
+        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 1000)
+        var pots: [Int] = []
 
-        state = try GameRules.collectSalary(in: state, playerID: ana, amount: 200)
-        XCTAssertEqual(state.freeParkingPot, 25)
-
-        state = try GameRules.collectSalary(in: state, playerID: ana, amount: 200)
-        XCTAssertEqual(state.freeParkingPot, 50)
-        XCTAssertTrue(state.players[0].creditCardLoans.isEmpty)
-    }
-
-    func testUnevenInstallmentsStillSendExactlyTheWholeInterest() throws {
-        let (base, ana, _) = makeState()
-        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 700, installments: 3)
-
-        for _ in 0..<3 {
-            state = try GameRules.collectSalary(in: state, playerID: ana, amount: 200)
+        for _ in 0..<5 {
+            state = try GameRules.collectSalary(in: state, playerID: ana, amount: 300)
+            pots.append(state.freeParkingPot)
         }
 
+        // $200 of principal per GO at 10%, 15%, 20%, 25% and 40%.
+        XCTAssertEqual(pots, [20, 50, 90, 140, 220])
         XCTAssertTrue(state.players[0].creditCardLoans.isEmpty)
-        XCTAssertEqual(state.freeParkingPot, 70)
+        XCTAssertEqual(state.players[0].creditHistory.paidOffLoans, 1)
     }
 
-    func testPostponedInstallmentSendsNothingToThePot() throws {
+    func testUnevenPrincipalIsSplitRoundingUp() throws {
         let (base, ana, _) = makeState()
-        let state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 500, installments: 1)
-        let loanID = try XCTUnwrap(state.players[0].creditCardLoans.first?.id)
+        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 703)
+        let balanceBefore = balance(of: ana, in: state)
 
-        let result = try GameRules.collectSalary(in: state, playerID: ana, amount: 200, postponedLoanIDs: [loanID])
+        for _ in 0..<5 {
+            state = try GameRules.collectSalary(in: state, playerID: ana, amount: 0)
+        }
 
-        XCTAssertEqual(result.freeParkingPot, 0)
+        // 141 + 141 + 141 + 140 + 140, each with the interest of its installment, rounded up.
+        XCTAssertTrue(state.players[0].creditCardLoans.isEmpty)
+        XCTAssertEqual(state.freeParkingPot, 15 + 22 + 29 + 35 + 56)
+        XCTAssertEqual(balanceBefore - balance(of: ana, in: state), 703 + 15 + 22 + 29 + 35 + 56)
     }
 
-    func testEarlyPaymentsSendTheirShareOfInterestToThePot() throws {
-        let (base, ana, _) = makeState()
-        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 1000, installments: 5)
+    func testPayingAnInstallmentEarlyKeepsTheInstallmentInProgress() throws {
+        let (base, ana, _) = makeState(balance: 2000)
+        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 1000)
         let loanID = try XCTUnwrap(state.players[0].creditCardLoans.first?.id)
 
-        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, amount: 330)
-        XCTAssertEqual(state.freeParkingPot, 30)
+        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, paysOff: false)
+        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, paysOff: false)
 
-        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, amount: 770)
-        XCTAssertEqual(state.freeParkingPot, 100)
+        let loan = try XCTUnwrap(state.players[0].creditCardLoans.first)
+        XCTAssertEqual(state.freeParkingPot, 40)
+        XCTAssertEqual(balance(of: ana, in: state), 2000 + 1000 - 440)
+        XCTAssertEqual(loan.installmentsRemaining, 3)
+        XCTAssertEqual(loan.currentInstallment, 1)
+
+        state = try GameRules.collectSalary(in: state, playerID: ana, amount: 0)
+        XCTAssertEqual(state.freeParkingPot, 60, "The GO still charges the 10% of the first installment.")
+        XCTAssertEqual(state.players[0].creditCardLoans.first?.installmentsRemaining, 2)
+    }
+
+    func testPayingOffUsesTheRateOfTheInstallmentInProgress() throws {
+        let (base, ana, _) = makeState(balance: 2000)
+        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 1000)
+        let loanID = try XCTUnwrap(state.players[0].creditCardLoans.first?.id)
+        state = try GameRules.collectSalary(in: state, playerID: ana, amount: 0)
+        state = try GameRules.collectSalary(in: state, playerID: ana, amount: 0)
+        XCTAssertEqual(state.players[0].creditCardLoans.first?.remainingDebt, 720)
+
+        let before = balance(of: ana, in: state)
+        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, paysOff: true)
+
+        XCTAssertEqual(before - balance(of: ana, in: state), 720)
+        XCTAssertEqual(state.freeParkingPot, 20 + 30 + 120)
+        XCTAssertTrue(state.players[0].creditCardLoans.isEmpty)
+        XCTAssertEqual(state.players[0].creditHistory.paidOffLoans, 1)
+    }
+
+    func testPayingAnInstallmentEarlyNeedsTheWholeInstallment() throws {
+        let (base, ana, _) = makeState(balance: 0)
+        let loan = CreditCardLoan(principal: 1000)
+        var state = base
+        state.players[0].creditCardLoans = [loan]
+        state.players[0].balance = 219
+
+        XCTAssertThrowsError(try GameRules.payCreditCard(in: state, playerID: ana, loanID: loan.id, paysOff: false)) { error in
+            XCTAssertEqual(error as? GameRuleError, .insufficientFunds(playerID: ana, required: 220, available: 219))
+        }
+    }
+
+    func testShortInstallmentSendsItsShareOfInterestAndKeepsTheRestOverdue() throws {
+        let (base, ana, _) = makeState(balance: 2000)
+        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 1000)
+        state.players[0].balance = 0
+
+        state = try GameRules.collectSalary(in: state, playerID: ana, amount: 110)
+
+        let loan = try XCTUnwrap(state.players[0].creditCardLoans.first)
+        XCTAssertEqual(state.freeParkingPot, 10)
+        XCTAssertEqual(loan.overdueDebt, 110)
+        XCTAssertEqual(loan.overdueInterest, 10)
+        XCTAssertEqual(loan.currentInstallment, 2)
+        // Overdue $110 plus $200 at 15%.
+        XCTAssertEqual(GameRules.creditCardInstallmentDue(for: loan), 340)
+        XCTAssertEqual(loan.remainingDebt, 110 + 800 + 120)
     }
 
     func testCardInterestWithoutTheHouseRuleLeavesTheGame() throws {
-        let (base, ana, _) = makeState(rules: [.creditCards])
-        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 1000, installments: 1)
+        let (base, ana, _) = makeState(balance: 2000, rules: [.creditCards])
+        var state = try GameRules.borrowOnCreditCard(in: base, playerID: ana, amount: 1000)
         let loanID = try XCTUnwrap(state.players[0].creditCardLoans.first?.id)
 
-        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, amount: 1100)
+        state = try GameRules.payCreditCard(in: state, playerID: ana, loanID: loanID, paysOff: true)
 
+        XCTAssertEqual(balance(of: ana, in: state), 1900)
         XCTAssertEqual(state.freeParkingPot, 0)
     }
 
-    func testLoanSavedBeforeInterestTrackingDecodesWithoutInterest() throws {
-        let json = #"{"id":"\#(UUID().uuidString)","remainingDebt":550,"installmentsRemaining":2,"postponementsRemaining":3}"#
+    func testLoanSavedBeforeEscalatingInterestKeepsItsPrincipal() throws {
+        let json = #"{"id":"\#(UUID().uuidString)","remainingDebt":550,"installmentsRemaining":2,"postponementsRemaining":3,"remainingInterest":50}"#
 
         let loan = try JSONDecoder().decode(CreditCardLoan.self, from: Data(json.utf8))
 
-        XCTAssertEqual(loan.remainingDebt, 550)
-        XCTAssertEqual(loan.remainingInterest, 0)
+        XCTAssertEqual(loan.principalRemaining, 500)
+        XCTAssertEqual(loan.installmentsRemaining, 2)
+        XCTAssertEqual(loan.currentInstallment, 1)
+        XCTAssertEqual(try JSONDecoder().decode(CreditCardLoan.self, from: JSONEncoder().encode(loan)), loan)
     }
 
     // MARK: Monopolife

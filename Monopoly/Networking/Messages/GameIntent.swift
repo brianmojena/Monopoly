@@ -7,7 +7,7 @@ enum GameIntent: Codable, Equatable {
     case payTax(playerID: UUID, amount: Int)
     case payTravel(playerID: UUID, route: TravelRoute)
     case collectFreeParking(playerID: UUID)
-    case collectSalary(playerID: UUID, amount: Int, postponedLoanIDs: Set<UUID> = [])
+    case collectSalary(playerID: UUID, amount: Int)
     case levelUp(propertyID: UUID, playerID: UUID)
     case levelDown(propertyID: UUID, playerID: UUID)
     case buyBackShares(coverageID: UUID, playerID: UUID)
@@ -18,10 +18,14 @@ enum GameIntent: Codable, Equatable {
     case acceptDeal(dealID: UUID)
     case rejectDeal(dealID: UUID)
     case transferMoney(payerID: UUID, recipientID: UUID, amount: Int)
-    case borrowOnCreditCard(playerID: UUID, amount: Int, installments: Int)
-    case payCreditCard(playerID: UUID, loanID: UUID, amount: Int)
+    case borrowOnCreditCard(playerID: UUID, amount: Int)
+    /// Pays the next installment, or the whole loan when `paysOff` is true.
+    case payCreditCard(playerID: UUID, loanID: UUID, paysOff: Bool)
     case payPlayerLoan(playerID: UUID, loanID: UUID, amount: Int)
     case forgivePlayerLoan(playerID: UUID, loanID: UUID)
+    case depositSavings(playerID: UUID, amount: Int)
+    case withdrawSavings(playerID: UUID, amount: Int)
+    case openFixedDeposit(playerID: UUID, amount: Int, terms: Int)
     case goToJail(playerID: UUID)
     case leaveJail(playerID: UUID, exit: JailExit)
     case endTurn(playerID: UUID)
@@ -46,8 +50,7 @@ enum GameIntent: Codable, Equatable {
         case deal
         case dealID
         case recipientID
-        case postponedLoanIDs
-        case installments
+        case paysOff
         case loanID
         case accept
         case route
@@ -55,6 +58,7 @@ enum GameIntent: Codable, Equatable {
         case hostCard
         case jailExit
         case favorable
+        case terms
     }
 
     private enum IntentType: String, Codable {
@@ -79,6 +83,9 @@ enum GameIntent: Codable, Equatable {
         case payCreditCard
         case payPlayerLoan
         case forgivePlayerLoan
+        case depositSavings
+        case withdrawSavings
+        case openFixedDeposit
         case goToJail
         case leaveJail
         case endTurn
@@ -125,8 +132,7 @@ enum GameIntent: Codable, Equatable {
         case .collectSalary:
             self = .collectSalary(
                 playerID: try container.decode(UUID.self, forKey: .playerID),
-                amount: try container.decode(Int.self, forKey: .amount),
-                postponedLoanIDs: try container.decode(Set<UUID>.self, forKey: .postponedLoanIDs)
+                amount: try container.decode(Int.self, forKey: .amount)
             )
         case .levelUp:
             self = .levelUp(
@@ -173,14 +179,13 @@ enum GameIntent: Codable, Equatable {
         case .borrowOnCreditCard:
             self = .borrowOnCreditCard(
                 playerID: try container.decode(UUID.self, forKey: .playerID),
-                amount: try container.decode(Int.self, forKey: .amount),
-                installments: try container.decode(Int.self, forKey: .installments)
+                amount: try container.decode(Int.self, forKey: .amount)
             )
         case .payCreditCard:
             self = .payCreditCard(
                 playerID: try container.decode(UUID.self, forKey: .playerID),
                 loanID: try container.decode(UUID.self, forKey: .loanID),
-                amount: try container.decode(Int.self, forKey: .amount)
+                paysOff: try container.decode(Bool.self, forKey: .paysOff)
             )
         case .payPlayerLoan:
             self = .payPlayerLoan(
@@ -192,6 +197,22 @@ enum GameIntent: Codable, Equatable {
             self = .forgivePlayerLoan(
                 playerID: try container.decode(UUID.self, forKey: .playerID),
                 loanID: try container.decode(UUID.self, forKey: .loanID)
+            )
+        case .depositSavings:
+            self = .depositSavings(
+                playerID: try container.decode(UUID.self, forKey: .playerID),
+                amount: try container.decode(Int.self, forKey: .amount)
+            )
+        case .withdrawSavings:
+            self = .withdrawSavings(
+                playerID: try container.decode(UUID.self, forKey: .playerID),
+                amount: try container.decode(Int.self, forKey: .amount)
+            )
+        case .openFixedDeposit:
+            self = .openFixedDeposit(
+                playerID: try container.decode(UUID.self, forKey: .playerID),
+                amount: try container.decode(Int.self, forKey: .amount),
+                terms: try container.decode(Int.self, forKey: .terms)
             )
         case .goToJail:
             self = .goToJail(playerID: try container.decode(UUID.self, forKey: .playerID))
@@ -247,11 +268,10 @@ enum GameIntent: Codable, Equatable {
         case let .collectFreeParking(playerID):
             try container.encode(IntentType.collectFreeParking, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
-        case let .collectSalary(playerID, amount, postponedLoanIDs):
+        case let .collectSalary(playerID, amount):
             try container.encode(IntentType.collectSalary, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(amount, forKey: .amount)
-            try container.encode(postponedLoanIDs, forKey: .postponedLoanIDs)
         case let .levelUp(propertyID, playerID):
             try container.encode(IntentType.levelUp, forKey: .type)
             try container.encode(propertyID, forKey: .propertyID)
@@ -290,16 +310,15 @@ enum GameIntent: Codable, Equatable {
             try container.encode(payerID, forKey: .payerID)
             try container.encode(recipientID, forKey: .recipientID)
             try container.encode(amount, forKey: .amount)
-        case let .borrowOnCreditCard(playerID, amount, installments):
+        case let .borrowOnCreditCard(playerID, amount):
             try container.encode(IntentType.borrowOnCreditCard, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(amount, forKey: .amount)
-            try container.encode(installments, forKey: .installments)
-        case let .payCreditCard(playerID, loanID, amount):
+        case let .payCreditCard(playerID, loanID, paysOff):
             try container.encode(IntentType.payCreditCard, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(loanID, forKey: .loanID)
-            try container.encode(amount, forKey: .amount)
+            try container.encode(paysOff, forKey: .paysOff)
         case let .payPlayerLoan(playerID, loanID, amount):
             try container.encode(IntentType.payPlayerLoan, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
@@ -309,6 +328,19 @@ enum GameIntent: Codable, Equatable {
             try container.encode(IntentType.forgivePlayerLoan, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
             try container.encode(loanID, forKey: .loanID)
+        case let .depositSavings(playerID, amount):
+            try container.encode(IntentType.depositSavings, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+            try container.encode(amount, forKey: .amount)
+        case let .withdrawSavings(playerID, amount):
+            try container.encode(IntentType.withdrawSavings, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+            try container.encode(amount, forKey: .amount)
+        case let .openFixedDeposit(playerID, amount, terms):
+            try container.encode(IntentType.openFixedDeposit, forKey: .type)
+            try container.encode(playerID, forKey: .playerID)
+            try container.encode(amount, forKey: .amount)
+            try container.encode(terms, forKey: .terms)
         case let .goToJail(playerID):
             try container.encode(IntentType.goToJail, forKey: .type)
             try container.encode(playerID, forKey: .playerID)
@@ -353,7 +385,7 @@ extension GameIntent {
             return true
         case .levelUp, .levelDown, .buyBackShares, .mortgageProperty, .unmortgageProperty,
              .declareBankruptcy, .proposeDeal, .acceptDeal, .rejectDeal, .transferMoney, .payCreditCard,
-             .payPlayerLoan, .forgivePlayerLoan, .endTurn, .skipTurn, .acknowledgeRole, .playHostCard, .dealLifeCard:
+             .payPlayerLoan, .forgivePlayerLoan, .depositSavings, .withdrawSavings, .openFixedDeposit, .endTurn, .skipTurn, .acknowledgeRole, .playHostCard, .dealLifeCard:
             return false
         }
     }

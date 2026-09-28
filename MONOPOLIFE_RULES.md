@@ -12,11 +12,12 @@ La diferencia central: **no gana quien tiene más dinero, sino quien tiene más 
 - Los clientes ven en la sala qué modo está elegido. Las tarjetas de salas cercanas muestran el modo.
 - Si el modo es Monopolife, el host elige también el **número de rondas** (por defecto 15; opciones 10, 15, 20, 25).
 - El modo no se puede cambiar una vez iniciada la partida.
+- En Monopolife cada jugador empieza con **$2,000** (en Classic, $1,500), salvo que el host cambie el saldo inicial o ponga una diferencia entre jugadores en la sala (`GAME_RULES.md`, sección 8.6): hay más margen para gastar en lo que a cada rol le hace feliz.
 
 ## 2. Felicidad
 
 - Cada jugador tiene un contador de **puntos de felicidad** (entero, empieza en 0, nunca baja de 0).
-- La felicidad cambia por: los **gustos y disgustos de su rol** y la renta de lujo y el **rival secreto** (sección 3), las **Tarjetas de Vida** (sección 5), la **cárcel** y la **bancarrota** (sección 6).
+- La felicidad cambia por: los **gustos y disgustos de su rol**, la renta (+10 o más cada vez que pagas) y el **rival** (sección 3), las **Tarjetas de Vida** (sección 5), la **cárcel** y la **bancarrota** (sección 6).
 - **Cárcel**: ir a la cárcel (cuando el jugador lo marca con el botón "Cárcel", por la casilla, una carta o 3 dobles; sección 5 de `GAME_RULES.md`) resta **−3 a cualquier rol por igual**, y cada turno que empieza estando preso (1.er, 2.º y 3.er turno de cárcel, sección 5 de `GAME_RULES.md`) resta **−2 más**: quedarse los 3 turnos cuesta −9 en total. Salir de la cárcel (con dobles, pagando o al cumplir los 3 turnos) no cambia la felicidad; el turno en que sale con dobles o pagando ya contó si empezó preso. Por eso la tarjeta "Mala racha: a la cárcel" no tiene felicidad propia: el castigo llega al marcar la cárcel.
 - Cada cambio queda en un **historial** (jugador, puntos, motivo, ronda) que el jugador puede consultar y que se usa en la pantalla final para mostrar de dónde salió la felicidad de cada uno.
 - **Visibilidad**: cada jugador solo ve su propia felicidad y su propio historial. La felicidad de los demás se revela al final (ver sección 7). Mostrarla durante la partida delataría los roles.
@@ -26,66 +27,65 @@ La diferencia central: **no gana quien tiene más dinero, sino quien tiene más 
 ### 3.1 Asignación
 - Al iniciar la partida, el host asigna un rol al azar a cada jugador. Mientras haya roles sin usar no se repiten; con más jugadores que roles, se vuelve a sortear entre todos los roles.
 - **Los roles son secretos**: cada jugador solo ve el suyo. Se revelan en la pantalla final.
-- Al asignar, el 🦎 Camaleón recibe al azar su primera personalidad (secreta), y cada jugador recibe además su **rival secreto** (sección 3.5).
+- Al asignar, el 🦎 Camaleón recibe al azar su primera personalidad (secreta), y cada jugador recibe además su **rival** (sección 3.5).
 - La asignación se muestra con una **ruleta** que aparece a la vez en la pantalla de todos los jugadores al empezar la partida (ver sección 4).
 
 ### 3.2 Principio de equilibrio
-- Ningún rol debe tener ventaja: todos se diseñan para ganar, en una partida típica, una cantidad parecida de felicidad por ronda (objetivo: ~4–6 puntos por ronda).
-- Cada rol tiene **gustos** (suman) y un **disgusto** (resta) propios (tabla 3.3), y además **cada Tarjeta de Vida afecta distinto a cada rol** (sección 5): la misma tarjeta puede alegrar mucho a uno y molestar a otro.
+- Ningún rol debe tener ventaja: con cada rol jugando su mejor estrategia, todos deben ganar una proporción parecida de partidas.
+- Cada rol tiene un **marcador propio que controla él mismo** (no depende de que otro jugador acepte un trato o un préstamo) y un **disgusto** que lo tensiona con el dinero o con sus gustos. Además **cada Tarjeta de Vida afecta distinto a cada rol** (sección 5).
+- Ningún gusto se cobra por *contar* cosas baratas (ej. "+1 por subir de nivel" sin importar el costo): se paga según el dinero en juego, para que las propiedades baratas no sean un atajo.
+- La renta (sección 3.4) da +10 a todos: es la fuente de felicidad común más grande y suaviza las diferencias entre roles.
 - El mazo está equilibrado por rol: sumando lo que cada rol puede sacar del mazo completo (en las decisiones solo cuenta lo positivo, porque se puede pasar), todos los roles quedan dentro de ±2 puntos entre sí. Cualquier cambio a las tarjetas debe mantener esa regla.
-- Los topes por ronda existen para que ningún rol pueda "farmear" puntos repitiendo una acción trivial.
+- Los topes (por turno o por ronda) existen para que ningún rol pueda "farmear" puntos repitiendo una acción trivial.
+- **Cómo se comprobó**: los valores se ajustaron con un simulador de partidas completas (dados, tablero de 40 casillas, las reglas reales de la app y bots que buscan la mejor estrategia de cada rol). Con 4 jugadores y 15 rondas, cada rol gana entre el 22% y el 28% de las partidas (lo justo sería el 25%). Antes de este rediseño iban del 12% (Social) al 39% (Consumista). Con 3, 5 o 6 jugadores la diferencia es algo mayor, porque el Ahorrador rinde más con pocos jugadores y el Social y el Emprendedor con muchos.
 
 ### 3.3 Tabla de roles
 
+Hay **6 roles**.
+
 | Rol | Gustos (+) | Disgusto (−) |
 |---|---|---|
-| 🛍️ **Consumista** — le gusta gastar y vivir en lugares caros | Pagar renta: +1 por cada $100 pagados (máx +6 por pago), además de la visita de la sección 3.4. Subir de nivel una propiedad en la que tiene acciones: +2. | Al terminar la ronda con más de $1,500 en efectivo: −2 (el dinero guardado lo aburre). |
-| 🏢 **Emprendedor** — le gusta construir negocios y que la gente caiga en ellos | Al terminar la ronda: +1 por cada propiedad que **administra** con nivel 1 o más (máx +4). Cada vez que recibe renta de otro jugador: +1 (máx 3 rentas puntuables por ronda). | Hipotecar una propiedad que administra: −3. Estancarse: si termina una ronda y lleva 3 o más rondas seguidas sin subir de nivel ninguna propiedad, −2 (se repite cada ronda hasta que suba una). |
-| 🐷 **Ahorrador** — le gusta ver crecer su cuenta | Al terminar su turno (cuando pulsa "Terminar turno"): +1 por cada $300 en efectivo (máx +5). Cobrar salario sin deuda de tarjeta: +2. | Pedir un préstamo de tarjeta de crédito: −4. |
-| 🎉 **Social** — le gusta negociar y compartir | Cada trato del Mercado ejecutado en el que participa: +3 (máx 2 tratos puntuables por ronda). Cuenta cualquier trato: compra compartida, inversión, oferta abierta, y también cubrir la parte de otro accionista al subir de nivel o recomprarle esas acciones (sección 4.3 de `GAME_RULES.md`). Solo es puntuable si mueve al menos $50 o al menos una acción. Pagarle o cobrarle renta a un jugador por primera vez en la ronda: +1 por cada jugador distinto. | Desde la ronda 3: terminar una ronda sin haber participado en ningún trato ejecutado: −1. |
-| ✈️ **Trotamundos** — le gusta viajar y conocer, no echar raíces | Cobrar salario en Salida: +3. Pagar un viaje en una casilla de viaje: +3. La primera vez que paga renta en cada grupo de color ("sello"): +3; al completar los 8 sellos: +8 extra. Volver a pagar renta en un grupo ya sellado: +1. | Comprar una propiedad al banco (compra directa, subasta o compra compartida) quedando con acciones en 3 o más propiedades: −2. Las dos primeras no le molestan. |
-| 🦎 **Camaleón** — cambia de personalidad cada pocas rondas | Tiene los gustos de su **personalidad actual**: otro rol al azar entre Consumista, Emprendedor, Ahorrador, Social, Trotamundos y Prestamista. Al terminar cada 3 rondas (3, 6, 9…, salvo la última) cambia a otra personalidad distinta: +2 por cada cambio. | Los disgustos de su personalidad actual. |
-| 🦈 **Prestamista** — le gusta ser el banco de los demás | Prestar $100 o más a otro jugador con al menos 10% de interés (préstamo entre jugadores, sección 4.9 de `GAME_RULES.md`): +3 (máx 1 por ronda). Cada pago que recibe de un préstamo (cuota en Salida, % de rentas, plazo o pago anticipado): +1 (máx 2 por ronda). Que le terminen de pagar un préstamo: +3. Quedarse con la garantía de un préstamo sin pagar: +5. | Perdonar una deuda, o que su deudor quiebre sin que él se quede con una garantía: −3. |
-| 🧘 **Minimalista** (próximamente: todavía no se reparte) — le gusta vivir con poco y compartir lo que tiene | Regalarle dinero a otro jugador («Pago libre entre jugadores», sección 5 de `GAME_RULES.md`): +1 por cada $100 regalados en la ronda (máx +3 por ronda). Terminar la ronda con acciones en 2 propiedades o menos y sin posesiones: +2. | Conseguir una posesión (carro, televisor o food truck, aceptando una Tarjeta de Vida): −3. |
+| 🛍️ **Consumista** — le gusta gastar | Al terminar su turno: +1 por cada $70 que gastó desde su turno anterior (máx +5). Cuenta comprar propiedades (al banco, en subasta o compra compartida), subir de nivel (su parte), pagar renta, pagar viajes y comprar en Tarjetas de Vida. Bajar de nivel resta lo que le devuelven. | Terminar la ronda con más de $2,000 en efectivo: −2. |
+| 🏢 **Emprendedor** — le gusta construir negocios y que la gente caiga en ellos | Cobrar renta: +1 por cada $75 que le pagan (máx +6 por ronda). Subir de nivel una propiedad que **administra**: +1 por cada $100 que paga (mínimo +1). | Hipotecar una propiedad que administra: −3. |
+| 🐷 **Ahorrador** — le gusta ver crecer su cuenta | Al terminar su turno (cuando pulsa "Terminar turno"): +1 por cada $350 en efectivo (máx +4). Cobrar salario sin deuda de tarjeta: +2. | Pedir un préstamo de tarjeta de crédito: −4. |
+| 🎉 **Social** — le gusta tratar con todos | Cada movimiento de dinero entre él y otro jugador: +3 (máx 3 por ronda). Cuenta pagarle o cobrarle renta, cerrar un trato del Mercado con él (incluidos cubrir la parte de un accionista al subir de nivel y recomprar esas acciones), o un pago libre de $50 o más, lo dé o lo reciba. | Desde la ronda 2: terminar una ronda sin ningún movimiento de dinero con otro jugador: −2. |
+| ✈️ **Trotamundos** — le gusta viajar y conocer, no echar raíces | Cobrar salario en Salida: +5. Pagar un viaje en una casilla de viaje: +5. La primera vez que paga renta en cada grupo de color ("sello"): +4; al completar los 8 sellos: +8 extra. Volver a pagar renta en un grupo ya sellado: +1. | Comprar una propiedad al banco (compra directa, subasta o compra compartida) quedando con acciones en 3 o más propiedades: −2. Las dos primeras no le molestan. |
+| 🦎 **Camaleón** — cambia de personalidad cada pocas rondas | Tiene los gustos de su **personalidad actual**: otro rol al azar entre Consumista, Emprendedor, Ahorrador, Social y Trotamundos. Al terminar cada 3 rondas (3, 6, 9…, salvo la última) cambia a otra personalidad distinta: +1 por cada cambio. | Los disgustos de su personalidad actual. |
 
 Aclaraciones:
 - "Al terminar la ronda" se evalúa para todos los jugadores cuando el último jugador de la ronda termina su turno (el momento en que `round` se incrementa).
-- "Recibe renta" / "paga renta" se refiere a `collectRent` con monto > 0. Lo que se lleva un inversor por una inversión no cuenta como renta recibida para él.
-- Los gustos por acción se aplican a quien hace la acción: el accionista que sube de nivel (cualquiera puede, no solo el administrador), el administrador al hipotecar, cada comprador en una compra compartida.
-- El estancamiento del Emprendedor cuenta las subidas de nivel que él mismo paga; la subida gratis de una carta del host o la renovación urbana no cuentan.
-- Cubrir la parte de un accionista al subir de nivel cuenta como un trato entre quien cubre y el cubierto (siempre mueve acciones, así que es puntuable); recomprar esas acciones también.
-- Las rentas de Ultimate Banking (sección 4.2.1 de `GAME_RULES.md`) empiezan en $70, por eso el Consumista cuenta cada $100 y no cada $50: con $50 casi cualquier renta le daba varios puntos.
-- **Camaleón**: las Tarjetas de Vida y la renta de lujo (3.4) le afectan como a su personalidad actual. Al cambiar de personalidad conserva su felicidad y sus sellos de Trotamundos, pero la racha sin subir de nivel del Emprendedor vuelve a 0. El cambio se sortea con una semilla guardada en la partida, así que es reproducible.
-- **Prestamista**: el mínimo de interés evita prestar y devolver en bucle sin costo. Solo cuentan los préstamos entre jugadores, no la tarjeta de crédito.
-- **Minimalista**: está **desactivado (próximamente)**: sus reglas y su columna del mazo existen, pero la ruleta no lo reparte ni el Camaleón puede tomarlo; en las reglas de la app aparece marcado como «Próximamente». Pendiente: separar los regalos voluntarios de los pagos obligatorios entre jugadores, que hoy también cuentan. Solo cuentan las transferencias directas de dinero, no los pagos de renta, tratos del Mercado ni préstamos. Los puntos se cuentan sobre lo regalado en toda la ronda, así que tres regalos de $50 y uno de $150 suman +2.
-- **Rol eliminado**: el Inversionista existió en la primera versión y se quitó porque, igual que el Emprendedor original, ganaba felicidad con lo mismo que da dinero en el Monopoly clásico. Una partida guardada con un Inversionista sigue como Emprendedor.
+- "Cobrar renta" / "pagar renta" se refiere a `collectRent` con monto > 0. Para el Emprendedor cuenta lo que le toca de la renta después de los cortes de inversiones (sección 4.8 de `GAME_RULES.md`); lo que se lleva un inversor no cuenta como renta cobrada para él.
+- **Consumista**: el gasto se acumula en cualquier momento (también lo que paga por su parte cuando otro accionista sube de nivel) y se cuenta al terminar su turno; después vuelve a 0. No cuentan los impuestos, la fianza de la cárcel, los tratos del Mercado ni los pagos de préstamos: son obligaciones o intercambios, no gastos. Restar lo devuelto al bajar de nivel evita subir y bajar de nivel en bucle para sumar gasto.
+- **Emprendedor**: la subida de nivel gratis de una carta del host o la renovación urbana no cuentan, porque nadie la paga. Si sube de nivel cubriendo la parte de otro accionista, cuenta todo lo que pagó.
+- **Social**: cada movimiento cuenta aunque sea con el mismo jugador. En un pago de renta, cuentan quien paga y cada accionista que cobra. Un trato o un pago libre por menos de $50 no cuenta (un trato con acciones siempre cuenta). Puede regalar dinero para no quedarse solo, pero regalar lo deja atrás frente a su rival y más cerca de la bancarrota.
+- **Camaleón**: las Tarjetas de Vida y el extra de lujo de la renta (3.4) le afectan como a su personalidad actual. Al cambiar de personalidad conserva su felicidad y sus sellos de Trotamundos. El cambio se sortea con una semilla guardada en la partida, así que es reproducible.
+- **Roles eliminados**: el Inversionista, el Prestamista y el Minimalista existieron y se quitaron. El Inversionista (y el Emprendedor original, que sumaba +1 por cada propiedad con nivel) ganaba felicidad con lo mismo que da dinero y con subidas de nivel baratas. El Prestamista y la parte de tratos del Social original casi no sumaban porque dependían de que otro jugador aceptara. Una partida guardada sigue así: Inversionista → Emprendedor, Prestamista → Ahorrador, Minimalista → Social.
 
-### 3.4 Salir por la ciudad (renta de lujo)
+### 3.4 Salir por la ciudad (renta)
 
-- **Todos los roles** ganan felicidad al pagar renta: es salir a disfrutar un lugar. Cuanto más lujoso el lugar, más felicidad.
+- **Todos los roles** ganan felicidad al pagar renta: es salir a disfrutar un lugar. Da **+10**, más un extra según el lujo del lugar.
 - **Lujo** = lado del tablero donde está la propiedad (1 a 4, empezando desde Salida; el lado 4 es el más caro) + nivel de la propiedad (0 a 4). Va de 1 a 8.
-- Puntos = lujo ÷ divisor del rol (redondeado hacia abajo), **mínimo +1**:
+- Puntos = 10 + lujo ÷ divisor del rol (redondeado hacia abajo):
 
 | Rol | Divisor | Lujo 1 | Lujo 4 | Lujo 8 |
 |---|---|---|---|---|
-| 🛍️ Consumista | 2 | +1 | +2 | +4 |
-| ✈️ Trotamundos | 2 | +1 | +2 | +4 |
-| 🎉 Social | 3 | +1 | +1 | +2 |
-| 🏢 Emprendedor | 4 | +1 | +1 | +2 |
-| 🐷 Ahorrador | 4 | +1 | +1 | +2 |
-| 🦈 Prestamista | 4 | +1 | +1 | +2 |
-| 🧘 Minimalista | 4 | +1 | +1 | +2 |
+| 🛍️ Consumista | 2 | +10 | +12 | +14 |
+| ✈️ Trotamundos | 2 | +10 | +12 | +14 |
+| 🎉 Social | 3 | +10 | +11 | +12 |
+| 🏢 Emprendedor | 4 | +10 | +11 | +12 |
+| 🐷 Ahorrador | 4 | +10 | +11 | +12 |
 
 El 🦎 Camaleón usa el divisor de su personalidad actual.
 
-- Se suma aparte de los gustos del rol (el Consumista cobra también su +1 por cada $100, y el Trotamundos su sello). En el historial aparece como "Saliste a un lugar".
+- Se suma aparte de los gustos del rol (el Consumista cuenta además la renta como gasto, el Trotamundos su sello y el Social el movimiento de dinero). En el historial aparece como "Saliste a un lugar".
 - Una renta negativa (sección 4.2 de `GAME_RULES.md`) no cuenta: quien cae cobra en vez de pagar.
 
-### 3.5 Rival secreto (todos los jugadores)
+### 3.5 Rival (todos los jugadores)
 
 - No es un rol: es una mecánica para **todos**, sea cual sea su rol (el Rival existió como rol y pasó a ser esto; una partida guardada con un Rival sigue como Social).
-- Al empezar, la app sienta a todos en un círculo al azar y a cada jugador le asigna como **rival** al siguiente. Así cada jugador tiene exactamente un rival y es el rival de exactamente otro jugador. Con un solo jugador no hay rivales.
-- Es secreto: cada uno ve su rival en "Mi rol", pero nadie sabe quién lo tiene de rival. Se revela en la pantalla final.
+- Los rivales son **directos y mutuos**: cada jugador es rival del que está sentado frente a él en el orden de turnos (el jugador *i* con el *i + N/2*). Con 4 jugadores: 1 ↔ 3 y 2 ↔ 4; con 6: 1 ↔ 4, 2 ↔ 5, 3 ↔ 6; con 2: 1 ↔ 2.
+- Con un número impar de jugadores, el último queda sin pareja y tiene como rival al jugador 1, sin que sea mutuo (el jugador 1 sigue teniendo a su pareja como rival). Con un solo jugador no hay rivales.
+- Cada uno ve su rival en "Mi rol", y se muestra también en la pantalla final.
 
 | Qué pasa | Felicidad |
 |---|---|
@@ -100,7 +100,7 @@ El 🦎 Camaleón usa el divisor de su personalidad actual.
 
 ## 4. Ruleta de roles
 
-- Al iniciar una partida Monopolife, todos los dispositivos muestran a pantalla completa una ruleta con los 7 roles que se reparten (el Minimalista aún no). Gira unos segundos, se detiene en el rol del jugador y muestra su tarjeta de rol (nombre, descripción, gustos y disgusto) con un botón "¡Entendido!".
+- Al iniciar una partida Monopolife, todos los dispositivos muestran a pantalla completa una ruleta con los 6 roles. Gira unos segundos, se detiene en el rol del jugador y muestra su tarjeta de rol (nombre, descripción, gustos y disgusto) con un botón "¡Entendido!".
 - El rol ya está decidido por el host antes de girar; la ruleta es solo la animación de la revelación. Como el host envía el estado inicial a todos a la vez, las ruletas giran prácticamente al mismo tiempo.
 - Si un jugador no confirmó su rol (ej. cerró la app o se reconectó), la ruleta se le vuelve a mostrar hasta que confirme.
 - **Jugadores sin teléfono** (controlados desde el iPhone del host): tras la ruleta del host, la app muestra "Pasa el teléfono a {nombre}" y luego la ruleta de ese jugador, uno por uno.
@@ -125,42 +125,42 @@ El 🦎 Camaleón usa el divisor de su personalidad actual.
 
 ### 5.1 Mazo inicial (30 tarjetas, placeholder)
 
-Las columnas de emojis son la felicidad para cada rol: 🛍️ Consumista, 🏢 Emprendedor, 🐷 Ahorrador, 🎉 Social, ✈️ Trotamundos, 🦈 Prestamista, 🧘 Minimalista. El 🦎 Camaleón no tiene columna: usa la de su personalidad actual.
+Las columnas de emojis son la felicidad para cada rol: 🛍️ Consumista, 🏢 Emprendedor, 🐷 Ahorrador, 🎉 Social, ✈️ Trotamundos. El 🦎 Camaleón no tiene columna: usa la de su personalidad actual.
 
-| # | Tarjeta | Tipo | Efecto | 🛍️ | 🏢 | 🐷 | 🎉 | ✈️ | 🦈 | 🧘 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Cómprate un carro | Decisión | Paga $300 → obtienes 🚗 Carro | +7 | +3 | −2 | +3 | +6 | +1 | 0 |
-| 2 | Televisor gigante | Decisión | Paga $200 → obtienes 📺 Televisor | +5 | +1 | −1 | +3 | 0 | 0 | 0 |
-| 3 | Abres un food truck | Decisión | Paga $250 → obtienes 🚚 Food truck | +2 | +8 | 0 | +2 | +1 | +3 | 0 |
-| 4 | Vacaciones en la playa | Decisión | Paga $250 | +3 | +1 | −2 | +3 | +8 | 0 | +4 |
-| 5 | Organizas una fiesta | Decisión | Paga $150; además cada otro jugador activo +1 | +2 | +1 | −2 | +7 | +2 | 0 | +5 |
-| 6 | Inviertes en una startup | Decisión | Paga $200 | 0 | +4 | +1 | +1 | 0 | +5 | 0 |
-| 7 | Plan de pensiones | Decisión | Paga $150 | −1 | +1 | +7 | 0 | −1 | +5 | +3 |
-| 8 | Ropa de marca | Decisión | Paga $100 | +3 | +1 | −2 | +2 | 0 | 0 | 0 |
-| 9 | Se te rompe el carro | Posesión | Si tienes 🚗: pagas $150 de reparación. Si no: no pasa nada | −3 | −2 | −4 | −2 | −5 | −3 | −1 |
-| 10 | Te roban el televisor | Posesión | Si tienes 📺: lo pierdes. Si no: no pasa nada | −5 | −1 | −2 | −2 | 0 | −2 | 0 |
-| 11 | Inspección al food truck | Posesión | Si tienes 🚚: pagas $100 de multa. Si no: no pasa nada | −1 | −4 | −2 | −1 | −1 | −2 | −1 |
-| 12 | Te enfermas | Evento | Pagas $100 | −3 | −3 | −3 | −3 | −3 | −3 | −3 |
-| 13 | Multa de tránsito | Evento | Pagas $50 | −1 | −1 | −2 | −1 | −1 | −2 | −1 |
-| 14 | Recorte de personal | Evento | Pagas $150 | −2 | −4 | −2 | −2 | −1 | −2 | −1 |
-| 15 | La bolsa se desploma | Evento | Pagas $100 | −1 | −2 | −2 | −1 | 0 | −4 | 0 |
-| 16 | Vuelo cancelado | Evento | Cobras $50 de compensación | −1 | −1 | +1 | −1 | −4 | +1 | −2 |
-| 17 | Pelea con un amigo | Evento | — | −1 | −1 | −1 | −5 | −1 | −1 | −3 |
-| 18 | Mala racha: a la cárcel | Movimiento | Mueve tu ficha a la cárcel (el −3 de la cárcel, sección 2) | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| 19 | Tu cumpleaños | Evento | Cada otro jugador activo te paga $20 | +2 | +2 | +2 | +5 | +2 | +2 | +4 |
-| 20 | Bono de fin de año | Evento | Cobras $150 | +3 | +2 | +6 | +1 | +2 | +4 | +1 |
-| 21 | Cliente importante | Evento | Cobras $100 | +1 | +5 | +2 | +1 | +1 | +3 | +1 |
-| 22 | Dividendos | Evento | Cobras $20 por cada propiedad en la que tienes acciones (máx $200) | +1 | +2 | +3 | 0 | 0 | +4 | 0 |
-| 23 | Viaje de mochilero | Movimiento | Avanza tu ficha a Salida (cobras salario como siempre) | 0 | +1 | +2 | +2 | +7 | 0 | +5 |
-| 24 | Reencuentro con amigos | Evento | — | +2 | +1 | +1 | +5 | +3 | +1 | +5 |
-| 25 | Black Friday | Evento | Pagas $50 | +3 | 0 | +1 | +1 | 0 | 0 | −2 |
-| 26 | Un día perfecto | Evento | — | +3 | +3 | +3 | +3 | +3 | +3 | +3 |
-| 27 | Devolución de impuestos | Evento | Cobras $100 | +1 | +2 | +5 | +1 | +1 | +4 | +1 |
-| 28 | Boda en otro país | Evento | Pagas $100 | +1 | 0 | −2 | +4 | +6 | −1 | +4 |
-| 29 | Cupones de descuento | Evento | Cobras $30 | +1 | 0 | +5 | 0 | 0 | +3 | +2 |
-| 30 | Horas extra | Evento | Cobras $100 | +1 | +3 | +4 | −2 | −2 | +3 | −2 |
+| # | Tarjeta | Tipo | Efecto | 🛍️ | 🏢 | 🐷 | 🎉 | ✈️ |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Cómprate un carro | Decisión | Paga $300 → obtienes 🚗 Carro | +7 | +3 | −2 | +3 | +6 |
+| 2 | Televisor gigante | Decisión | Paga $200 → obtienes 📺 Televisor | +5 | +1 | −1 | +3 | 0 |
+| 3 | Abres un food truck | Decisión | Paga $250 → obtienes 🚚 Food truck | +2 | +8 | 0 | +2 | +1 |
+| 4 | Vacaciones en la playa | Decisión | Paga $250 | +3 | +1 | −2 | +3 | +8 |
+| 5 | Organizas una fiesta | Decisión | Paga $150; además cada otro jugador activo +1 | +2 | +1 | −2 | +7 | +2 |
+| 6 | Inviertes en una startup | Decisión | Paga $200 | 0 | +4 | +1 | +1 | 0 |
+| 7 | Plan de pensiones | Decisión | Paga $150 | −1 | +1 | +7 | 0 | −1 |
+| 8 | Ropa de marca | Decisión | Paga $100 | +3 | +1 | −2 | +2 | 0 |
+| 9 | Se te rompe el carro | Posesión | Si tienes 🚗: pagas $150 de reparación. Si no: no pasa nada | −3 | −2 | −4 | −2 | −5 |
+| 10 | Te roban el televisor | Posesión | Si tienes 📺: lo pierdes. Si no: no pasa nada | −5 | −1 | −2 | −2 | 0 |
+| 11 | Inspección al food truck | Posesión | Si tienes 🚚: pagas $100 de multa. Si no: no pasa nada | −1 | −4 | −2 | −1 | −1 |
+| 12 | Te enfermas | Evento | Pagas $100 | −3 | −3 | −3 | −3 | −3 |
+| 13 | Multa de tránsito | Evento | Pagas $50 | −1 | −1 | −2 | −1 | −1 |
+| 14 | Recorte de personal | Evento | Pagas $150 | −2 | −4 | −2 | −2 | −1 |
+| 15 | La bolsa se desploma | Evento | Pagas $100 | −1 | −2 | −2 | −1 | 0 |
+| 16 | Vuelo cancelado | Evento | Cobras $50 de compensación | −1 | −1 | +1 | −1 | −4 |
+| 17 | Pelea con un amigo | Evento | — | −1 | −1 | −1 | −5 | −1 |
+| 18 | Mala racha: a la cárcel | Movimiento | Mueve tu ficha a la cárcel (el −3 de la cárcel, sección 2) | 0 | 0 | 0 | 0 | 0 |
+| 19 | Tu cumpleaños | Evento | Cada otro jugador activo te paga $20 | +2 | +2 | +2 | +5 | +2 |
+| 20 | Bono de fin de año | Evento | Cobras $150 | +3 | +2 | +6 | +1 | +2 |
+| 21 | Cliente importante | Evento | Cobras $100 | +1 | +5 | +2 | +1 | +1 |
+| 22 | Dividendos | Evento | Cobras $20 por cada propiedad en la que tienes acciones (máx $200) | +1 | +2 | +3 | 0 | 0 |
+| 23 | Viaje de mochilero | Movimiento | Avanza tu ficha a Salida (cobras salario como siempre) | 0 | +1 | +2 | +2 | +7 |
+| 24 | Reencuentro con amigos | Evento | — | +2 | +1 | +1 | +5 | +3 |
+| 25 | Black Friday | Evento | Pagas $50 | +3 | 0 | +1 | +1 | 0 |
+| 26 | Un día perfecto | Evento | — | +3 | +3 | +3 | +3 | +3 |
+| 27 | Devolución de impuestos | Evento | Cobras $100 | +1 | +2 | +5 | +1 | +1 |
+| 28 | Boda en otro país | Evento | Pagas $100 | +1 | 0 | −2 | +4 | +6 |
+| 29 | Cupones de descuento | Evento | Cobras $30 | +1 | 0 | +5 | 0 | 0 |
+| 30 | Horas extra | Evento | Cobras $100 | +1 | +3 | +4 | −2 | −2 |
 
-Suma de lo que cada rol puede sacar del mazo (decisiones solo si son positivas): Consumista 23, Emprendedor 22, Ahorrador 23, Social 24, Trotamundos 24, Prestamista 22, Minimalista 22. El Ahorrador tiene más tarjetas que le restan, pero son decisiones que puede pasar, y pasar le deja el dinero que suma en su fin de ronda.
+Suma de lo que cada rol puede sacar del mazo (decisiones solo si son positivas): Consumista 23, Emprendedor 22, Ahorrador 23, Social 24, Trotamundos 24. El Ahorrador tiene más tarjetas que le restan, pero son decisiones que puede pasar, y pasar le deja el dinero que suma en su fin de ronda.
 
 ### 5.2 Posesiones
 
@@ -181,14 +181,14 @@ Suma de lo que cada rol puede sacar del mazo (decisiones solo si son positivas):
 - La partida termina automáticamente cuando se completa la última ronda configurada (en el momento en que la ronda N terminaría y empezaría la N+1). Antes de terminar se aplican los efectos de "al terminar la ronda" de esa última ronda.
 - Con la partida terminada ya no se acepta ninguna acción.
 - **Gana quien tenga más felicidad.** Empate: gana el de mayor patrimonio (sección 7 de `GAME_RULES.md`); si sigue el empate, comparten la victoria.
-- Pantalla final (todos los dispositivos): ranking con felicidad de todos, el rol de cada uno revelado (con la última personalidad del Camaleón y el rival secreto de cada jugador) y el desglose de cada jugador por motivo (rol, tarjetas, bancarrota) y sus posesiones, para poder ajustar el equilibrio entre partidas.
+- Pantalla final (todos los dispositivos): ranking con felicidad de todos, el rol de cada uno revelado (con la última personalidad del Camaleón y el rival de cada jugador) y el desglose de cada jugador por motivo (rol, tarjetas, bancarrota) y sus posesiones, para poder ajustar el equilibrio entre partidas.
 
 ## 8. Lo que no cambia
 
 - Precios, rentas, niveles, hipotecas, Mercado, inversiones, préstamos entre jugadores, tarjetas de crédito, turnos, subastas, impuestos, casillas de viaje y la cobertura de acciones al subir de nivel funcionan exactamente como en `GAME_RULES.md`.
-- Un préstamo entre jugadores es un trato del Mercado, así que cuenta para el Social como cualquier otro (puntuable si presta al menos $50). Los pagos del préstamo no tienen efecto de rol, y el disgusto del Ahorrador sigue siendo solo por préstamos de tarjeta.
+- Un préstamo entre jugadores es un trato del Mercado, así que cuenta para el Social como cualquier otro (si presta al menos $50). Los pagos del préstamo no tienen efecto de rol, y el disgusto del Ahorrador sigue siendo solo por préstamos de tarjeta.
 - Las house rules siguen siendo configurables igual, con estas notas:
   - **Free Parking Jackpot**: igual que en Classic. Cobrar el bote no tiene efecto de rol (el dinero ya ayuda al Ahorrador en su fin de ronda).
   - **Eventos del tablero**: igual que en Classic, sin efecto de rol: solo mueven dinero, rentas o niveles. La renovación urbana no cuenta como subir de nivel.
-  - **Cartas del host**: igual que en Classic. La subida de nivel gratis de "Avanza y sube de nivel" no cuenta como subir de nivel para el Consumista, porque nadie la paga.
+  - **Cartas del host**: igual que en Classic. La subida de nivel gratis de "Avanza y sube de nivel" no cuenta para el Emprendedor ni como gasto del Consumista, porque nadie la paga.
   - **Niveles secretos**: solo existen en Classic.

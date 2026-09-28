@@ -136,19 +136,9 @@ struct RulesView: View {
                         Text(definition.emoji)
                             .font(.app(.title2))
                         VStack(alignment: .leading, spacing: 0) {
-                            HStack(spacing: 6) {
-                                Text(definition.name)
-                                    .font(.app(.headline))
-                                    .foregroundStyle(role.color)
-                                if role.isComingSoon {
-                                    Text("Próximamente")
-                                        .font(.app(.caption2, weight: .bold))
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(role.color, in: Capsule())
-                                }
-                            }
+                            Text(definition.name)
+                                .font(.app(.headline))
+                                .foregroundStyle(role.color)
                             Text(definition.summary)
                                 .font(.app(.caption))
                                 .foregroundStyle(.secondary)
@@ -166,7 +156,6 @@ struct RulesView: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(role.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .opacity(role.isComingSoon ? 0.55 : 1)
             }
         }
         .padding(16)
@@ -207,7 +196,7 @@ extension RuleTopic {
                 "Los demás pulsan \"Unirse a partida\" en su iPhone y escriben su nombre. Hace falta estar en la misma Wi‑Fi o cerca con Bluetooth.",
                 "Si alguien no tiene teléfono, el host lo añade y juega desde el iPhone del host (se cambia con \"Jugando como\").",
                 "El host ordena los turnos (por ejemplo, según los dados) y elige el modo de juego y las reglas opcionales.",
-                "Cada jugador empieza con $\(GameSessionModel.placeholderInitialBalance)."
+                "Cada jugador empieza con $\(GameSessionModel.placeholderInitialBalance) (en Monopolife, con $\(MonopolifeState.initialBalance)), salvo que el host cambie el saldo inicial en la sala. También puede hacer que los jugadores empiecen $100 o $200 separados entre sí, en un orden sorteado."
             ]
         ),
         RuleTopic(
@@ -270,12 +259,23 @@ extension RuleTopic {
             id: "credit", icon: "creditcard.fill", color: .indigo, title: "Tarjeta de crédito",
             points: [
                 "Si el host la activó, puedes pedir prestado hasta el \(GameRules.baseCreditLimitPercentage)% de tu patrimonio, menos lo que ya debas.",
-                "Confianza de la banca: cada préstamo que terminas de pagar sube tu límite \(GameRules.creditTrustStepPercentage) puntos (hasta el \(GameRules.maximumCreditLimitPercentage)% de tu patrimonio). Cada vez que pasas por la Salida y no te alcanza para una cuota, lo baja \(GameRules.creditTrustStepPercentage) puntos. Aplazar una cuota no cuenta como fallo.",
+                "Confianza de la banca: cada préstamo que terminas de pagar sube tu límite \(GameRules.creditTrustStepPercentage) puntos (hasta el \(GameRules.maximumCreditLimitPercentage)% de tu patrimonio). Cada vez que pasas por la Salida y no te alcanza para una cuota, lo baja \(GameRules.creditTrustStepPercentage) puntos.",
                 "Con \(GameRules.missedPaymentsBeforeCreditIsCut) fallos la banca deja de darte crédito para el resto de la partida.",
                 "Solo puedes tener un préstamo a la vez. Cuando terminas de pagar uno, puedes tener hasta dos.",
-                "El interés es un 10% fijo al pedir el préstamo.",
-                "Eliges pagarlo en 1 a \(GameRules.maxCreditCardInstallments) cuotas, que se cobran cada vez que pasas por la Salida. Las cuotas que no uses se convierten en aplazamientos.",
-                "Puedes adelantar pagos cuando quieras."
+                "Se paga en \(GameRules.creditCardInstallments) cuotas fijas, una cada vez que pasas por la Salida. Si no te alcanza, lo que falte queda atrasado para la siguiente.",
+                "El interés depende del plazo en curso y sube con cada paso por la Salida: \(CreditCardView.interestSchedule).",
+                "Cuando quieras puedes pagar una cuota por adelantado (al interés del plazo en curso, y el préstamo termina antes) o liquidarlo entero. No se pueden hacer pagos de otro monto."
+            ]
+        ),
+        RuleTopic(
+            id: "savings", icon: "banknote.fill", color: .green, title: "Cuentas de ahorro",
+            points: [
+                "Regla opcional que activa el host, en los dos modos.",
+                "Solo puedes ahorrar dinero que no debes: tu efectivo menos tu deuda de tarjeta y lo que debas a otros jugadores.",
+                "Cuenta variable: metes y sacas dinero cuando quieras. Cada vez que pasas por la Salida te paga un % de lo que tengas ahorrado: \(SavingsView.variableSchedule), y se queda en \(GameRules.variableSavingsMaximumRate)%. Si sacas dinero vuelve a \(GameRules.variableSavingsFirstRate)%.",
+                "Cuenta fija: eliges el monto y de \(FixedDeposit.termRange.lowerBound) a \(FixedDeposit.termRange.upperBound) pasos por la Salida. No puedes meter ni sacar dinero hasta que termine. En cada paso te paga un % de lo depositado: \(SavingsView.fixedSchedule). En el último te devuelve lo depositado.",
+                "El interés siempre va a tu efectivo, nunca a la cuenta. Llega antes de cobrar las cuotas de la tarjeta y de los préstamos.",
+                "Tus ahorros cuentan para tu patrimonio. Si quiebras, pasan a tu acreedor como el efectivo, incluidas las cuentas fijas."
             ]
         ),
         RuleTopic(
@@ -338,10 +338,11 @@ extension RuleTopic {
             ]
         ),
         RuleTopic(
-            id: "rivals", icon: "scope", color: .red, title: "Rival secreto",
+            id: "rivals", icon: "scope", color: .red, title: "Rival",
             points: [
-                "Además de tu rol, al empezar la app te asigna en secreto un rival: otro jugador al que quieres ganarle. Todos tienen uno, y cada jugador es el rival de otro.",
-                "Tu rival no sabe que lo es. Lo ves en \"Mi rol\" y se revela al final."
+                "Además de tu rol, tienes un rival: el jugador sentado frente a ti en el orden de turnos. Con 4 jugadores, el 1 y el 3 son rivales, y el 2 y el 4.",
+                "La rivalidad es mutua: tú eres su rival y él es el tuyo. Si son impares, el último queda sin pareja y tiene como rival al jugador 1 (sin que sea mutuo).",
+                "Lo ves en \"Mi rol\"."
             ] + Rivalry.rules
         ),
         RuleTopic(
@@ -350,7 +351,8 @@ extension RuleTopic {
                 "Empiezas con 0 y nunca baja de 0.",
                 "Sube o baja por lo que haces según tu rol (pagar renta, comprar, negociar, cobrar salario…), al terminar cada ronda y con las Tarjetas de Vida.",
                 "Ir a la cárcel le quita \(-LifeRoleValues.jailed) de felicidad a cualquier rol, y cada turno que empiezas en ella, \(-LifeRoleValues.jailTurn) más.",
-                "Pagar renta siempre te hace feliz: más cuanto más lujoso es el lugar (lado del tablero del 1 al 4 más el nivel de la propiedad). Cuánto depende de tu rol.",
+                "Pagar renta siempre te hace feliz: +\(LifeRoleValues.rentVisitBase), y un poco más cuanto más lujoso es el lugar (lado del tablero del 1 al 4 más el nivel de la propiedad). Ese extra depende de tu rol.",
+                "Empiezas con $\(MonopolifeState.initialBalance), más que en el Classic.",
                 "Cada vez que cambia ves un aviso, y en \"Mi felicidad\" tienes el historial completo."
             ]
         ),

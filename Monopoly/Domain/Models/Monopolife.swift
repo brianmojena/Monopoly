@@ -12,25 +12,20 @@ enum LifeRole: String, Codable, CaseIterable, Equatable, Hashable {
     case social
     case globetrotter
     case chameleon
-    case lender
-    case minimalist
-
-    /// Coming soon: its rules are in place, but it isn't dealt yet (MONOPOLIFE_RULES 3.3).
-    var isComingSoon: Bool {
-        self == .minimalist
-    }
 
     /// The roles dealt at the start of a game.
-    static let playable = allCases.filter { !$0.isComingSoon }
+    static let playable = allCases
 
     /// The roles whose likes the Chameleon can take on.
-    static let chameleonDisguises: [LifeRole] = [.consumer, .entrepreneur, .saver, .social, .globetrotter, .lender]
+    static let chameleonDisguises: [LifeRole] = [.consumer, .entrepreneur, .saver, .social, .globetrotter]
 
     /// Roles that no longer exist and what a saved game plays them as. The Rival became
     /// a rivalry every player has (MONOPOLIFE_RULES section 3.5).
     private static let removedRoles: [String: LifeRole] = [
         "investor": .entrepreneur,
-        "rival": .social
+        "rival": .social,
+        "lender": .saver,
+        "minimalist": .social
     ]
 
     init(from decoder: Decoder) throws {
@@ -54,51 +49,55 @@ enum LifePossession: String, Codable, CaseIterable, Equatable, Hashable {
 /// Each like and dislike of a role (MONOPOLIFE_RULES section 3.3), used both to
 /// apply it and to explain in the happiness log where the points came from.
 enum LifeRoleEffect: String, Codable, CaseIterable, Equatable, Hashable {
-    case consumerRentPaid
-    case consumerLevelUp
+    case consumerSpending
     case consumerHoardedCash
-    case entrepreneurOwnedProperties
     case entrepreneurRentReceived
+    case entrepreneurLevelUp
     case entrepreneurMortgage
-    case entrepreneurStagnation
     case saverSavings
     case saverSalaryWithoutDebt
     case saverLoan
-    case socialDeal
-    case socialVisit
-    case socialNoDeals
+    case socialInteraction
+    case socialLonely
     case globetrotterSalary
     case globetrotterTrip
     case globetrotterStamp
     case globetrotterRevisit
     case globetrotterAllStamps
     case globetrotterPropertyBought
-    case lenderLoanGiven
-    case lenderPaymentReceived
-    case lenderLoanRepaid
-    case lenderCollateralTaken
-    case lenderLoanLost
     case rivalAhead
     case rivalBehind
     case rivalRentFromTarget
     case rivalAuctionWon
     case rivalTargetSetback
     case rivalTargetBankrupt
-    case minimalistGift
-    case minimalistSimpleLife
-    case minimalistPossession
 
-    /// Effects of the removed Investor role, kept so saved happiness logs still load.
-    private static let legacyInvestorEffects: [String: LifeRoleEffect] = [
-        "investorInvestmentCreated": .entrepreneurOwnedProperties,
+    /// Effects of removed roles and likes, kept so saved happiness logs still load.
+    private static let legacyEffects: [String: LifeRoleEffect] = [
+        "investorInvestmentCreated": .entrepreneurLevelUp,
         "investorPayout": .entrepreneurRentReceived,
-        "investorDiversification": .entrepreneurOwnedProperties,
-        "investorTax": .entrepreneurMortgage
+        "investorDiversification": .entrepreneurLevelUp,
+        "investorTax": .entrepreneurMortgage,
+        "consumerRentPaid": .consumerSpending,
+        "consumerLevelUp": .consumerSpending,
+        "entrepreneurOwnedProperties": .entrepreneurLevelUp,
+        "entrepreneurStagnation": .entrepreneurMortgage,
+        "socialDeal": .socialInteraction,
+        "socialVisit": .socialInteraction,
+        "socialNoDeals": .socialLonely,
+        "lenderLoanGiven": .saverSavings,
+        "lenderPaymentReceived": .saverSavings,
+        "lenderLoanRepaid": .saverSavings,
+        "lenderCollateralTaken": .saverSavings,
+        "lenderLoanLost": .saverLoan,
+        "minimalistGift": .socialInteraction,
+        "minimalistSimpleLife": .socialInteraction,
+        "minimalistPossession": .socialLonely
     ]
 
     init(from decoder: Decoder) throws {
         let rawValue = try decoder.singleValueContainer().decode(String.self)
-        guard let effect = LifeRoleEffect(rawValue: rawValue) ?? Self.legacyInvestorEffects[rawValue] else {
+        guard let effect = LifeRoleEffect(rawValue: rawValue) ?? Self.legacyEffects[rawValue] else {
             throw DecodingError.dataCorrupted(.init(
                 codingPath: decoder.codingPath,
                 debugDescription: "Unknown life role effect \(rawValue)"
@@ -135,24 +134,17 @@ struct LifeProfile: Codable, Equatable {
     var hasAcknowledgedRole: Bool
     /// Color groups the Globetrotter has paid rent in.
     var rentStamps: Set<ColorGroup>
-    var scoredDealsThisRound: Int
-    var tookPartInDealThisRound: Bool
     var possessions: Set<LifePossession>
-    /// Rents received this round that counted for the Entrepreneur.
-    var scoredRentsThisRound: Int
-    var leveledUpThisRound: Bool
-    /// Rounds in a row the Entrepreneur ended without leveling anything up.
-    var roundsWithoutLevelUp: Int
-    /// Players the Social paid rent to or collected rent from this round.
-    var rentContactsThisRound: Set<UUID>
     /// The role whose likes the Chameleon has right now.
     var disguise: LifeRole?
     /// The rival this player wants to beat (MONOPOLIFE_RULES section 3.5).
     var rivalTargetID: UUID?
-    var scoredLoansThisRound: Int
-    var scoredLoanPaymentsThisRound: Int
-    /// Money the Minimalist gave away to other players this round.
-    var moneyGivenThisRound: Int
+    /// Money spent since the player's last turn ended, for the Consumer.
+    var moneySpent: Int
+    /// Money dealings with other players this round, for the Social.
+    var interactionsThisRound: Int
+    /// Points the Entrepreneur got from rent this round.
+    var rentPointsThisRound: Int
 
     /// The role whose likes, dislikes and Life Card column apply: the Chameleon's
     /// current disguise, or the role itself.
@@ -165,35 +157,23 @@ struct LifeProfile: Codable, Equatable {
         happiness: Int = 0,
         hasAcknowledgedRole: Bool = false,
         rentStamps: Set<ColorGroup> = [],
-        scoredDealsThisRound: Int = 0,
-        tookPartInDealThisRound: Bool = false,
         possessions: Set<LifePossession> = [],
-        scoredRentsThisRound: Int = 0,
-        leveledUpThisRound: Bool = false,
-        roundsWithoutLevelUp: Int = 0,
-        rentContactsThisRound: Set<UUID> = [],
         disguise: LifeRole? = nil,
         rivalTargetID: UUID? = nil,
-        scoredLoansThisRound: Int = 0,
-        scoredLoanPaymentsThisRound: Int = 0,
-        moneyGivenThisRound: Int = 0
+        moneySpent: Int = 0,
+        interactionsThisRound: Int = 0,
+        rentPointsThisRound: Int = 0
     ) {
         self.role = role
         self.happiness = happiness
         self.hasAcknowledgedRole = hasAcknowledgedRole
         self.rentStamps = rentStamps
-        self.scoredDealsThisRound = scoredDealsThisRound
-        self.tookPartInDealThisRound = tookPartInDealThisRound
         self.possessions = possessions
-        self.scoredRentsThisRound = scoredRentsThisRound
-        self.leveledUpThisRound = leveledUpThisRound
-        self.roundsWithoutLevelUp = roundsWithoutLevelUp
-        self.rentContactsThisRound = rentContactsThisRound
         self.disguise = disguise
         self.rivalTargetID = rivalTargetID
-        self.scoredLoansThisRound = scoredLoansThisRound
-        self.scoredLoanPaymentsThisRound = scoredLoanPaymentsThisRound
-        self.moneyGivenThisRound = moneyGivenThisRound
+        self.moneySpent = moneySpent
+        self.interactionsThisRound = interactionsThisRound
+        self.rentPointsThisRound = rentPointsThisRound
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -201,18 +181,12 @@ struct LifeProfile: Codable, Equatable {
         case happiness
         case hasAcknowledgedRole
         case rentStamps
-        case scoredDealsThisRound
-        case tookPartInDealThisRound
         case possessions
-        case scoredRentsThisRound
-        case leveledUpThisRound
-        case roundsWithoutLevelUp
-        case rentContactsThisRound
         case disguise
         case rivalTargetID
-        case scoredLoansThisRound
-        case scoredLoanPaymentsThisRound
-        case moneyGivenThisRound
+        case moneySpent
+        case interactionsThisRound
+        case rentPointsThisRound
     }
 
     init(from decoder: Decoder) throws {
@@ -221,18 +195,12 @@ struct LifeProfile: Codable, Equatable {
         happiness = try container.decodeIfPresent(Int.self, forKey: .happiness) ?? 0
         hasAcknowledgedRole = try container.decodeIfPresent(Bool.self, forKey: .hasAcknowledgedRole) ?? false
         rentStamps = try container.decodeIfPresent(Set<ColorGroup>.self, forKey: .rentStamps) ?? []
-        scoredDealsThisRound = try container.decodeIfPresent(Int.self, forKey: .scoredDealsThisRound) ?? 0
-        tookPartInDealThisRound = try container.decodeIfPresent(Bool.self, forKey: .tookPartInDealThisRound) ?? false
         possessions = try container.decodeIfPresent(Set<LifePossession>.self, forKey: .possessions) ?? []
-        scoredRentsThisRound = try container.decodeIfPresent(Int.self, forKey: .scoredRentsThisRound) ?? 0
-        leveledUpThisRound = try container.decodeIfPresent(Bool.self, forKey: .leveledUpThisRound) ?? false
-        roundsWithoutLevelUp = try container.decodeIfPresent(Int.self, forKey: .roundsWithoutLevelUp) ?? 0
-        rentContactsThisRound = try container.decodeIfPresent(Set<UUID>.self, forKey: .rentContactsThisRound) ?? []
         disguise = try container.decodeIfPresent(LifeRole.self, forKey: .disguise)
         rivalTargetID = try container.decodeIfPresent(UUID.self, forKey: .rivalTargetID)
-        scoredLoansThisRound = try container.decodeIfPresent(Int.self, forKey: .scoredLoansThisRound) ?? 0
-        scoredLoanPaymentsThisRound = try container.decodeIfPresent(Int.self, forKey: .scoredLoanPaymentsThisRound) ?? 0
-        moneyGivenThisRound = try container.decodeIfPresent(Int.self, forKey: .moneyGivenThisRound) ?? 0
+        moneySpent = try container.decodeIfPresent(Int.self, forKey: .moneySpent) ?? 0
+        interactionsThisRound = try container.decodeIfPresent(Int.self, forKey: .interactionsThisRound) ?? 0
+        rentPointsThisRound = try container.decodeIfPresent(Int.self, forKey: .rentPointsThisRound) ?? 0
     }
 }
 
@@ -249,6 +217,8 @@ struct LifeCardDraw: Codable, Equatable {
 
 struct MonopolifeState: Codable, Equatable {
     static let roundLimitOptions = [10, 15, 20, 25]
+    /// Monopolife starts with more money than Classic (MONOPOLIFE_RULES section 1).
+    static let initialBalance = 2000
     static let defaultRoundLimit = 15
 
     var roundLimit: Int

@@ -103,6 +103,8 @@ private struct HostLobbyView: View {
                     : "El Monopoly de siempre. Abajo eliges cómo termina: por bancarrotas o al llegar a un patrimonio.")
             }
 
+            startingBalanceSection(lobby)
+
             Section {
                 Toggle(isOn: lobbyToggle(\.creditCardsEnabled)) {
                     Label("Tarjetas de crédito", systemImage: "creditcard")
@@ -110,7 +112,15 @@ private struct HostLobbyView: View {
             } header: {
                 Text("Reglas")
             } footer: {
-                Text("Préstamos desde el 50% de tu patrimonio (sube o baja según la confianza de la banca) con un 10% de interés, pagados en 1 a 5 cuotas (una por cada GO). Los plazos que no uses hasta 5 quedan como aplazamientos.")
+                Text("Préstamos desde el 50% de tu patrimonio (sube o baja según la confianza de la banca) pagados en 5 cuotas (una por cada GO) con un interés que sube en cada GO: \(CreditCardView.interestSchedule).")
+            }
+
+            Section {
+                Toggle(isOn: lobbyToggle(\.savingsEnabled)) {
+                    Label("Cuentas de ahorro", systemImage: "banknote")
+                }
+            } footer: {
+                Text("Ahorra lo que no debes. Variable: metes y sacas cuando quieras y cada GO te paga \(SavingsView.variableSchedule) de lo ahorrado (sacar dinero lo reinicia). Fija: bloqueada de 1 a 5 GOs y te paga \(SavingsView.fixedSchedule) de lo depositado. El interés va a tu efectivo.")
             }
 
             Section {
@@ -143,9 +153,49 @@ private struct HostLobbyView: View {
                 }
                 .disabled(!lobby.canStart)
             } footer: {
-                Text("Hacen falta de \(Lobby.playerLimit.lowerBound) a \(Lobby.playerLimit.upperBound) jugadores, todos con nombre. El saldo inicial de $\(GameSessionModel.placeholderInitialBalance) es un placeholder.")
+                Text("Hacen falta de \(Lobby.playerLimit.lowerBound) a \(Lobby.playerLimit.upperBound) jugadores, todos con nombre. \(startingBalanceSummary(lobby))")
             }
         }
+    }
+
+    private func startingBalanceSection(_ lobby: Lobby) -> some View {
+        let base = lobby.baseStartingBalance(classicDefault: GameSessionModel.placeholderInitialBalance)
+        return Section {
+            Stepper(
+                value: Binding(
+                    get: { base },
+                    set: { balance in model.updateLobby { $0.startingBalance = balance } }
+                ),
+                in: Lobby.startingBalanceRange,
+                step: Lobby.startingBalanceStep
+            ) {
+                LabeledContent("Saldo inicial", value: "$\(base)")
+            }
+
+            Picker("Diferencia entre jugadores", selection: Binding(
+                get: { lobby.startingBalanceSpread },
+                set: { spread in model.updateLobby { $0.startingBalanceSpread = spread } }
+            )) {
+                ForEach(Lobby.startingBalanceSpreadOptions, id: \.self) { spread in
+                    Text(spread == 0 ? "Igual" : "$\(spread)").tag(spread)
+                }
+            }
+            .pickerStyle(.segmented)
+        } header: {
+            Text("Dinero inicial")
+        } footer: {
+            Text(lobby.startingBalanceSpread == 0
+                ? "Todos empiezan con el mismo dinero."
+                : "Al iniciar se sortea quién empieza con más: cada jugador tiene $\(lobby.startingBalanceSpread) más o menos que otro. \(startingBalanceSummary(lobby))")
+        }
+    }
+
+    private func startingBalanceSummary(_ lobby: Lobby) -> String {
+        let balances = lobby.startingBalances(classicDefault: GameSessionModel.placeholderInitialBalance)
+        guard let lowest = balances.first, let highest = balances.last, highest > lowest else {
+            return "El saldo inicial es $\(lobby.baseStartingBalance(classicDefault: GameSessionModel.placeholderInitialBalance))."
+        }
+        return "Con \(balances.count) jugadores: de $\(lowest) a $\(highest)."
     }
 
     private enum BoardEventTiming: Hashable {

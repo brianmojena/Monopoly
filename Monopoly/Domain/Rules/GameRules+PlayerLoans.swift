@@ -105,10 +105,6 @@ extension GameRules {
         credit(-paid, to: loan.borrowerID, in: &state)
         credit(paid, to: loan.lenderID, in: &state)
         state.playerLoans[index].remainingDebt -= paid
-        applyLifeTrigger(
-            .loanPaymentReceived(lenderID: loan.lenderID, paidOff: state.playerLoans[index].remainingDebt <= 0),
-            in: &state
-        )
         return paid
     }
 
@@ -150,7 +146,6 @@ extension GameRules {
         }
         var updatedState = state
         updatedState.playerLoans.removeAll { $0.id == loanID }
-        applyLifeTrigger(.loanLost(lenderID: playerID), in: &updatedState)
         return updatedState
     }
 
@@ -178,10 +173,6 @@ extension GameRules {
             credit(cut, to: loan.lenderID, in: &state)
             state.playerLoans[index].remainingDebt -= cut
             kept -= cut
-            applyLifeTrigger(
-                .loanPaymentReceived(lenderID: loan.lenderID, paidOff: state.playerLoans[index].remainingDebt <= 0),
-                in: &state
-            )
         }
         removePaidOffLoans(in: &state)
         return kept
@@ -203,7 +194,6 @@ extension GameRules {
             if takeCollateral(of: loan, in: &state) {
                 state.playerLoans[index].remainingDebt = 0
                 tookCollateral = true
-                applyLifeTrigger(.collateralTaken(lenderID: loan.lenderID), in: &state)
             } else {
                 state.playerLoans[index].isOverdue = true
             }
@@ -249,10 +239,7 @@ extension GameRules {
     /// player gave or owes is cancelled.
     static func cancelPlayerLoans(ofBankrupt playerID: UUID, in state: inout GameState) {
         for loan in state.playerLoans where loan.borrowerID == playerID {
-            let trigger: LifeTrigger = takeCollateral(of: loan, in: &state)
-                ? .collateralTaken(lenderID: loan.lenderID)
-                : .loanLost(lenderID: loan.lenderID)
-            applyLifeTrigger(trigger, in: &state)
+            takeCollateral(of: loan, in: &state)
         }
         state.playerLoans.removeAll { $0.lenderID == playerID || $0.borrowerID == playerID }
     }
